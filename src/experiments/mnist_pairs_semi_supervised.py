@@ -18,15 +18,15 @@ from util.data_loader_from_random_data_point_thunk import data_loader_from_rando
 #                                      |
 #                           +---------------------+
 #                           |   Constraint <=>    |
-#             Digit0  ------| Digit1 = Digit0 + 1 |-----> Digit1
-#               |           +---------------------+         |
-#               |                                           |
-#      +------------------+                        +------------------+
-#      | Digit recognizer |                        | Digit recognizer |
-#      +------------------+                        +------------------+
-#               |                                           |
-#               |                                           |
-#             Image0                                      Image1
+#             Digit0  ------| Digit1 = Digit0 + 1 |------- Digit1
+#               |           +---------------------+          |
+#               |                                            |
+#      +------------------+                         +------------------+
+#      | Digit recognizer |                         | Digit recognizer |
+#      +------------------+                         +------------------+
+#               |                                            |
+#               |                                            |
+#             Image0                                       Image1
 #
 # that is to say, five variables Constraint, Digit0, Digit1, Image0, Image1,
 # where Digit1 is constrained to be Digit0 + 1 iff Constraint is true,
@@ -60,14 +60,14 @@ from util.util import join, set_default_tensor_type_and_return_device
 
 # -------------- PARAMETERS
 
-number_of_digits = 3
+number_of_digits = 10
 use_real_images = False  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
 show_examples = True  # show some examples of images (sanity check for data structure)
-use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
+use_a_single_image_per_digit = False  # to make the problem easier -- removes digit variability from the problem
 try_cuda = True
 batch_size = 50
 epoch_size = 1000
-number_of_epochs_for_evaluation = 1
+number_of_epochs_between_evaluations = 1
 max_real_mnist_datapoints = None
 seed = None   # use None for non-deterministic seed
 
@@ -315,7 +315,7 @@ def after_epoch(**kwargs):
     print()
     default_learning_hook(**kwargs)
     epoch = kwargs['epoch']
-    if epoch % number_of_epochs_for_evaluation == 0:
+    if epoch % number_of_epochs_between_evaluations == 0:
         print_digit_evaluation(**kwargs)
 
 

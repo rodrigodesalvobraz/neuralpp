@@ -1,3 +1,4 @@
+import os
 import pickle
 
 from util.util import check_path_like
@@ -17,6 +18,7 @@ def pickle_cache(thunk, path, refresh=False):
 
     print(f"Computing from scratch...")
     value = thunk()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "wb") as file:
         print(f"Saving to {path}...")
         pickle.dump(value, file)
