@@ -1,0 +1,13 @@
+name: neupps
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - cudatoolkit=10.2
+  - pytorch
+  - torchaudio
+  - torchvision
+  - pytest
+  - matplotlib
+  - tqdm
+

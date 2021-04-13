@@ -1,0 +1,32 @@
+# About this project
+
+This is an implementation of graphical models inference (Variable Elimination) using PyTorch for implementing
+factors (conditional probabilities and priors).
+Those can be implemented as tables (the typical discrete graphical model implementation) but also as arbitrary
+PyTorch modules, the case of most interest being of course neural networks.
+
+## Purpose / Vision
+
+This project is for researchers interested in exploring the connection between probabilistic and neural network inference.
+It is a library that provides the utilities for mixing neural networks and graphical models while offering GPU use and gradient descent training.
+
+# Content
+
+The content of this repository entails
+
+* Readme.md template (this document)
+* `environment.yml` for importing a Conda environment 
+* source code, including experiments
+* test code (to be run with PyTest)
+
+## Experiments
+
+In `src/experiments` one can find `src/experiments/simple_mnist.py`, which shows how to use a "graphical model" with a single factor,
+implemented by a convolutional neural network, to learn how to recognize MNIST digits.
+
+In `src/experiments/mnist_pairs_semi_supervised.py` there is code attempting to train a MNIST recognizer from pairs of images of successive digits only. It does not yet work but the script offers many options for running simplified versions of the problem, many of which do work.
+
+## Tests
+
+Tests in `test` are split into `quick_tests` and `slow_tests`.
+The former include tests of basic data structure implementations while the latter includes  learning sessions with stochastic gradient descent and take several minutes.
