@@ -49,7 +49,7 @@ from util.data_loader_from_random_data_point_thunk import data_loader_from_rando
 # of actual image recognition.
 #
 # Other options include whether the two recognizers are the same network or not
-# (essential for learing from positive examples only),
+# (essential for learning from positive examples only),
 # whether negative examples are present (non-consecutive digits with Constraint = false),
 # whether to use a single digit image per digit,
 # and various possible initializations for the recognizer.
@@ -61,12 +61,12 @@ from util.util import join, set_default_tensor_type_and_return_device
 # -------------- PARAMETERS
 
 number_of_digits = 10
-use_real_images = False  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
-show_examples = True  # show some examples of images (sanity check for data structure)
-use_a_single_image_per_digit = False  # to make the problem easier -- removes digit variability from the problem
+use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
+show_examples = False  # show some examples of images (sanity check for data structure)
+use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
 try_cuda = True
-batch_size = 50
-epoch_size = 1000
+batch_size = 200
+epoch_size = batch_size
 number_of_epochs_between_evaluations = 1
 max_real_mnist_datapoints = None
 seed = None   # use None for non-deterministic seed
@@ -121,7 +121,9 @@ if recognizer_type == "uniform":
     recognizer_type = "random table"
     upper_bound_for_log_potential_in_random_table = 0  # A value of 0 samples from [0, 0], providing a uniform table.
 
-lr = 1e-3 if recognizer_type == "neural net" else 1e-2
+lr = 1e-9 if use_real_images else 1e-2
+loss_decrease_tol = lr if use_real_images else 1e-2
+
 # -------------- END OF PROCESSING PARAMETERS
 
 
@@ -143,6 +145,8 @@ def main():
         global images_by_digits_by_phase  # so they are easily accessible in later functions
         global next_image_index_by_digit
         images_by_digits_by_phase = read_mnist(max_real_mnist_datapoints)
+        number_of_training_images = sum([len(images_by_digits_by_phase["train"][d]) for d in range(number_of_digits)])
+        print(f"Loaded {number_of_training_images:,} training images")
         next_image_index_by_digit = {d: 0 for d in range(number_of_digits)}
         if show_examples:
             images = [images_by_digits_by_phase["train"][d][i] for i in range(5) for d in range(number_of_digits)]
@@ -177,7 +181,13 @@ def main():
 
     if recognizer_type != "fixed ground truth table":
         print("Learning...")
-        NeuralPPLearner.learn(model, train_data_loader, device=device, lr=lr, after_epoch=after_epoch)
+        NeuralPPLearner.learn(
+            model,
+            train_data_loader,
+            device=device,
+            lr=lr,
+            loss_decrease_tol=loss_decrease_tol,
+            after_epoch=after_epoch)
 
     print("\nFinal model:")
     print(join(model, "\n"))
@@ -341,7 +351,8 @@ def print_posterior_of(recognizer, **kwargs):
 
 
 def print_posterior(digit, output_probability):
-    print(f"Prediction for \"image\" {digit}: {output_probability}")
+    image_description = 'image' if use_real_images else 'fake "image"'
+    print(f"Prediction for {image_description} {digit}: {output_probability}")
 
 
 def set_seed():

@@ -1,9 +1,11 @@
-# About this project
+# Neural Probabilistic Programs (NeuralPPs)
 
 This is an implementation of graphical models inference (Variable Elimination) using PyTorch for implementing
 factors (conditional probabilities and priors).
 Those can be implemented as tables (the typical discrete graphical model implementation) but also as arbitrary
 PyTorch modules, the case of most interest being of course neural networks.
+
+The reason we are calling it "probabilistic programs" even though we only have discrete graphical models so far is that factors and variables are implemented in a manner general enough for probabilistic programming symbolic implementations be introduced down the road.
 
 ## Purpose / Vision
 
