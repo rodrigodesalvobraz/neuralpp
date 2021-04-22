@@ -1,6 +1,7 @@
 import torch
 
-from inference.graphical_model.learn.learn import default_learning_hook, NeuralPPLearner
+from inference.graphical_model.learn.learn import NeuralPPLearner
+from util.generic_sgd_learning import default_learning_hook
 from inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import FixedPyTorchTableFactor
 from inference.graphical_model.representation.factor.neural.neural_factor import NeuralFactor
 from inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
@@ -66,7 +67,15 @@ show_examples = False  # show some examples of images (sanity check for data str
 use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
 try_cuda = True
 batch_size = 200
-epoch_size = batch_size
+number_of_batches_between_updates = 1000  # batches have two functions: how much to fit into CUDA if using it, and
+                                         # how many examples to observe before updating.
+                                         # Here we are splitting those two functions, leaving batch_size for the
+                                         # number of datapoints processed at a time, but allowing for updating
+                                         # only after a number of batches are processed.
+                                         # This allows for a better estimation of gradients at each update,
+                                         # decreasing the influence of random fluctuations in these estimates for
+                                         # each update, but may make learning much slower
+number_of_batches_per_epoch = number_of_batches_between_updates
 number_of_epochs_between_evaluations = 1
 max_real_mnist_datapoints = None
 seed = None   # use None for non-deterministic seed
@@ -121,8 +130,8 @@ if recognizer_type == "uniform":
     recognizer_type = "random table"
     upper_bound_for_log_potential_in_random_table = 0  # A value of 0 samples from [0, 0], providing a uniform table.
 
-lr = 1e-9 if use_real_images else 1e-2
-loss_decrease_tol = lr if use_real_images else 1e-2
+lr = 1e-7 if use_real_images else 1e-2
+loss_decrease_tol = lr*.01
 
 # -------------- END OF PROCESSING PARAMETERS
 
@@ -258,10 +267,10 @@ def make_recognizer_factors():
 
 
 def make_data_loader():
-    random_pair_generator = \
-        random_positive_example_generator() if use_positive_examples_only \
-            else random_positive_or_negative_example_generator()
-    train_data_loader = data_loader_from_random_data_point_generator(epoch_size, random_pair_generator, print=None)
+    batch_generator = \
+        random_positive_examples_batch_generator() if use_positive_examples_only \
+            else random_positive_or_negative_examples_batch_generator()
+    train_data_loader = data_loader_from_random_data_point_generator(number_of_batches_per_epoch, batch_generator, print=None)
     return train_data_loader
 
 
@@ -285,7 +294,7 @@ def get_next_real_image_batch_for_digit_batch(digit_batch):
     return images_batch
 
 
-def random_positive_or_negative_example_generator():
+def random_positive_or_negative_examples_batch_generator():
     if use_real_images:
         from_digit_batch_to_image_batch = get_next_real_image_batch_for_digit_batch
     else:
@@ -304,7 +313,7 @@ def random_positive_or_negative_example_generator():
     return generator
 
 
-def random_positive_example_generator():
+def random_positive_examples_batch_generator():
     if use_real_images:
         from_digit_batch_to_image_batch = get_next_real_image_batch_for_digit_batch
     else:

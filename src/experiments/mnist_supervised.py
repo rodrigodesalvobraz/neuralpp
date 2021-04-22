@@ -3,7 +3,8 @@ import time
 
 import torch
 
-from inference.graphical_model.learn.learn import NeuralPPLearner, default_learning_hook
+from inference.graphical_model.learn.learn import NeuralPPLearner
+from util.generic_sgd_learning import default_learning_hook
 from inference.graphical_model.representation.factor.neural.neural_factor import NeuralFactor
 from inference.graphical_model.representation.frame.dict_frame import generalized_len_of_dict_frame
 from inference.graphical_model.representation.frame.multi_frame_data_loader import MultiFrameDataLoader
