@@ -1,6 +1,6 @@
 import random
 
-from inference.graphical_model.learn.learn import NeuralPPLearner
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.representation.frame.multi_frame_data_loader import MultiFrameDataLoader
 from inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import FixedPyTorchTableFactor
 from inference.graphical_model.representation.factor.neural.MLPFactor import MLPFactor
@@ -104,7 +104,7 @@ def one_test(message,
     print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
 
     data_loader = MultiFrameDataLoader(dataset, batch_size=10)
-    cross_entropy = NeuralPPLearner.learn(learned_model, data_loader, loss_decrease_tol=loss_decrease_tol)
+    cross_entropy = GraphicalModelSGDLearner(learned_model, data_loader, loss_decrease_tol=loss_decrease_tol).learn()
 
     print(f"Ground truth model cross entropy: {ground_truth_cross_entropy:.3f}")
     print(f"Learned model cross entropy     : {cross_entropy:.3f}")

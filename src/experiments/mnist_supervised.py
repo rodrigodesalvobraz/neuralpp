@@ -3,8 +3,7 @@ import time
 
 import torch
 
-from inference.graphical_model.learn.learn import NeuralPPLearner
-from util.generic_sgd_learning import default_learning_hook
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.representation.factor.neural.neural_factor import NeuralFactor
 from inference.graphical_model.representation.frame.dict_frame import generalized_len_of_dict_frame
 from inference.graphical_model.representation.frame.multi_frame_data_loader import MultiFrameDataLoader
@@ -13,6 +12,7 @@ from inference.graphical_model.variable.integer_variable import IntegerVariable
 from inference.graphical_model.variable.tensor_variable import TensorVariable
 from inference.neural_net.ConvNet import ConvNet
 from inference.neural_net.from_log_to_probabilities_adapter import FromLogToProbabilitiesAdapter
+from util.generic_sgd_learner import default_after_epoch
 from util.mnist_util import read_mnist, show_images_and_labels
 from util.pickle_cache import pickle_cache
 from util.util import set_default_tensor_type_and_return_device
@@ -64,16 +64,14 @@ def main():
     accuracy = compute_accuracy_on_frames_data_loader(train_data_loader, model, device)
     print(f"Accuracy on training dataset before training: {accuracy*100:.2f}%")
 
-    def epoch_hook(**kwargs):
-        default_learning_hook(**kwargs, end_str=' ')
-        data_loader = kwargs['data_loader']
-        time_start = kwargs['time_start']
-        accuracy = compute_accuracy_on_frames_data_loader(data_loader, model, device)
-        time_elapsed = time.time() - time_start
+    def epoch_hook(learner):
+        default_after_epoch(learner, end_str=' ')
+        accuracy = compute_accuracy_on_frames_data_loader(learner.data_loader, model, device)
+        time_elapsed = time.time() - learner.time_start
         print(f"[{time_elapsed:.0f} s] Accuracy on training dataset: {accuracy*100:.2f}%")
 
     print("Learning...")
-    NeuralPPLearner.learn(model, train_data_loader, device=device, after_epoch=epoch_hook, debug=debug)
+    GraphicalModelSGDLearner(model, train_data_loader, after_epoch=epoch_hook, debug=debug, device=device).learn()
 
 
 def make_dataset(digit_var, image_var, phase="train"):

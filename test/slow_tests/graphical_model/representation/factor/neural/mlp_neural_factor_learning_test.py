@@ -1,6 +1,6 @@
 import random
 
-from inference.graphical_model.learn.learn import NeuralPPLearner
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.representation.factor.neural.neural_factor import NeuralFactor
 from slow_tests.graphical_model.representation.factor.neural.neural_factor_test_util import check_and_show_conditional_distributions
 from inference.graphical_model.variable.integer_variable import IntegerVariable
@@ -49,7 +49,7 @@ def mlp_neural_factor_learning():
     print("Dataset mean y for x = 1:", y_mean_for_x_1)
 
     graphical_model = [neural_factor]
-    NeuralPPLearner.learn(graphical_model, dataset, loss_decrease_tol=1e-3)
+    GraphicalModelSGDLearner(graphical_model, dataset, loss_decrease_tol=1e-3).learn()
 
     def ground_truth(x, y):
         if x == 0:

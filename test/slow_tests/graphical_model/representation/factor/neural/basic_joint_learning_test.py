@@ -1,7 +1,7 @@
 import random
 
 from inference.graphical_model.representation.model.model import cross_entropy_for_dataset, compute_query_probability
-from inference.graphical_model.learn.learn import NeuralPPLearner
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import FixedPyTorchTableFactor
 from inference.graphical_model.representation.factor.neural.MLPFactor import MLPFactor
 from inference.graphical_model.representation.random.random_dataset import generate_dataset_given_observation_and_query_variables
@@ -38,7 +38,7 @@ def joint_learning():
 
     print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
 
-    NeuralPPLearner.learn(learned_model, dataset, loss_decrease_tol=1e-3)
+    GraphicalModelSGDLearner(learned_model, dataset, loss_decrease_tol=1e-3).learn()
 
     cross_entropy = cross_entropy_for_dataset(dataset, learned_model).item()
 

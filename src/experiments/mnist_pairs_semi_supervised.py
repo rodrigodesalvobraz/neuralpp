@@ -1,7 +1,6 @@
 import torch
 
-from inference.graphical_model.learn.learn import NeuralPPLearner
-from util.generic_sgd_learning import default_learning_hook
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import FixedPyTorchTableFactor
 from inference.graphical_model.representation.factor.neural.neural_factor import NeuralFactor
 from inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
@@ -34,7 +33,7 @@ from util.data_loader_from_random_data_point_thunk import data_loader_from_rando
 # and Digit_i is the recognition of Image_i.
 #
 # We anticipate that presenting pairs images of consecutive digits to the model,
-# querying Constraint and minimizing its loss in comparison to the expected value "true"
+# querying Constraint and minimizing its epoch_average_loss in comparison to the expected value "true"
 # will train the recognizer (a shared neural net applied to both images)
 # to recognize MNIST digits.
 #
@@ -54,6 +53,7 @@ from util.data_loader_from_random_data_point_thunk import data_loader_from_rando
 # whether negative examples are present (non-consecutive digits with Constraint = false),
 # whether to use a single digit image per digit,
 # and various possible initializations for the recognizer.
+from util.generic_sgd_learner import default_after_epoch
 
 from util.mnist_util import read_mnist, show_images_and_labels
 
@@ -62,7 +62,7 @@ from util.util import join, set_default_tensor_type_and_return_device
 # -------------- PARAMETERS
 
 number_of_digits = 10
-use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
+use_real_images = False  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
 show_examples = False  # show some examples of images (sanity check for data structure)
 use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
 try_cuda = True
@@ -190,13 +190,11 @@ def main():
 
     if recognizer_type != "fixed ground truth table":
         print("Learning...")
-        NeuralPPLearner.learn(
-            model,
-            train_data_loader,
-            device=device,
-            lr=lr,
-            loss_decrease_tol=loss_decrease_tol,
-            after_epoch=after_epoch)
+        learner = \
+            GraphicalModelSGDLearner(
+                model, train_data_loader, device=device, lr=lr,
+                loss_decrease_tol=loss_decrease_tol, after_epoch=after_epoch)
+        learner.learn()
 
     print("\nFinal model:")
     print(join(model, "\n"))
@@ -330,31 +328,29 @@ def random_positive_examples_batch_generator():
     return generator
 
 
-def after_epoch(**kwargs):
+def after_epoch(learner):
     print()
-    default_learning_hook(**kwargs)
-    epoch = kwargs['epoch']
-    if epoch % number_of_epochs_between_evaluations == 0:
-        print_digit_evaluation(**kwargs)
+    default_after_epoch(learner)
+    if learner.epoch % number_of_epochs_between_evaluations == 0:
+        print_digit_evaluation(learner)
 
 
-def print_digit_evaluation(**kwargs):
+def print_digit_evaluation(learner=None):
     constraint_factor, i0_d0, i1_d1 = model  # note that this relies on the factor order in the model
     from_i0_to_d0 = lambda v_i0: i0_d0.condition({i0: v_i0}).normalize().table_factor
     from_i1_to_d1 = lambda v_i1: i1_d1.condition({i1: v_i1}).normalize().table_factor
     with torch.no_grad():
         recognizers = [from_i0_to_d0] if use_shared_recognizer else [from_i0_to_d0, from_i1_to_d1]
         for recognizer in recognizers:
-            print_posterior_of(recognizer, **kwargs)
+            print_posterior_of(recognizer, learner)
 
 
-def print_posterior_of(recognizer, **kwargs):
-    device = kwargs.get('device')
+def print_posterior_of(recognizer, learner=None):
     for digit in range(number_of_digits):
         digit_batch = torch.tensor([digit])
         image_batch = from_digit_batch_to_image_batch(digit_batch)
-        if device is not None:
-            digit_batch = digit_batch.to(device)
+        if learner is not None and learner.device is not None:
+            image_batch = image_batch.to(learner.device)
         posterior_probability = recognizer(image_batch)
         print_posterior(digit, posterior_probability)
 

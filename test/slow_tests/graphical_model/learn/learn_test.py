@@ -1,4 +1,4 @@
-from inference.graphical_model.learn.learn import NeuralPPLearner
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.representation.model.model import cross_entropy_for_dataset
 from inference.graphical_model.representation.random.random_dataset import generate_dataset
 from inference.graphical_model.representation.random.random_model import generate_model
@@ -26,7 +26,7 @@ def noisy_test():
     m = [f.randomized_copy() for f in ground_truth_model]
 
     device = None
-    NeuralPPLearner.learn(m, ds, device=device, loss_decrease_tol=1e-2)
+    GraphicalModelSGDLearner(m, ds, loss_decrease_tol=1e-2, device=device).learn()
 
     for f1, f2 in zip(ground_truth_model, m):
         print()
