@@ -7,19 +7,18 @@ PyTorch modules, the case of most interest being of course neural networks.
 
 The reason we are calling it "probabilistic programs" even though we only have discrete graphical models so far is that factors and variables are implemented in a manner general enough for probabilistic programming symbolic implementations be introduced down the road.
 
-## Purpose / Vision
+## Purpose
 
 This project is for researchers interested in exploring the connection between probabilistic and neural network inference.
-It is a library that provides the utilities for mixing neural networks and graphical models while offering GPU use and gradient descent training.
+It is a library that provides the utilities for mixing neural networks and graphical models while offering GPU use and stochastic gradient descent training.
 
 # Content
 
-The content of this repository entails
+This repository contains:
 
-* Readme.md template (this document)
-* `environment.yml` for importing a Conda environment 
-* source code, including experiments
+* source code, including an experiments directory
 * test code (to be run with PyTest)
+* `environment.yml` for importing a Conda environment 
 
 ## Experiments
 
