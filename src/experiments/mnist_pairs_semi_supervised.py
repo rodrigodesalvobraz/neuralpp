@@ -149,12 +149,12 @@ def main():
     set_seed()
 
     # Create random variables
-    global image, d0, d1, constraint  # so they are easily accessible in later functions
+    global image, digit, constraint  # so they are easily accessible in later functions
     image = []
+    digit = []
     for i in range(chain_length):
         image.append(TensorVariable(f"image{i}") if use_real_images else IntegerVariable(f"image{i}", number_of_digits))
-    d0 = IntegerVariable("d0", number_of_digits)
-    d1 = IntegerVariable("d1", number_of_digits)
+        digit.append(IntegerVariable(f"digit{i}", number_of_digits))
     constraint = IntegerVariable("constraint", 2)
 
     # Load images, if needed, before setting default device to cuda
@@ -216,7 +216,7 @@ def main():
 
 def make_constraint_factor():
     constraint_predicate = lambda d0, d1, constraint: int(d1 == d0 + 1) == constraint
-    constraint_factor = FixedPyTorchTableFactor.from_predicate((d0, d1, constraint), constraint_predicate)
+    constraint_factor = FixedPyTorchTableFactor.from_predicate((digit[0], digit[1], constraint), constraint_predicate)
     return constraint_factor
 
 
@@ -244,14 +244,14 @@ def make_recognizer_factors():
         if not use_shared_recognizer:
             uniform_pre_training(neural_net2)
 
-        i0_d0 = NeuralFactor(neural_net1, input_variables=[image[0]], output_variable=d0)
-        i1_d1 = NeuralFactor(neural_net2, input_variables=[image[1]], output_variable=d1)
+        i0_d0 = NeuralFactor(neural_net1, input_variables=[image[0]], output_variable=digit[0])
+        i1_d1 = NeuralFactor(neural_net2, input_variables=[image[1]], output_variable=digit[1])
 
     elif recognizer_type == "fixed ground truth table":
         predicate = lambda i, d: d == i
-        image_and_digit_table = PyTorchTableFactor.from_predicate([image[0], d0], predicate, log_space=True).table
-        i0_d0 = PyTorchTableFactor([image[0], d0], image_and_digit_table)
-        i1_d1 = PyTorchTableFactor([image[1], d1], image_and_digit_table)
+        image_and_digit_table = PyTorchTableFactor.from_predicate([image[0], digit[0]], predicate, log_space=True).table
+        i0_d0 = PyTorchTableFactor([image[0], digit[0]], image_and_digit_table)
+        i1_d1 = PyTorchTableFactor([image[1], digit[1]], image_and_digit_table)
 
     elif recognizer_type == "noisy left-shift":
         probability_of_left_shift = 1 - left_shift_noise
@@ -263,14 +263,14 @@ def make_recognizer_factors():
             return probability_of_left_shift if (i, d) in left_shift_pairs else probability_of_each_non_left_shift
 
         if use_shared_recognizer:
-            image_and_digit_table1 = PyTorchTableFactor.from_function([image[0], d0], potential, log_space=True).table
+            image_and_digit_table1 = PyTorchTableFactor.from_function([image[0], digit[0]], potential, log_space=True).table
             image_and_digit_table2 = image_and_digit_table1
         else:
-            image_and_digit_table1 = PyTorchTableFactor.from_function([image[0], d0], potential, log_space=True).table
-            image_and_digit_table2 = PyTorchTableFactor.from_function([image[1], d1], potential, log_space=True).table
+            image_and_digit_table1 = PyTorchTableFactor.from_function([image[0], digit[0]], potential, log_space=True).table
+            image_and_digit_table2 = PyTorchTableFactor.from_function([image[1], digit[1]], potential, log_space=True).table
 
-        i0_d0 = PyTorchTableFactor([image[0], d0], image_and_digit_table1)
-        i1_d1 = PyTorchTableFactor([image[1], d1], image_and_digit_table2)
+        i0_d0 = PyTorchTableFactor([image[0], digit[0]], image_and_digit_table1)
+        i1_d1 = PyTorchTableFactor([image[1], digit[1]], image_and_digit_table2)
 
     elif recognizer_type == "random table":
         def make_random_parameters():
@@ -283,8 +283,8 @@ def make_recognizer_factors():
         else:
             image_and_digit_table1 = PyTorchLogTable(make_random_parameters())
             image_and_digit_table2 = PyTorchLogTable(make_random_parameters())
-        i0_d0 = PyTorchTableFactor([image[0], d0], image_and_digit_table1)
-        i1_d1 = PyTorchTableFactor([image[1], d1], image_and_digit_table2)
+        i0_d0 = PyTorchTableFactor([image[0], digit[0]], image_and_digit_table1)
+        i1_d1 = PyTorchTableFactor([image[1], digit[1]], image_and_digit_table2)
 
     else:
         raise Exception(f"Unknown recognizer type: {recognizer_type}")
@@ -346,8 +346,8 @@ def random_positive_examples_batch_generator():
         from_digit_batch_to_image_batch = get_next_fake_image_batch_for_digit_batch
 
     def generator():
-        d0_values = torch.randint(number_of_digits - 1, (batch_size,))  # d0 is never equal to the last digit
-        d1_values = d0_values + 1  # and d1 is never equal to 0
+        d0_values = torch.randint(number_of_digits - 1, (batch_size,))  # digit[0] is never equal to the last digit
+        d1_values = d0_values + 1  # and digit[1] is never equal to 0
         i0_values = from_digit_batch_to_image_batch(d0_values)
         i1_values = from_digit_batch_to_image_batch(d1_values)
         random_constrained_pair_result = {image[0]: i0_values, image[1]: i1_values}, {constraint: torch.ones(batch_size).long()}
