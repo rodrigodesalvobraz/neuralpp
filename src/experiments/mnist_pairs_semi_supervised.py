@@ -152,10 +152,12 @@ def main():
     global image, digit, constraint  # so they are easily accessible in later functions
     image = []
     digit = []
+    constraint = []
     for i in range(chain_length):
         image.append(TensorVariable(f"image{i}") if use_real_images else IntegerVariable(f"image{i}", number_of_digits))
         digit.append(IntegerVariable(f"digit{i}", number_of_digits))
-    constraint = IntegerVariable("constraint", 2)
+        if i != chain_length - 1:
+            constraint.append(IntegerVariable(f"constraint{i}", 2))
 
     # Load images, if needed, before setting default device to cuda
     global from_digit_batch_to_image_batch
@@ -216,7 +218,7 @@ def main():
 
 def make_constraint_factor():
     constraint_predicate = lambda d0, d1, constraint: int(d1 == d0 + 1) == constraint
-    constraint_factor = FixedPyTorchTableFactor.from_predicate((digit[0], digit[1], constraint), constraint_predicate)
+    constraint_factor = FixedPyTorchTableFactor.from_predicate((digit[0], digit[1], constraint[0]), constraint_predicate)
     return constraint_factor
 
 
@@ -332,8 +334,8 @@ def random_positive_or_negative_examples_batch_generator():
         i0_values = from_digit_batch_to_image_batch(d0_values)
         i1_values = from_digit_batch_to_image_batch(d1_values)
         constraint_values = (d1_values == d0_values + 1).long()
-        random_pair_result = {image[0]: i0_values, image[1]: i1_values}, {constraint: constraint_values}
-        # first_random_pair_result = {image[0]: i0_values[0], image[1]: i1_values[0]}, {constraint: constraint_values[0]}
+        random_pair_result = {image[0]: i0_values, image[1]: i1_values}, {constraint[0]: constraint_values}
+        # first_random_pair_result = {image[0]: i0_values[0], image[1]: i1_values[0]}, {constraint[0]: constraint_values[0]}
         # print(first_random_pair_result)
         return random_pair_result
     return generator
@@ -350,7 +352,7 @@ def random_positive_examples_batch_generator():
         d1_values = d0_values + 1  # and digit[1] is never equal to 0
         i0_values = from_digit_batch_to_image_batch(d0_values)
         i1_values = from_digit_batch_to_image_batch(d1_values)
-        random_constrained_pair_result = {image[0]: i0_values, image[1]: i1_values}, {constraint: torch.ones(batch_size).long()}
+        random_constrained_pair_result = {image[0]: i0_values, image[1]: i1_values}, {constraint[0]: torch.ones(batch_size).long()}
         # print(random_pair_result)
         return random_constrained_pair_result
     return generator
