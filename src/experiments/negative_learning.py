@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam
 
-from inference.graphical_model.learn.learn import NeuralPPLearner
+from inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
 from inference.graphical_model.variable.discrete_variable import DiscreteVariable
 from inference.graphical_model.variable.tensor_variable import TensorVariable
 
@@ -14,8 +14,8 @@ from util.util import set_default_tensor_type_and_return_device
 
 # This script tests whether it is possible for a ConvNet network to learn the digits 0 and 9
 # by negative feedback, namely telling them what they are *not*.
-# More specifically, when the input is the image of a digit other than 0, the loss is
-# the *negative* of the loss we would use to *predict* 0 (analogously for 9).
+# More specifically, when the input is the image of a digit other than 0, the epoch_average_loss is
+# the *negative* of the epoch_average_loss we would use to *predict* 0 (analogously for 9).
 # We expect the network to learn what is *not* a 0, and indirectly learn what *is*
 # (analogously for 9).
 # This script is a simplified version of mnist_pairs_semi_supervised.py.

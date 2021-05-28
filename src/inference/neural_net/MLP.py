@@ -26,6 +26,8 @@ class MLP(Module):
         assert isinstance(x, torch.Tensor)
         if not torch.is_floating_point(x):
             x = x.float()
+        if x.shape[-1] != self.layer_sizes[0]:
+            x = x.reshape(-1, self.layer_sizes[0])
         for i, linear_transformation in enumerate(self.linear_transformations):
             transformation = linear_transformation(x)
 

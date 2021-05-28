@@ -7,12 +7,27 @@ from util.generic_sgd_learner import GenericSGDLearner, default_after_epoch
 
 class GraphicalModelSGDLearner(GenericSGDLearner):
 
-    def __init__(self, model, data_loader, lr=1e-3, loss_decrease_tol=1e-3,
-                 after_epoch=default_after_epoch, debug=False, device=None,
-                 number_of_batches_between_updates=1):
+    def __init__(self,
+                 model,
+                 data_loader,
+                 lr=1e-3,
+                 loss_decrease_tol=1e-3,
+                 after_epoch=default_after_epoch,
+                 debug=False,
+                 device=None,
+                 number_of_batches_between_updates=1,
+                 max_epochs_to_go_before_stopping_due_to_loss_decrease=1):
 
-        super().__init__(data_loader, device, loss_decrease_tol, lr,
-                         model, number_of_batches_between_updates, debug, after_epoch)
+        super().__init__(model,
+                         data_loader,
+                         lr,
+                         loss_decrease_tol,
+                         device,
+                         number_of_batches_between_updates,
+                         debug,
+                         after_epoch,
+                         max_epochs_to_go_before_stopping_due_to_loss_decrease=
+                         max_epochs_to_go_before_stopping_due_to_loss_decrease)
 
     def batch_to_device(self, batch, device):
         (observation_batch, query_assignment_batch) = batch
