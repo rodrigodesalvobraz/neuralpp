@@ -63,7 +63,7 @@ from util.util import join, set_default_tensor_type_and_return_device
 
 number_of_digits = 10
 chain_length = 2
-use_real_images = False  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
+use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
 use_conv_net = False # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
 show_examples = False  # show some examples of images (sanity check for data structure)
 use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
@@ -82,8 +82,9 @@ number_of_epochs_between_evaluations = 1
 max_real_mnist_datapoints = None
 number_of_digit_instances_in_evaluation = 1000
 seed = None   # use None for non-deterministic seed
+evaluation_probability_precision = 2
 
-use_positive_examples_only = True  # show only examples of consecutive pairs with the constraint labeled True,
+use_positive_examples_only = False  # show only examples of consecutive pairs with the constraint labeled True,
 # as opposed to random pairs with constraint labeled True or False accordingly.
 # Including negative examples makes the problem easier, but less
 # uniform random tables still get stuck in local minima.
@@ -232,28 +233,28 @@ def make_recognizer_factors():
                 print("Using MLP for MNIST")
                 def neural_net_maker():
                     net = MLP(28*28, number_of_digits, number_of_digits)
-                    # # Set weights for as uniform as possible
-                    # def set_to_one(m):
-                    #     m.weight = torch.nn.Parameter(torch.ones(m.weight.size(), requires_grad=True))
-                    # net.apply(set_to_one)
                     return net
         else:
             neural_net_maker = lambda: MLP(1, number_of_digits, number_of_digits)
-        neural_net1 = neural_net_maker()
-        neural_net2 = neural_net1 if use_shared_recognizer else neural_net_maker()
 
-        uniform_pre_training(neural_net1)
-        if not use_shared_recognizer:
-            uniform_pre_training(neural_net2)
+        def make_inner_function():
+            neural_net = neural_net_maker()
+            uniform_pre_training(neural_net)
+            return neural_net
 
-        i0_d0 = NeuralFactor(neural_net1, input_variables=[image[0]], output_variable=digit[0])
-        i1_d1 = NeuralFactor(neural_net2, input_variables=[image[1]], output_variable=digit[1])
+        def make_factor(i, neural_net):
+            return NeuralFactor(neural_net, input_variables=[image[i]], output_variable=digit[i])
 
     elif recognizer_type == "fixed ground truth table":
         predicate = lambda i, d: d == i
-        image_and_digit_table = PyTorchTableFactor.from_predicate([image[0], digit[0]], predicate, log_space=True).table
-        i0_d0 = PyTorchTableFactor([image[0], digit[0]], image_and_digit_table)
-        i1_d1 = PyTorchTableFactor([image[1], digit[1]], image_and_digit_table)
+
+        def make_inner_function():
+            return PyTorchTableFactor.from_predicate(
+                [image[0], digit[0]], predicate, log_space=True)\
+                .table
+
+        def make_factor(i, image_and_digit_table):
+            return PyTorchTableFactor([image[i], digit[i]], image_and_digit_table)
 
     elif recognizer_type == "noisy left-shift":
         probability_of_left_shift = 1 - left_shift_noise
@@ -264,34 +265,36 @@ def make_recognizer_factors():
         def potential(i, d):
             return probability_of_left_shift if (i, d) in left_shift_pairs else probability_of_each_non_left_shift
 
-        if use_shared_recognizer:
-            image_and_digit_table1 = PyTorchTableFactor.from_function([image[0], digit[0]], potential, log_space=True).table
-            image_and_digit_table2 = image_and_digit_table1
-        else:
-            image_and_digit_table1 = PyTorchTableFactor.from_function([image[0], digit[0]], potential, log_space=True).table
-            image_and_digit_table2 = PyTorchTableFactor.from_function([image[1], digit[1]], potential, log_space=True).table
+        def make_inner_function():
+            return PyTorchTableFactor.from_function(
+                [image[0], digit[0]], potential, log_space=True)\
+                .table
 
-        i0_d0 = PyTorchTableFactor([image[0], digit[0]], image_and_digit_table1)
-        i1_d1 = PyTorchTableFactor([image[1], digit[1]], image_and_digit_table2)
+        def make_factor(i, image_and_digit_table):
+            return PyTorchTableFactor([image[i], digit[i]], image_and_digit_table)
 
     elif recognizer_type == "random table":
         def make_random_parameters():
             return (torch.rand(number_of_digits, number_of_digits)
                     * upper_bound_for_log_potential_in_random_table).requires_grad_(True)
 
-        if use_shared_recognizer:
-            image_and_digit_table1 = PyTorchLogTable(make_random_parameters())
-            image_and_digit_table2 = image_and_digit_table1
-        else:
-            image_and_digit_table1 = PyTorchLogTable(make_random_parameters())
-            image_and_digit_table2 = PyTorchLogTable(make_random_parameters())
-        i0_d0 = PyTorchTableFactor([image[0], digit[0]], image_and_digit_table1)
-        i1_d1 = PyTorchTableFactor([image[1], digit[1]], image_and_digit_table2)
+        def make_inner_function():
+            return PyTorchLogTable(make_random_parameters())
+
+        def make_factor(i, image_and_digit_table):
+            return PyTorchTableFactor([image[i], digit[i]], image_and_digit_table)
 
     else:
         raise Exception(f"Unknown recognizer type: {recognizer_type}")
 
-    return i0_d0, i1_d1
+    inner_functions = []
+    for i in range(chain_length):
+        inner_function = inner_functions[0] if i != 0 and use_shared_recognizer else make_inner_function()
+        inner_functions.append(inner_function)
+
+    recognizers = [make_factor(i, inner_function) for i, inner_function in enumerate(inner_functions)]
+
+    return recognizers
 
 
 def make_data_loader():
@@ -376,6 +379,8 @@ def print_digit_evaluation(learner=None):
 
 
 def print_posterior_of(recognizer, learner=None):
+    space_header = " " * len(make_digit_header(0))
+    print(space_header + ", ".join([f"   {i}" for i in range(number_of_digits)]))
     for digit in range(number_of_digits):
         digit_batch = torch.full((number_of_digit_instances_in_evaluation,), digit)
         image_batch = from_digit_batch_to_image_batch(digit_batch)
@@ -391,8 +396,14 @@ def print_posterior_of(recognizer, learner=None):
 
 
 def print_posterior_tensor(digit, output_probability_tensor):
+    digit_header = make_digit_header(digit)
+    print(digit_header + f"{digit_distribution_tensor_str(output_probability_tensor)}")
+
+
+def make_digit_header(digit):
     image_description = 'image' if use_real_images else 'fake "image"'
-    print(f"Prediction for {image_description} {digit}: {digit_distribution_tensor_str(output_probability_tensor)}")
+    digit_header = f"Prediction for {image_description} {digit}: "
+    return digit_header
 
 
 def digit_distribution_tensor_str(tensor):
@@ -400,9 +411,9 @@ def digit_distribution_tensor_str(tensor):
 
 def potential_str(potential):
     if potential < 1e-2:
-        return "    "
+        return " "*(2 + evaluation_probability_precision)
     else:
-        return f"{potential:0.2f}"
+        return f"{potential:0.{evaluation_probability_precision}f}"
 
 
 def set_seed():
