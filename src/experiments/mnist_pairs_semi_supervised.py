@@ -66,15 +66,14 @@ from util.util import join, set_default_tensor_type_and_return_device
 # -------------- PARAMETERS
 
 number_of_digits = 10
-chain_length = 2
-
+chain_length = 10
+use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
+use_conv_net = False # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
 use_positive_examples_only = True  # show only examples of consecutive pairs with the constraint labeled True,
 # as opposed to random pairs with constraint labeled True or False accordingly.
 # Including negative examples makes the problem easier, but less
 # uniform random tables still get stuck in local minima.
 
-use_real_images = False  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
-use_conv_net = False # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
 show_examples = False  # show some examples of images (sanity check for data structure)
 use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
 try_cuda = True
@@ -224,7 +223,7 @@ def main():
 def make_constraint_factors():
     constraint_predicate = lambda di, di_plus_one, constraint: int(di_plus_one == di + 1) == constraint
     constraint_factors = \
-        [FixedPyTorchTableFactor.from_predicate((digits[i], digits[i + 1], constraints[0]), constraint_predicate)
+        [FixedPyTorchTableFactor.from_predicate((digits[i], digits[i + 1], constraints[i]), constraint_predicate)
          for i in range(chain_length - 1)]
     return constraint_factors
 
@@ -359,7 +358,11 @@ def random_positive_examples_batch_generator():
 
     def generator():
         d_values = []
-        d_values.append(torch.randint(number_of_digits - 1, (batch_size,)))  # digit[0] is never equal to the last digit
+        last_digit = number_of_digits - 1
+        number_of_transitions_in_the_chain = chain_length - 1
+        max_value_of_first_digit = last_digit - number_of_transitions_in_the_chain
+        exclusive_upper_bound_for_first_digit = max_value_of_first_digit + 1
+        d_values.append(torch.randint(exclusive_upper_bound_for_first_digit, (batch_size,)))
         for i in range(1, chain_length):
             d_values.append(d_values[i - 1] + 1)
         i_values = [from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)]
