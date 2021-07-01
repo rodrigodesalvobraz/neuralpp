@@ -200,7 +200,7 @@ def generalized_len(obj):
         return 1
 
 
-def set_default_tensor_type_and_return_device(try_cuda):
+def set_default_tensor_type_and_return_device(try_cuda, print=print):
     use_cuda = try_cuda and torch.cuda.is_available()
     if use_cuda:
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
@@ -208,6 +208,7 @@ def set_default_tensor_type_and_return_device(try_cuda):
     else:
         torch.set_default_tensor_type(torch.FloatTensor)
         device = torch.device("cpu")
+    print(f"Using {device} device")
     return device
 
 
@@ -297,3 +298,16 @@ def check_path_like(path, caller=None):
             ("E" if caller is None else f"{caller} e")
             + f"xpected path-like object but got {path}"
         )
+
+
+def set_seed(seed=None, print=print):
+    """
+    Set PyTorch seed, using a pseudo-random one by default.
+    Prints the seed at the end using given print function.
+    """
+    if seed is None:
+        seed = torch.seed()
+    else:
+        torch.manual_seed(seed)
+    print(f"Seed: {seed}")
+

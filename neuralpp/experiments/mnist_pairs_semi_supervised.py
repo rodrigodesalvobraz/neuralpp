@@ -27,7 +27,7 @@ from neuralpp.util.data_loader_from_random_data_point_thunk import (
 
 from neuralpp.util.generic_sgd_learner import GenericSGDLearner, default_after_epoch
 from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
-from neuralpp.util.util import join, set_default_tensor_type_and_return_device
+from neuralpp.util.util import join, set_default_tensor_type_and_return_device, set_seed
 
 # Trains a digit recognizer with the following factor graph:
 #
@@ -177,13 +177,81 @@ else:
 
 # -------------- END OF PROCESSING PARAMETERS
 
+
 class ProblemSolver:
 
-    def __init__(self):
+    def __init__(self, problem):
+        # Load data, if needed, before setting default device to cuda
+        train_data_loader = problem.make_data_loader()
 
-        self.set_seed(seed)
+        device = set_default_tensor_type_and_return_device(try_cuda)
 
-        # Create random variables
+        # Creating model after attempting to set default tensor type to cuda so it sits there
+        problem.setup_model()
+
+        print("\nInitial evaluation:")
+        problem.print_digit_evaluation()
+
+        if problem.learning_is_needed():
+            print("Learning...")
+            learner = GraphicalModelSGDLearner(
+                problem.model,
+                train_data_loader,
+                device=device,
+                lr=lr,
+                loss_decrease_tol=loss_decrease_tol,
+                max_epochs_to_go_before_stopping_due_to_loss_decrease=max_epochs_to_go_before_stopping_due_to_loss_decrease,
+                after_epoch=problem.after_epoch,
+            )
+            learner.learn()
+
+        print("\nFinal model:")
+        print(join(problem.model, "\n"))
+
+        print("\nFinal evaluation:")
+        problem.print_digit_evaluation()
+
+
+class MNISTChains:
+
+    def learning_is_needed(self):
+        return recognizer_type != "fixed ground truth table"
+
+    def setup_images(self):
+        if use_real_images:
+            self.setup_real_images()
+        else:
+            self.setup_fake_images()
+
+    def setup_real_images(self):
+        self.images_by_digits_by_phase = read_mnist(max_real_mnist_datapoints)
+        number_of_training_images = sum(
+            [
+                len(self.images_by_digits_by_phase["train"][d])
+                for d in range(number_of_digits)
+            ]
+        )
+        print(f"Loaded {number_of_training_images:,} training images")
+        self.next_image_index_by_digit = {d: 0 for d in range(number_of_digits)}
+        self.show_digit_examples()
+        self.from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
+
+    def setup_fake_images(self):
+        self.from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
+
+    def setup_model(self):
+        self.create_random_variables()
+        self.constraint_factors = self.make_constraint_factors()
+        recognizer_factors = self.make_recognizer_factors()
+        self.model = [
+            # IMPORTANT: this particular factor order is relied upon later in the code
+            *self.constraint_factors,
+            *recognizer_factors,
+        ]
+        print("\nInitial model:")
+        print(join(self.model, "\n"))
+
+    def create_random_variables(self):
         self.images = []
         self.digits = []
         self.constraints = []
@@ -197,66 +265,15 @@ class ProblemSolver:
             if i != chain_length - 1:
                 self.constraints.append(IntegerVariable(f"constraint{i}", 2))
 
-        # Load images, if needed, before setting default device to cuda
-        if use_real_images:
-            self.images_by_digits_by_phase = read_mnist(max_real_mnist_datapoints)
-            number_of_training_images = sum(
-                [
-                    len(self.images_by_digits_by_phase["train"][d])
-                    for d in range(number_of_digits)
-                ]
-            )
-            print(f"Loaded {number_of_training_images:,} training images")
-            self.next_image_index_by_digit = {d: 0 for d in range(number_of_digits)}
-            if show_examples:
-                images = [
-                    self.images_by_digits_by_phase["train"][d][i]
-                    for i in range(5)
-                    for d in range(number_of_digits)
-                ]
-                labels = [d for i in range(5) for d in range(number_of_digits)]
-                show_images_and_labels(5, 10, images, labels)
-            self.from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
-        else:
-            self.from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
-
-        train_data_loader = self.make_data_loader()
-
-        device = set_default_tensor_type_and_return_device(try_cuda)
-        print(f"Using {device} device")
-
-        # Creating model after attempting to set default tensor type to cuda so it sits there
-        self.constraint_factors = self.make_constraint_factors()
-        recognizer_factors = self.make_recognizer_factors()
-
-        self.model = [
-            # IMPORTANT: this particular factor order is relied upon later in the code
-            *self.constraint_factors,
-            *recognizer_factors,
-        ]
-
-        print("\nInitial model:")
-        print(join(self.model, "\n"))
-        print("\nInitial evaluation:")
-        self.print_digit_evaluation()
-
-        if recognizer_type != "fixed ground truth table":
-            print("Learning...")
-            learner = GraphicalModelSGDLearner(
-                self.model,
-                train_data_loader,
-                device=device,
-                lr=lr,
-                loss_decrease_tol=loss_decrease_tol,
-                max_epochs_to_go_before_stopping_due_to_loss_decrease=max_epochs_to_go_before_stopping_due_to_loss_decrease,
-                after_epoch=self.after_epoch,
-            )
-            learner.learn()
-
-        print("\nFinal model:")
-        print(join(self.model, "\n"))
-        print("\nFinal evaluation:")
-        self.print_digit_evaluation()
+    def show_digit_examples(self):
+        if show_examples:
+            images = [
+                self.images_by_digits_by_phase["train"][d][i]
+                for i in range(5)
+                for d in range(number_of_digits)
+            ]
+            labels = [d for i in range(5) for d in range(number_of_digits)]
+            show_images_and_labels(5, 10, images, labels)
 
     def make_constraint_factors(self):
         constraint_predicate = (
@@ -365,6 +382,7 @@ class ProblemSolver:
         return recognizer_factors
 
     def make_data_loader(self):
+        self.setup_images()
         batch_generator = (
             self.random_positive_examples_batch_generator()
             if use_positive_examples_only
@@ -514,13 +532,6 @@ class ProblemSolver:
         else:
             return f"{potential:0.{evaluation_probability_precision}f}"
 
-    def set_seed(self, seed=None):
-        if seed is None:
-            seed = torch.seed()
-        else:
-            torch.manual_seed(seed)
-        print(f"Seed: {seed}")
-
     def uniform_pre_training(self, recognizer):
         def random_batch_generator():
             if use_real_images:
@@ -560,4 +571,5 @@ class ProblemSolver:
         print(recognizer)
 
 
-ProblemSolver()
+set_seed(seed)
+ProblemSolver(MNISTChains())
