@@ -1,6 +1,5 @@
 import torch
-
-from neuralpp.util.batch_argmax import batch_argmax, NoArgMaxIndices
+from neuralpp.util.batch_argmax import NoArgMaxIndices, batch_argmax
 from neuralpp.util.util import check_that_exception_is_thrown
 
 
@@ -14,7 +13,9 @@ def test_basic():
     # making batch_dim = 1 renders the non-batch portion empty and argmax indices undefined
     tensor = torch.tensor([0, 1, 2, 3, 4])
     batch_dim = 1
-    check_that_exception_is_thrown(lambda: batch_argmax(tensor, batch_dim), NoArgMaxIndices)
+    check_that_exception_is_thrown(
+        lambda: batch_argmax(tensor, batch_dim), NoArgMaxIndices
+    )
 
     # now a batch of arrays
     tensor = torch.tensor([[1, 2, 3], [6, 5, 4]])
@@ -39,7 +40,9 @@ def test_basic():
     # a batch of 2D matrices:
     tensor = torch.tensor([[[1, 2, 3], [6, 5, 4]], [[2, 3, 1], [4, 5, 6]]])
     batch_dim = 1
-    expected = torch.tensor([[1, 0], [1, 2]])  # coordinates of two 6's, one in each 2D matrix
+    expected = torch.tensor(
+        [[1, 0], [1, 2]]
+    )  # coordinates of two 6's, one in each 2D matrix
     run_test(tensor, batch_dim, expected)
 
     # same as before, but testing that batch_dim supports negative values
@@ -63,6 +66,8 @@ def test_basic():
 
 def run_test(tensor, batch_dim, expected):
     actual = batch_argmax(tensor, batch_dim)
-    print(f"batch_argmax of {tensor} with batch_dim {batch_dim} is\n{actual}\nExpected:\n{expected}")
+    print(
+        f"batch_argmax of {tensor} with batch_dim {batch_dim} is\n{actual}\nExpected:\n{expected}"
+    )
     assert actual.shape == expected.shape
     assert actual.eq(expected).all()

@@ -1,9 +1,9 @@
 import itertools
+
 from neuralpp.inference.graphical_model.variable.variable import Variable
 
 
 class DiscreteVariable(Variable):
-
     @staticmethod
     def assignments_product(variables):
         if len(variables) != 0:
@@ -15,6 +15,7 @@ class DiscreteVariable(Variable):
     def assignments_product_dicts(variables):
         def make_dict(values):
             return {var: val for var, val in zip(variables, values)}
+
         return map(make_dict, DiscreteVariable.assignments_product(variables))
 
     def __init__(self, name=None, cardinality=None):

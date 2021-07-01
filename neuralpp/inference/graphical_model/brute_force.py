@@ -2,7 +2,6 @@ from neuralpp.util.group import Group
 
 
 class BruteForce:
-
     @staticmethod
     def run(query, factors):
         total_product = Group.product(factors)

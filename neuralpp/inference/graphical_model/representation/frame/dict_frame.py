@@ -1,6 +1,5 @@
 import torch
-
-from neuralpp.util.util import has_len, generalized_len
+from neuralpp.util.util import generalized_len, has_len
 
 
 def is_frame(dictionary):
@@ -13,7 +12,7 @@ def generalized_len_of_dict_frame(dictionary):
     set_of_lengths = {generalized_len(values) for values in dictionary.values()}
     if len(set_of_lengths) != 1:
         raise DictionaryValuesShouldAllHaveTheSameLength()
-    length, = set_of_lengths
+    (length,) = set_of_lengths
     return length
 
 
@@ -23,7 +22,7 @@ def generalized_len_of_dict_frames(*dict_frames):
     set_of_lengths = {generalized_len_of_dict_frame(frame) for frame in dict_frames}
     if len(set_of_lengths) != 1:
         raise DictFramesShouldAllHaveTheSameLength()
-    length, = set_of_lengths
+    (length,) = set_of_lengths
     return length
 
 
@@ -39,9 +38,9 @@ def number_of_equal_values_in_dict_frames(dict_frame1, dict_frame2):
 
 
 def assert_values_are_tensors(dict_frame1):
-    assert all(isinstance(v, torch.Tensor) for v in
-               dict_frame1.values()), \
-        "number_of_equal_values_in_dict_frames currently implemented for Tensor values only"
+    assert all(
+        isinstance(v, torch.Tensor) for v in dict_frame1.values()
+    ), "number_of_equal_values_in_dict_frames currently implemented for Tensor values only"
 
 
 def to(dict_frame, device):
@@ -62,7 +61,9 @@ def broadcast_values(dict_frame):
     try:
         generalized_len_of_dict_frame(dict_frame)
     except (DictionaryShouldHaveAtLeastOneItem, DictFramesShouldAllHaveTheSameLength):
-        raise Exception(f"broadcast_values not implemented yet. dict_frame: {dict_frame}")
+        raise Exception(
+            f"broadcast_values not implemented yet. dict_frame: {dict_frame}"
+        )
     return dict_frame
 
 
@@ -78,7 +79,10 @@ def convert_scalar_to_1d_if_scalar(o):
 
 
 def convert_values_to_at_least_two_dimensions(dict_frame):
-    return {k: unsqueeze_if_needed_for_at_least_two_dimensions(v) for k, v in dict_frame.items()}
+    return {
+        k: unsqueeze_if_needed_for_at_least_two_dimensions(v)
+        for k, v in dict_frame.items()
+    }
 
 
 def unsqueeze_if_needed_for_at_least_two_dimensions(tensor):
@@ -89,31 +93,35 @@ def unsqueeze_if_needed_for_at_least_two_dimensions(tensor):
 
 
 class DictionaryShouldHaveAtLeastOneItem(BaseException):
-
     def __init__(self):
-        super(DictionaryShouldHaveAtLeastOneItem, self).__init__("Dictionary should have at least one item")
+        super(DictionaryShouldHaveAtLeastOneItem, self).__init__(
+            "Dictionary should have at least one item"
+        )
 
 
 class DictionaryValuesShouldAllHaveTheSameLength(BaseException):
-
     def __init__(self):
         super(DictionaryValuesShouldAllHaveTheSameLength, self).__init__(
-            "Dictionary values should all have the same length")
+            "Dictionary values should all have the same length"
+        )
 
 
 class ThereShouldBeAtLeastOneDictFrame(BaseException):
-
     def __init__(self):
-        super(ThereShouldBeAtLeastOneDictFrame, self).__init__("There should be at least one dict frame")
+        super(ThereShouldBeAtLeastOneDictFrame, self).__init__(
+            "There should be at least one dict frame"
+        )
 
 
 class DictFramesShouldAllHaveTheSameLength(BaseException):
-
     def __init__(self):
-        super(DictFramesShouldAllHaveTheSameLength, self).__init__("Dict frames should all have the same length")
+        super(DictFramesShouldAllHaveTheSameLength, self).__init__(
+            "Dict frames should all have the same length"
+        )
 
 
 class DictionariesShouldHaveTheSameKeys(BaseException):
-
     def __init__(self):
-        super(DictionariesShouldHaveTheSameKeys, self).__init__("Dictionaries should have the same keys")
+        super(DictionariesShouldHaveTheSameKeys, self).__init__(
+            "Dictionaries should have the same keys"
+        )

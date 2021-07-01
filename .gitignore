@@ -1,6 +1,10 @@
 # Facebook Buck
 TARGETS
 
+# Mercurial must ignore git files if present
+.gitignore
+.git/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

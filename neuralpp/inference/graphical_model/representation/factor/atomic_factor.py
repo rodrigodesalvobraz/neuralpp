@@ -2,7 +2,6 @@ from neuralpp.inference.graphical_model.representation.factor.factor import Fact
 
 
 class AtomicFactor(Factor):
-
     def __init__(self, variables):
         super().__init__(variables)
 

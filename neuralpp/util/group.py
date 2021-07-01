@@ -9,5 +9,3 @@ class Group:
     @staticmethod
     def product(elements):
         return reduce(operator.mul, elements, Group.identity)
-
-

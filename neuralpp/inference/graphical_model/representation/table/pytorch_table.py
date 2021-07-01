@@ -2,26 +2,31 @@ import itertools
 import math
 
 import torch
-from torch.distributions import Categorical
-
-from neuralpp.inference.graphical_model.representation.representation import is_batch_coordinate, contains_batch_coordinate
+from neuralpp.inference.graphical_model.representation.representation import (
+    contains_batch_coordinate,
+    is_batch_coordinate,
+)
 from neuralpp.inference.graphical_model.representation.table.table import Table
-from neuralpp.inference.graphical_model.representation.table.table_util import insert_shape, n_unsqueeze
+from neuralpp.inference.graphical_model.representation.table.table_util import (
+    insert_shape,
+    n_unsqueeze,
+)
 from neuralpp.util import util
 from neuralpp.util.batch_argmax import batch_argmax
 from neuralpp.util.first import first
 from neuralpp.util.tensor_mixed_radix import TensorMixedRadix
-from neuralpp.util.util import map_of_nested_list, all_dims_but_first, is_iterable
+from neuralpp.util.util import all_dims_but_first, is_iterable, map_of_nested_list
+from torch.distributions import Categorical
 
 
 class PyTorchTable(Table):
-
     def __init__(self, raw_entries, batch=False):
         super().__init__()
-        self.raw_tensor = \
-            raw_entries \
-            if isinstance(raw_entries, torch.Tensor) \
+        self.raw_tensor = (
+            raw_entries
+            if isinstance(raw_entries, torch.Tensor)
             else torch.tensor(raw_entries, requires_grad=True)
+        )
         self.batch = batch
         if self.batch:
             self.non_batch_shape = self.raw_tensor.shape[1:]
@@ -48,10 +53,14 @@ class PyTorchTable(Table):
         return PyTorchTable(array_of_potentials, batch)
 
     @staticmethod
-    def from_function(shape, function_arguments_iterables, function_of_potentials, batch=False):
+    def from_function(
+        shape, function_arguments_iterables, function_of_potentials, batch=False
+    ):
 
         array_of_potentials = []
-        for function_arguments_tuple in itertools.product(*function_arguments_iterables):
+        for function_arguments_tuple in itertools.product(
+            *function_arguments_iterables
+        ):
             potential = function_of_potentials(*function_arguments_tuple)
             array_of_potentials.append(float(potential))
 
@@ -78,8 +87,12 @@ class PyTorchTable(Table):
         (after disregarding possible batch dimension)
         """
         effective_dim = dim + 1 if self.batch else dim
-        unsqueezed_tensor = n_unsqueeze(self.raw_tensor, len(shape_to_be_inserted), effective_dim)
-        final_shape = insert_shape(self.raw_tensor.shape, shape_to_be_inserted, effective_dim)
+        unsqueezed_tensor = n_unsqueeze(
+            self.raw_tensor, len(shape_to_be_inserted), effective_dim
+        )
+        final_shape = insert_shape(
+            self.raw_tensor.shape, shape_to_be_inserted, effective_dim
+        )
         new_tensor = unsqueezed_tensor.expand(final_shape)
         return self.new_table_from_raw_entries(new_tensor, self.batch)
 
@@ -87,7 +100,9 @@ class PyTorchTable(Table):
         """
         Applies permutation (of non-batch dimensions).
         """
-        effective_permutation = [0] + [p + 1 for p in permutation] if self.batch else permutation
+        effective_permutation = (
+            [0] + [p + 1 for p in permutation] if self.batch else permutation
+        )
         permuted_raw_tensor = self.raw_tensor.permute(effective_permutation)
         return self.new_table_from_raw_entries(permuted_raw_tensor, self.batch)
 
@@ -103,8 +118,13 @@ class PyTorchTable(Table):
 
         if self.batch:
             # pick the value for the assignment in each batch row
-            batch_rows_coordinate = self.get_batch_rows_coordinate(tuple_of_non_batch_slice_coordinates)
-            all_coordinates = (batch_rows_coordinate, *tuple_of_non_batch_slice_coordinates)
+            batch_rows_coordinate = self.get_batch_rows_coordinate(
+                tuple_of_non_batch_slice_coordinates
+            )
+            all_coordinates = (
+                batch_rows_coordinate,
+                *tuple_of_non_batch_slice_coordinates,
+            )
         else:
             all_coordinates = tuple_of_non_batch_slice_coordinates
 
@@ -126,21 +146,31 @@ class PyTorchTable(Table):
             batch_rows_coordinate = slice(None)
         return batch_rows_coordinate
 
-    def check_all_batch_coordinates_are_1d_and_have_the_same_size(self, all_coordinates):
+    def check_all_batch_coordinates_are_1d_and_have_the_same_size(
+        self, all_coordinates
+    ):
         batch_coordinates = [c for c in all_coordinates if is_batch_coordinate(c)]
 
-        invalid_batch_coordinate = first(batch_coordinates, lambda bc: len(bc) != 0 and is_iterable(bc[0]))
+        invalid_batch_coordinate = first(
+            batch_coordinates, lambda bc: len(bc) != 0 and is_iterable(bc[0])
+        )
         if invalid_batch_coordinate is not None:
             raise BatchCoordinateFirstElementIsIterable(invalid_batch_coordinate)
 
-        set_of_len_of_batch_coordinates = {len(batch_coordinate) for batch_coordinate in batch_coordinates}
+        set_of_len_of_batch_coordinates = {
+            len(batch_coordinate) for batch_coordinate in batch_coordinates
+        }
 
         if len(set_of_len_of_batch_coordinates) > 1:
             raise BatchCoordinatesDoNotAgreeException()
 
     def slice(self, non_batch_slice_coordinates):
-        raw_tensor_slice = self.get_raw_tensor_slice(non_batch_slice_coordinates)  # already covers batch cases
-        new_table_is_batch = self.batch or contains_batch_coordinate(non_batch_slice_coordinates)
+        raw_tensor_slice = self.get_raw_tensor_slice(
+            non_batch_slice_coordinates
+        )  # already covers batch cases
+        new_table_is_batch = self.batch or contains_batch_coordinate(
+            non_batch_slice_coordinates
+        )
         return self.new_table_from_raw_entries(raw_tensor_slice, new_table_is_batch)
 
     # Methods depending on structure and value representation choice (here, normal space rather than log)
@@ -158,9 +188,13 @@ class PyTorchTable(Table):
         Delegates actually multiplication of raw tensors
         so that sub-classes can reuse this method and override that method only.
         """
-        assert self.non_batch_shape == other.non_batch_shape, f"Multiplied {type(self)} instances must have the same non-batch shapes, but have {self.non_batch_shape} and {other.non_batch_shape}"
-        assert not (
-                    self.batch and other.batch) or self.number_of_batch_rows() == other.number_of_batch_rows(), f"If both tables are batches then they must have the same number of rows, but they have {self.number_of_batch_rows()} and {other.number_of_batch_rows()} rows respectively"
+        assert (
+            self.non_batch_shape == other.non_batch_shape
+        ), f"Multiplied {type(self)} instances must have the same non-batch shapes, but have {self.non_batch_shape} and {other.non_batch_shape}"
+        assert (
+            not (self.batch and other.batch)
+            or self.number_of_batch_rows() == other.number_of_batch_rows()
+        ), f"If both tables are batches then they must have the same number of rows, but they have {self.number_of_batch_rows()} and {other.number_of_batch_rows()} rows respectively"
 
         result_is_batch = self.batch or other.batch
 
@@ -168,7 +202,9 @@ class PyTorchTable(Table):
             # if 'other' is the same type as self, more assumptions can be made about raw tensors,
             # allowing greater efficiency -- the assumptions are encapsulated
             # in the implementation of method raw_tensor_of_product_of_potentials_of_raw_tensors
-            raw_tensor = self.raw_tensor_of_product_of_potentials_of_raw_tensors(self.raw_tensor, other.raw_tensor)
+            raw_tensor = self.raw_tensor_of_product_of_potentials_of_raw_tensors(
+                self.raw_tensor, other.raw_tensor
+            )
             return self.new_table_from_raw_entries(raw_tensor, result_is_batch)
         else:
             # otherwise, pay the penalty of possibly converting back and forth from neuralpp.non-potential raw tensors.
@@ -197,9 +233,12 @@ class PyTorchTable(Table):
             dim = list(range(len(self.non_batch_shape)))
 
         if self.batch:
+
             def effective_dimension_value(d):
                 return d + 1
+
         else:
+
             def effective_dimension_value(d):
                 return d
 
@@ -235,14 +274,20 @@ class PyTorchTable(Table):
     def sample(self):
         batch_size = self.number_of_batch_rows() if self.batch else 1
         non_batch_size = math.prod(self.non_batch_shape)
-        batch_of_potentials_in_rows = self.potentials_tensor().reshape(batch_size, non_batch_size)
-        sampled_non_batch_assignment_indices = Categorical(batch_of_potentials_in_rows).sample()
+        batch_of_potentials_in_rows = self.potentials_tensor().reshape(
+            batch_size, non_batch_size
+        )
+        sampled_non_batch_assignment_indices = Categorical(
+            batch_of_potentials_in_rows
+        ).sample()
         assignments = self.from_tensor_of_non_batch_assignment_indices_to_tensor_of_non_batch_assignments(
-            sampled_non_batch_assignment_indices)
+            sampled_non_batch_assignment_indices
+        )
         return assignments
 
     def from_tensor_of_non_batch_assignment_indices_to_tensor_of_non_batch_assignments(
-            self, non_batch_assignment_indices):
+        self, non_batch_assignment_indices
+    ):
         """Takes a 1D tensor of non-batch assignment indices and returns the corresponding assignments"""
         return self.non_batch_radices.representation(non_batch_assignment_indices)
 
@@ -266,24 +311,32 @@ class PyTorchTable(Table):
         torch.allclose with atol=1e-3 and rtol=1e-3
         """
         if isinstance(other, PyTorchTable):
-            result = self.has_same_batch_and_shape(other) and \
-                     torch.allclose(self.potentials_tensor(), other.potentials_tensor(), atol=1e-3, rtol=1e-3)
+            result = self.has_same_batch_and_shape(other) and torch.allclose(
+                self.potentials_tensor(),
+                other.potentials_tensor(),
+                atol=1e-3,
+                rtol=1e-3,
+            )
             return result
         else:
-            raise Exception("Comparison of PyTorchTable to tables other than PyTorchTable not implemented")
+            raise Exception(
+                "Comparison of PyTorchTable to tables other than PyTorchTable not implemented"
+            )
 
     def has_same_batch_and_shape(self, other):
-        return self.number_of_batch_rows() == other.number_of_batch_rows() and \
-               self.non_batch_shape == other.non_batch_shape
+        return (
+            self.number_of_batch_rows() == other.number_of_batch_rows()
+            and self.non_batch_shape == other.non_batch_shape
+        )
 
     def __repr__(self):
         """
         Prints a representation for the current table.
         The method uses method 'potentials_tensor' so sub-classes only need to override that to re-use this method.
         """
-        return \
-            ("batch " if self.batch else "") + \
-            str(map_of_nested_list(lambda v: round(v, 4), self.potentials_tensor().tolist()))
+        return ("batch " if self.batch else "") + str(
+            map_of_nested_list(lambda v: round(v, 4), self.potentials_tensor().tolist())
+        )
 
     def potentials_tensor(self):
         return self.raw_tensor
@@ -301,7 +354,8 @@ class BatchCoordinateFirstElementIsIterable(Exception):
     def __init__(self, invalid_batch_coordinate):
         super(BatchCoordinateFirstElementIsIterable, self).__init__(
             f"Batch coordinate first element is iterable; they should all be integral scalars: "
-            f"{invalid_batch_coordinate[0]}")
+            f"{invalid_batch_coordinate[0]}"
+        )
 
 
 class BatchCoordinatesDoNotAgreeException(Exception):
@@ -313,4 +367,5 @@ class BatchCoordinatesDoNotAgreeException(Exception):
 
     def __init__(self):
         super(BatchCoordinatesDoNotAgreeException, self).__init__(
-            f"Batch coordinates do not agree with each other or with number of rows in batch table.")
+            f"Batch coordinates do not agree with each other or with number of rows in batch table."
+        )

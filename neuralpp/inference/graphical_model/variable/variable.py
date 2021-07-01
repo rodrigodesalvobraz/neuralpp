@@ -1,5 +1,4 @@
 class Variable:
-
     def __eq__(self, other):
         self._not_implemented("__eq__")
 

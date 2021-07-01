@@ -1,11 +1,14 @@
 import torch
-
-from neuralpp.inference.graphical_model.representation.table.pytorch_table import PyTorchTable
-from neuralpp.util.log_util import log_without_inf_non_differentiable, log_of_nested_list_without_inf_non_differentiable
+from neuralpp.inference.graphical_model.representation.table.pytorch_table import (
+    PyTorchTable,
+)
+from neuralpp.util.log_util import (
+    log_of_nested_list_without_inf_non_differentiable,
+    log_without_inf_non_differentiable,
+)
 
 
 class PyTorchLogTable(PyTorchTable):
-
     def __init__(self, raw_entries, batch=False):
         super().__init__(raw_entries, batch)
         assert not torch.flatten(torch.isnan(self.raw_tensor)).any()
@@ -15,15 +18,23 @@ class PyTorchLogTable(PyTorchTable):
         if isinstance(array_of_potentials, torch.Tensor):
             tensor = log_without_inf_non_differentiable(array_of_potentials)
         else:
-            log_of_potentials = log_of_nested_list_without_inf_non_differentiable(array_of_potentials)
+            log_of_potentials = log_of_nested_list_without_inf_non_differentiable(
+                array_of_potentials
+            )
             tensor = torch.tensor(log_of_potentials, requires_grad=True)
         table = PyTorchLogTable(tensor, batch)
         return table
 
     @staticmethod
-    def from_function(shape, function_arguments_iterables, function_of_potentials, batch=False):
-        prob_space = PyTorchTable.from_function(shape, function_arguments_iterables, function_of_potentials, batch)
-        log_probability_tensor = log_without_inf_non_differentiable(prob_space.raw_tensor)
+    def from_function(
+        shape, function_arguments_iterables, function_of_potentials, batch=False
+    ):
+        prob_space = PyTorchTable.from_function(
+            shape, function_arguments_iterables, function_of_potentials, batch
+        )
+        log_probability_tensor = log_without_inf_non_differentiable(
+            prob_space.raw_tensor
+        )
         leaf_tensor = log_probability_tensor.clone().detach().requires_grad_(True)
         return PyTorchLogTable(leaf_tensor, batch)
 
@@ -69,8 +80,12 @@ class PyTorchLogTable(PyTorchTable):
 
     def make_random_raw_tensor(self):
         random_uniform_tensor = torch.rand(self.raw_tensor.shape)
-        random_log_uniform_tensor = log_without_inf_non_differentiable(random_uniform_tensor)
-        leaf_log_tensor = random_log_uniform_tensor.clone().detach().requires_grad_(True)
+        random_log_uniform_tensor = log_without_inf_non_differentiable(
+            random_uniform_tensor
+        )
+        leaf_log_tensor = (
+            random_log_uniform_tensor.clone().detach().requires_grad_(True)
+        )
         return leaf_log_tensor
 
     def potentials_tensor(self):

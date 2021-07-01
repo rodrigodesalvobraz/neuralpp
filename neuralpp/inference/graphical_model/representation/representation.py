@@ -13,4 +13,3 @@ def contains_batch_coordinate(coordinates):
     Indicates whether any of given coordinates is a batch
     """
     return any(is_batch_coordinate(c) for c in coordinates)
-

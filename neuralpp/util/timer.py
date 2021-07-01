@@ -2,7 +2,6 @@ import time
 
 
 class Timer:
-
     def __init__(self, *description_args):
         if description_args and type(description_args[0]) == bool:
             self.active = description_args[0]
@@ -19,7 +18,10 @@ class Timer:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.active:
             self.end = time.time()
-            print("Finished", *(self.description_args + (f"({self.end - self.start:.2f} seconds)",)))
+            print(
+                "Finished",
+                *(self.description_args + (f"({self.end - self.start:.2f} seconds)",)),
+            )
 
 
 if __name__ == "__main__":

@@ -1,11 +1,10 @@
+import collections
 import functools
 
 from neuralpp.util.group import Group
-import collections
 
 
 class Factor:
-
     def __init__(self, variables):
         self.variables = variables
 
@@ -44,7 +43,9 @@ class Factor:
             else:
                 return self
         else:
-            raise Exception(f"Factor being conditioned on non-dict-like object {assignment_dict}")
+            raise Exception(
+                f"Factor being conditioned on non-dict-like object {assignment_dict}"
+            )
 
     def condition_on_non_empty_dict(self, assignment_dict):
         self._not_implemented("condition_on_non_empty_dict")
@@ -125,13 +126,17 @@ class Factor:
         except TypeError as e:
             if isinstance(assignment_dict, (list, tuple)):
                 raise Exception(
-                    f"Factors must be called on an assignment dict from variables to values, not on a {type(assignment_dict).__name__}: {assignment_dict}") \
-                    from e
+                    f"Factors must be called on an assignment dict from variables to values, not on a {type(assignment_dict).__name__}: {assignment_dict}"
+                ) from e
             else:
-                raise Exception(f"Type error computing the application of a {type(self).__name__} to an assignment, "
-                                f"which must be a dict. The argument was " f"{assignment_dict}") \
-                    from e
+                raise Exception(
+                    f"Type error computing the application of a {type(self).__name__} to an assignment, "
+                    f"which must be a dict. The argument was "
+                    f"{assignment_dict}"
+                ) from e
         except KeyError as e:
-            raise Exception(f"Indexed access to Factor requires a complete assignment to its variables {self.variables}, but got {assignment_dict} which does not include a variable: {e}")
+            raise Exception(
+                f"Indexed access to Factor requires a complete assignment to its variables {self.variables}, but got {assignment_dict} which does not include a variable: {e}"
+            )
 
         return assignment_values

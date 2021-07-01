@@ -1,8 +1,7 @@
 import math
 
 import torch
-
-from neuralpp.util.tensor_mixed_radix import TensorMixedRadix, MaxValueException
+from neuralpp.util.tensor_mixed_radix import MaxValueException, TensorMixedRadix
 
 
 def test_tensor_mixed_radix_representation():
@@ -34,22 +33,30 @@ def test_tensor_mixed_radix_representation():
     values = [7, 8, 16, 10]  # 16 is greater than max value 15
     radices = (2, 4, 2)
     violating_value = 16
-    check_expected_exception(values, radices, max_value_exception(violating_value, radices))
+    check_expected_exception(
+        values, radices, max_value_exception(violating_value, radices)
+    )
 
     values = [1]  # 1 is greater than max value 0
     radices = (1,)
     violating_value = 1
-    check_expected_exception(values, radices, max_value_exception(violating_value, radices))
+    check_expected_exception(
+        values, radices, max_value_exception(violating_value, radices)
+    )
 
     values = [1]  # 1 is greater than max value 0
     radices = (1, 1, 1)
     violating_value = 1
-    check_expected_exception(values, radices, max_value_exception(violating_value, radices))
+    check_expected_exception(
+        values, radices, max_value_exception(violating_value, radices)
+    )
 
     values = [1]  # 1 is greater than max value 0
     radices = ()
     violating_value = 1
-    check_expected_exception(values, radices, max_value_exception(violating_value, radices))
+    check_expected_exception(
+        values, radices, max_value_exception(violating_value, radices)
+    )
 
 
 def max_value_exception(violating_value, radices):

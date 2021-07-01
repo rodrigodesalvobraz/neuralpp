@@ -1,11 +1,10 @@
 import time
 
 import torch
-from torch import autograd
-from tqdm import tqdm
-
 from neuralpp.util.every_k_times import EveryKTimes
 from neuralpp.util.util import join
+from torch import autograd
+from tqdm import tqdm
 
 
 # def default_after_epoch(learner, end_str='\n'):
@@ -18,9 +17,11 @@ from neuralpp.util.util import join
 #         print(f"(decrease: {loss_decrease:.6f}; stopping value is {learner.loss_decrease_tol:.6f})", end=end_str)
 
 
-def default_after_epoch(learner, end_str='\n'):
+def default_after_epoch(learner, end_str="\n"):
     time_elapsed = time.time() - learner.time_start
-    main_info = f"[{time_elapsed:.0f} s] Epoch average loss: {learner.epoch_average_loss:.4f}"
+    main_info = (
+        f"[{time_elapsed:.0f} s] Epoch average loss: {learner.epoch_average_loss:.4f}"
+    )
     extra_items = []
     include_decrease = learner.previous_epoch_average_loss is not None
     if include_decrease:
@@ -28,9 +29,15 @@ def default_after_epoch(learner, end_str='\n'):
         extra_items.append(f"decrease: {loss_decrease:.6f}")
         extra_items.append(f"stopping value is {learner.loss_decrease_tol:.6f}")
     if learner.max_epochs_to_go_before_stopping_due_to_loss_decrease > 1:
-        extra_items.append(f"number of epochs without less decrease: {learner.number_of_epochs_without_loss_decrease}")
-        extra_items.append(f"max number of epochs without less decrease: {learner.max_epochs_to_go_before_stopping_due_to_loss_decrease}")
-    final_message = main_info + " (" + join(extra_items, "; ") + ")" if extra_items else main_info
+        extra_items.append(
+            f"number of epochs without less decrease: {learner.number_of_epochs_without_loss_decrease}"
+        )
+        extra_items.append(
+            f"max number of epochs without less decrease: {learner.max_epochs_to_go_before_stopping_due_to_loss_decrease}"
+        )
+    final_message = (
+        main_info + " (" + join(extra_items, "; ") + ")" if extra_items else main_info
+    )
     print(final_message, end=end_str)
 
 
@@ -62,16 +69,18 @@ class GenericSGDLearner:
     previous_epoch_average_loss
     """
 
-    def __init__(self,
-                 model,
-                 data_loader,
-                 lr=1e-3,
-                 loss_decrease_tol=1e-3,
-                 device=None,
-                 number_of_batches_between_updates=1,
-                 debug=False,
-                 after_epoch=default_after_epoch,
-                 max_epochs_to_go_before_stopping_due_to_loss_decrease=1):
+    def __init__(
+        self,
+        model,
+        data_loader,
+        lr=1e-3,
+        loss_decrease_tol=1e-3,
+        device=None,
+        number_of_batches_between_updates=1,
+        debug=False,
+        after_epoch=default_after_epoch,
+        max_epochs_to_go_before_stopping_due_to_loss_decrease=1,
+    ):
 
         self.model = model
         self.data_loader = data_loader
@@ -81,11 +90,14 @@ class GenericSGDLearner:
         self.number_of_batches_between_updates = number_of_batches_between_updates
         self.debug = debug
         self.after_epoch = after_epoch
-        self.max_epochs_to_go_before_stopping_due_to_loss_decrease = \
+        self.max_epochs_to_go_before_stopping_due_to_loss_decrease = (
             max_epochs_to_go_before_stopping_due_to_loss_decrease
+        )
 
         self.parameters = self.get_parameters(model)
-        self.retain_graph_during_backpropagation = self.must_retain_graph_during_backpropagation()
+        self.retain_graph_during_backpropagation = (
+            self.must_retain_graph_during_backpropagation()
+        )
 
         # Attributes to be initialized at learning time
         self.optimizer = None
@@ -116,13 +128,18 @@ class GenericSGDLearner:
         return False
 
     def learning_is_done(self):
-        no_loss_decrease = \
-            self.epoch_average_loss_decrease is not None and self.epoch_average_loss_decrease <= self.loss_decrease_tol
+        no_loss_decrease = (
+            self.epoch_average_loss_decrease is not None
+            and self.epoch_average_loss_decrease <= self.loss_decrease_tol
+        )
         if no_loss_decrease:
             self.number_of_epochs_without_loss_decrease += 1
         else:
             self.number_of_epochs_without_loss_decrease = 0
-        done = self.number_of_epochs_without_loss_decrease == self.max_epochs_to_go_before_stopping_due_to_loss_decrease
+        done = (
+            self.number_of_epochs_without_loss_decrease
+            == self.max_epochs_to_go_before_stopping_due_to_loss_decrease
+        )
         return done
 
     def learn(self):
@@ -142,7 +159,9 @@ class GenericSGDLearner:
             self.optimizer.step()
             self.optimizer.zero_grad()
 
-        update_parameters_every_k_batches = EveryKTimes(update_parameters, self.number_of_batches_between_updates)
+        update_parameters_every_k_batches = EveryKTimes(
+            update_parameters, self.number_of_batches_between_updates
+        )
 
         while not self.learning_is_done():
             print(f"Epoch: {self.epoch + 1}")
@@ -153,15 +172,21 @@ class GenericSGDLearner:
                 batch = self.batch_to_device(batch, self.device)
                 number_of_data_points = self.get_number_of_datapoints_in_batch(batch)
                 batch_loss = self.loss_function(batch)
-                batch_loss.backward(retain_graph=self.retain_graph_during_backpropagation)
+                batch_loss.backward(
+                    retain_graph=self.retain_graph_during_backpropagation
+                )
                 update_parameters_every_k_batches()
                 self.total_epoch_loss += batch_loss.item()
                 self.total_number_of_data_points += number_of_data_points
 
-            self.epoch_average_loss = self.total_epoch_loss / self.total_number_of_data_points
+            self.epoch_average_loss = (
+                self.total_epoch_loss / self.total_number_of_data_points
+            )
 
             if self.previous_epoch_average_loss is not None:
-                self.epoch_average_loss_decrease = self.previous_epoch_average_loss - self.epoch_average_loss
+                self.epoch_average_loss_decrease = (
+                    self.previous_epoch_average_loss - self.epoch_average_loss
+                )
 
             with torch.no_grad():
                 self.after_epoch(self)

@@ -3,10 +3,14 @@ from collections import Counter
 
 import pytest
 import torch
-
 from neuralpp.inference.graphical_model.representation.factor import PyTorchTableFactor
-from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import PyTorchLogTable
-from neuralpp.inference.graphical_model.representation.table.pytorch_table import PyTorchTable, BatchCoordinatesDoNotAgreeException
+from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
+    PyTorchLogTable,
+)
+from neuralpp.inference.graphical_model.representation.table.pytorch_table import (
+    BatchCoordinatesDoNotAgreeException,
+    PyTorchTable,
+)
 from neuralpp.inference.graphical_model.variable import DiscreteVariable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.util.discrete_sampling import discrete_sample
@@ -63,22 +67,37 @@ def batch_size2(request):
 
 
 def test_assignments(x, y, log_space):
-    factor = PyTorchTableFactor.from_function((x, y), lambda x, y: float(x == y), log_space=log_space)
+    factor = PyTorchTableFactor.from_function(
+        (x, y), lambda x, y: float(x == y), log_space=log_space
+    )
     print(list(factor.assignments()))
-    assert list(factor.assignments()) == [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)]
+    assert list(factor.assignments()) == [
+        (0, 0),
+        (0, 1),
+        (1, 0),
+        (1, 1),
+        (2, 0),
+        (2, 1),
+    ]
 
 
 def test_new_instance(x, y, log_space):
-    factor1 = PyTorchTableFactor.from_function((x, y), lambda x, y: float(x == y), log_space=log_space)
+    factor1 = PyTorchTableFactor.from_function(
+        (x, y), lambda x, y: float(x == y), log_space=log_space
+    )
     factor2 = factor1.new_instance(factor1.variables, factor1.table)
     assert factor2 is not factor1
     assert factor2 == factor2
 
 
-def batch_function_adapter_from_function_without_batch_row_index(function_without_batch_row_index, batch):
+def batch_function_adapter_from_function_without_batch_row_index(
+    function_without_batch_row_index, batch
+):
     def result(*args):
         args_without_batch_row_index = args[1:] if batch else args
-        potential_without_batch_row_index = function_without_batch_row_index(*args_without_batch_row_index)
+        potential_without_batch_row_index = function_without_batch_row_index(
+            *args_without_batch_row_index
+        )
         if batch:
             batch_row_index = args[0]
             potential = (batch_row_index + 1) * potential_without_batch_row_index
@@ -89,43 +108,52 @@ def batch_function_adapter_from_function_without_batch_row_index(function_withou
     return result
 
 
-def batch_function_adapter_from_function_with_batch_row_index(function_with_batch_row_index, batch):
+def batch_function_adapter_from_function_with_batch_row_index(
+    function_with_batch_row_index, batch
+):
     if batch:
         return function_with_batch_row_index
     else:
         return lambda *rest: function_with_batch_row_index(0, *rest)
 
 
-def table_factor_from_function_without_batch_row_index(variables, function_without_batch_row_index, log_space, batch_size):
+def table_factor_from_function_without_batch_row_index(
+    variables, function_without_batch_row_index, log_space, batch_size
+):
     batch = batch_size is not None
-    function = batch_function_adapter_from_function_without_batch_row_index(function_without_batch_row_index, batch)
-    factor = \
-        PyTorchTableFactor.from_function(
-            variables,
-            function,
-            log_space=log_space, batch_size=batch_size)
+    function = batch_function_adapter_from_function_without_batch_row_index(
+        function_without_batch_row_index, batch
+    )
+    factor = PyTorchTableFactor.from_function(
+        variables, function, log_space=log_space, batch_size=batch_size
+    )
     return factor
 
 
-def table_factor_from_function_with_batch_row_index(variables, function_with_batch_row_index, log_space, batch_size):
+def table_factor_from_function_with_batch_row_index(
+    variables, function_with_batch_row_index, log_space, batch_size
+):
     batch = batch_size is not None
-    function = batch_function_adapter_from_function_with_batch_row_index(function_with_batch_row_index, batch)
-    factor = \
-        PyTorchTableFactor.from_function(
-            variables,
-            function,
-            log_space=log_space, batch_size=batch_size)
+    function = batch_function_adapter_from_function_with_batch_row_index(
+        function_with_batch_row_index, batch
+    )
+    factor = PyTorchTableFactor.from_function(
+        variables, function, log_space=log_space, batch_size=batch_size
+    )
     return factor
 
 
 def test_condition(x, y, log_space, log_space_expected, batch_size):
-
     def expected_table_factor(variables, function):
-        return table_factor_from_function_with_batch_row_index(variables, function, log_space_expected, batch_size)
+        return table_factor_from_function_with_batch_row_index(
+            variables, function, log_space_expected, batch_size
+        )
 
-    fixy = lambda i, x, y: float((10**i)*(x*3 + y))
+    fixy = lambda i, x, y: float((10 ** i) * (x * 3 + y))
 
-    factor = table_factor_from_function_with_batch_row_index((x, y), fixy, log_space, batch_size)
+    factor = table_factor_from_function_with_batch_row_index(
+        (x, y), fixy, log_space, batch_size
+    )
 
     table_class_to_use = PyTorchLogTable if log_space_expected else PyTorchTable
 
@@ -137,35 +165,82 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
         ({y: 1}, expected_table_factor((x,), lambda i, x: fixy(i, x, 1))),
         ({x: 0, y: 0}, expected_table_factor(tuple(), lambda i: fixy(i, 0, 0))),
         ({x: 1, y: 0}, expected_table_factor(tuple(), lambda i: fixy(i, 1, 0))),
-        ({x: slice(None), y: 0}, expected_table_factor((x,), lambda i, x: fixy(i, x, 0))),
-        ({x: slice(None), y: 1}, expected_table_factor((x,), lambda i, x: fixy(i, x, 1))),
-        ({x: 0, y: slice(None)}, expected_table_factor((y,), lambda i, y: fixy(i, 0, y))),
-        ({x: 1, y: slice(None)}, expected_table_factor((y,), lambda i, y: fixy(i, 1, y))),
+        (
+            {x: slice(None), y: 0},
+            expected_table_factor((x,), lambda i, x: fixy(i, x, 0)),
+        ),
+        (
+            {x: slice(None), y: 1},
+            expected_table_factor((x,), lambda i, x: fixy(i, x, 1)),
+        ),
+        (
+            {x: 0, y: slice(None)},
+            expected_table_factor((y,), lambda i, y: fixy(i, 0, y)),
+        ),
+        (
+            {x: 1, y: slice(None)},
+            expected_table_factor((y,), lambda i, y: fixy(i, 1, y)),
+        ),
         ({x: slice(None), y: slice(None)}, expected_table_factor((x, y), fixy)),
     ]
 
     run_condition_tests(factor, tests)
 
     tests_for_batch_size_different_from_zero = [
-
-        ({x: [0, 2, 2, 2], y: 0},
-         PyTorchTableFactor(tuple(), [fixy(0, 0, 0), fixy(0, 2, 0), fixy(0, 2, 0), fixy(0, 2, 0)], log_space=log_space_expected, batch=True) if batch_size is None \
-             else PyTorchTableFactor(tuple(), [fixy(0, 0, 0), fixy(1, 2, 0), fixy(2, 2, 0), fixy(3, 2, 0)], log_space=log_space_expected, batch=True) if batch_size == 4 else None
-         ),
-
-        ({x: [0, 2, 2, 2], y: [0, 1, 0, 1]},
-         PyTorchTableFactor(tuple(), [fixy(0, 0, 0), fixy(0, 2, 1), fixy(0, 2, 0), fixy(0, 2, 1)],
-                            log_space=log_space_expected, batch=True) if batch_size is None \
-             else PyTorchTableFactor(tuple(), [fixy(0, 0, 0), fixy(1, 2, 1), fixy(2, 2, 0), fixy(3, 2, 1)],
-                                     log_space=log_space_expected, batch=True) if batch_size == 4 else None
-         ),
-
-        ({x: 2, y: [0, 1, 0, 1]},
-         PyTorchTableFactor(tuple(), [fixy(0, 2, 0), fixy(0, 2, 1), fixy(0, 2, 0), fixy(0, 2, 1)],
-                            log_space=log_space_expected, batch=True) if batch_size is None \
-             else PyTorchTableFactor(tuple(), [fixy(0, 2, 0), fixy(1, 2, 1), fixy(2, 2, 0), fixy(3, 2, 1)],
-                                     log_space=log_space_expected, batch=True) if batch_size == 4 else None
-         ),
+        (
+            {x: [0, 2, 2, 2], y: 0},
+            PyTorchTableFactor(
+                tuple(),
+                [fixy(0, 0, 0), fixy(0, 2, 0), fixy(0, 2, 0), fixy(0, 2, 0)],
+                log_space=log_space_expected,
+                batch=True,
+            )
+            if batch_size is None
+            else PyTorchTableFactor(
+                tuple(),
+                [fixy(0, 0, 0), fixy(1, 2, 0), fixy(2, 2, 0), fixy(3, 2, 0)],
+                log_space=log_space_expected,
+                batch=True,
+            )
+            if batch_size == 4
+            else None,
+        ),
+        (
+            {x: [0, 2, 2, 2], y: [0, 1, 0, 1]},
+            PyTorchTableFactor(
+                tuple(),
+                [fixy(0, 0, 0), fixy(0, 2, 1), fixy(0, 2, 0), fixy(0, 2, 1)],
+                log_space=log_space_expected,
+                batch=True,
+            )
+            if batch_size is None
+            else PyTorchTableFactor(
+                tuple(),
+                [fixy(0, 0, 0), fixy(1, 2, 1), fixy(2, 2, 0), fixy(3, 2, 1)],
+                log_space=log_space_expected,
+                batch=True,
+            )
+            if batch_size == 4
+            else None,
+        ),
+        (
+            {x: 2, y: [0, 1, 0, 1]},
+            PyTorchTableFactor(
+                tuple(),
+                [fixy(0, 2, 0), fixy(0, 2, 1), fixy(0, 2, 0), fixy(0, 2, 1)],
+                log_space=log_space_expected,
+                batch=True,
+            )
+            if batch_size is None
+            else PyTorchTableFactor(
+                tuple(),
+                [fixy(0, 2, 0), fixy(1, 2, 1), fixy(2, 2, 0), fixy(3, 2, 1)],
+                log_space=log_space_expected,
+                batch=True,
+            )
+            if batch_size == 4
+            else None,
+        ),
     ]
 
     if batch_size is None or batch_size != 0:
@@ -173,7 +248,10 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
 
     if batch_size is not None:
         illegal_conditionings_for_batches = [
-            {x: [1] * (batch_size + 2), y: [1] * (batch_size + 2)},  # does not coincide with batch size
+            {
+                x: [1] * (batch_size + 2),
+                y: [1] * (batch_size + 2),
+            },  # does not coincide with batch size
             # note that using batch_size + 1 would result in [1] coordinates for batch_size == 0,
             # which have length 1 and are therefore *not* considered batch_coordinates, so that would not be illegal!
             # We use batch_size + 2 to get an illegal case for both batch_size == 0 and batch_size == 4.
@@ -183,7 +261,9 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
         for illegal_conditioning_for_batch in illegal_conditionings_for_batches:
             try:
                 factor[illegal_conditioning_for_batch]
-                raise AssertionError(f"Should have thrown a {BatchCoordinatesDoNotAgreeException.__name__}")
+                raise AssertionError(
+                    f"Should have thrown a {BatchCoordinatesDoNotAgreeException.__name__}"
+                )
             except BatchCoordinatesDoNotAgreeException:
                 pass
 
@@ -195,10 +275,11 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
         for illegal_conditioning_for_non_batch in illegal_conditionings_for_non_batches:
             try:
                 factor[illegal_conditioning_for_non_batch]
-                raise AssertionError(f"Should have thrown a {BatchCoordinatesDoNotAgreeException.__name__}")
+                raise AssertionError(
+                    f"Should have thrown a {BatchCoordinatesDoNotAgreeException.__name__}"
+                )
             except BatchCoordinatesDoNotAgreeException:
                 pass
-
 
 
 def run_condition_tests(factor, tests):
@@ -209,7 +290,9 @@ def run_condition_tests(factor, tests):
 
 
 def test_get_item(x, y, log_space, log_space_expected, batch_size):
-    factor = table_factor_from_function_without_batch_row_index((x, y), lambda x, y: float(x == y), log_space, batch_size)
+    factor = table_factor_from_function_without_batch_row_index(
+        (x, y), lambda x, y: float(x == y), log_space, batch_size
+    )
 
     actual = factor[{x: 0, y: 0}]
     print(f"actual: {actual}")
@@ -220,7 +303,12 @@ def test_get_item(x, y, log_space, log_space_expected, batch_size):
 
     if batch:
         # (batch row index + 1) * expected_value_0_0
-        expected = torch.tensor([expected_value_0_0*(batch_row_index + 1) for batch_row_index in range(batch_size)])
+        expected = torch.tensor(
+            [
+                expected_value_0_0 * (batch_row_index + 1)
+                for batch_row_index in range(batch_size)
+            ]
+        )
     else:
         expected = torch.tensor(expected_value_0_0)
 
@@ -230,11 +318,15 @@ def test_get_item(x, y, log_space, log_space_expected, batch_size):
 
 def test_mul(x, y, z, log_space1, log_space2, batch_size):
 
-    f_x_y = lambda x, y: float((x + 1)*(y + 1))
-    f_y_z = lambda y, z: float((y + 1)*(z + 1)*10)
+    f_x_y = lambda x, y: float((x + 1) * (y + 1))
+    f_y_z = lambda y, z: float((y + 1) * (z + 1) * 10)
 
-    factor1 = table_factor_from_function_without_batch_row_index((x, y), f_x_y, log_space1, batch_size)
-    factor2 = table_factor_from_function_without_batch_row_index((y, z), f_y_z, log_space2, batch_size)
+    factor1 = table_factor_from_function_without_batch_row_index(
+        (x, y), f_x_y, log_space1, batch_size
+    )
+    factor2 = table_factor_from_function_without_batch_row_index(
+        (y, z), f_y_z, log_space2, batch_size
+    )
 
     batch = batch_size is not None
 
@@ -252,10 +344,12 @@ def test_mul(x, y, z, log_space1, log_space2, batch_size):
             print(f"z: {z}")
             print(f"f(x,y): {f_x_y(x, y)}")
             print(f"f(y,z): {f_y_z(y, z)}")
-            print(f"(batch_row_index + 1) * f_x_y(x,y) * (batch_row_index + 1) * f_y_z(y,z): {result}")
+            print(
+                f"(batch_row_index + 1) * f_x_y(x,y) * (batch_row_index + 1) * f_y_z(y,z): {result}"
+            )
         else:
             x, y, z = args
-            result = f_x_y(x,y) * f_y_z(y,z)
+            result = f_x_y(x, y) * f_y_z(y, z)
             print()
             print(f"x: {x}")
             print(f"y: {y}")
@@ -266,7 +360,9 @@ def test_mul(x, y, z, log_space1, log_space2, batch_size):
 
         return result
 
-    expected_product = PyTorchTableFactor.from_function((x, y, z), f_x_y_z, log_space_expected, batch_size)
+    expected_product = PyTorchTableFactor.from_function(
+        (x, y, z), f_x_y_z, log_space_expected, batch_size
+    )
 
     product = factor1 * factor2
 
@@ -293,20 +389,27 @@ def test_get_assignment_index(x, y, z):
         selected_variables = variables[:i]
         assignment_index = 0
         for assignment in DiscreteVariable.assignments_product(selected_variables):
-            assert assignment_index == get_assignment_index(assignment, selected_variables)
+            assert assignment_index == get_assignment_index(
+                assignment, selected_variables
+            )
             assignment_index += 1
 
 
 def test_argmax(x, y, z, log_space, batch_size):
     def fixyz(i, x, y, z):
-        return sum(v*10**(j + 1) for j, v in enumerate([i, x, y, z]))
-    factor = \
-        table_factor_from_function_with_batch_row_index(
-            (x, y, z), fixyz, log_space, batch_size)
+        return sum(v * 10 ** (j + 1) for j, v in enumerate([i, x, y, z]))
+
+    factor = table_factor_from_function_with_batch_row_index(
+        (x, y, z), fixyz, log_space, batch_size
+    )
     if batch_size is None:
         expected = {x: 2, y: 1, z: 1}
     else:
-        expected = {x: torch.tensor([2]*batch_size), y: torch.tensor([1]*batch_size), z: torch.tensor([1]*batch_size)}
+        expected = {
+            x: torch.tensor([2] * batch_size),
+            y: torch.tensor([1] * batch_size),
+            z: torch.tensor([1] * batch_size),
+        }
     actual = factor.argmax()
     for v in (x, y, z):
         assert actual[v].eq(expected[v]).all()
@@ -324,28 +427,39 @@ def test_sample(x, y, z, log_space, batch_size):
         probabilities = torch.tensor(potentials, dtype=torch.float) / sum(potentials)
 
         if batch_size is None:
+
             def f(*assignment):
                 return get_assignment_index(assignment, variables)
+
         else:
+
             def f(*assignment):
                 batch_index, assignment = assignment[0], assignment[1:]
                 return get_assignment_index(assignment, variables)
 
-        factor = PyTorchTableFactor.from_function(variables, f, log_space=log_space, batch_size=batch_size).normalize()
+        factor = PyTorchTableFactor.from_function(
+            variables, f, log_space=log_space, batch_size=batch_size
+        ).normalize()
         # TODO: we should be able to sample from neuralpp.unnormalized factors
 
         n = 10000
 
         batch_samples = [factor.sample() for i in range(n)]
         effective_batch_size = batch_size if batch_size is not None else 1
-        samples_per_factor_batch_row = [[tuple(batch_samples[j][i].tolist())
-                                         for j in range(n)] for i in range(effective_batch_size)]
+        samples_per_factor_batch_row = [
+            [tuple(batch_samples[j][i].tolist()) for j in range(n)]
+            for i in range(effective_batch_size)
+        ]
         for batch_row in range(effective_batch_size):
             samples_for_row = samples_per_factor_batch_row[batch_row]
             count = Counter(samples_for_row)
-            counts_in_order_of_assignment_index = [count[a] for a in factor.assignments()]
+            counts_in_order_of_assignment_index = [
+                count[a] for a in factor.assignments()
+            ]
             z = sum(counts_in_order_of_assignment_index)
-            empirical_probabilities = torch.tensor(counts_in_order_of_assignment_index, dtype=torch.float) / z
+            empirical_probabilities = (
+                torch.tensor(counts_in_order_of_assignment_index, dtype=torch.float) / z
+            )
 
             # Let X_i be the random indicator that the batch_row-th assignment is sampled.
             # The mean of X_i is the probability p_i that the batch_row-th assignment is sampled.
@@ -365,23 +479,25 @@ def test_sample(x, y, z, log_space, batch_size):
             else:
                 max_std_err = std_err(probabilities[-1], n)
 
-            number_of_standard_errors = 10  # TODO: should be 3.5; waiting to figuring that out
+            number_of_standard_errors = (
+                10  # TODO: should be 3.5; waiting to figuring that out
+            )
             absolute_tolerance = number_of_standard_errors * max_std_err
-            assert torch.allclose(probabilities, empirical_probabilities, atol=absolute_tolerance), \
-                "Samples deviated from neuralpp.expected distribution; this is possible but should be an extremely rare event."
+            assert torch.allclose(
+                probabilities, empirical_probabilities, atol=absolute_tolerance
+            ), "Samples deviated from neuralpp.expected distribution; this is possible but should be an extremely rare event."
 
 
 def std_err(p, n):
-    return p*(1 - p)/math.sqrt(n)
+    return p * (1 - p) / math.sqrt(n)
 
 
 def test_torch_categorical_sampling():
-
     def bernoulli_std_err(p, n):
         return p * (1 - p) / math.sqrt(n)
 
     masses = [0, 1, 2, 3, 4, 5]
-    probabilities = torch.tensor(masses, dtype=torch.float)/sum(masses)
+    probabilities = torch.tensor(masses, dtype=torch.float) / sum(masses)
     n = 10000
     std_errors = torch.tensor([bernoulli_std_err(p, n) for p in probabilities])
     max_std_error = max(std_errors)
@@ -394,10 +510,14 @@ def test_torch_categorical_sampling():
         return discrete_sample(range(6), lambda i: probabilities[i])
 
     for trials in range(10):
-        run_clt_test(python_sampling_function, probabilities, n, pretty_much_100_percent_range)
+        run_clt_test(
+            python_sampling_function, probabilities, n, pretty_much_100_percent_range
+        )
 
     for trials in range(10):
-        run_clt_test(pytorch_sampling_function, probabilities, n, pretty_much_100_percent_range)
+        run_clt_test(
+            pytorch_sampling_function, probabilities, n, pretty_much_100_percent_range
+        )
 
 
 def run_clt_test(sampling_function, probabilities, n, pretty_much_100_percent_range):
@@ -405,11 +525,17 @@ def run_clt_test(sampling_function, probabilities, n, pretty_much_100_percent_ra
     empirical_probabilities = torch.tensor(count, dtype=torch.float) / n
     print(f"     Real probabilities: {probabilities}")
     print(f"Empirical probabilities: {empirical_probabilities}")
-    violation = torch.where(abs(empirical_probabilities - probabilities) > pretty_much_100_percent_range)[0]
+    violation = torch.where(
+        abs(empirical_probabilities - probabilities) > pretty_much_100_percent_range
+    )[0]
     if len(violation) > 0:
         print(f"Violation at index {violation}")
-        print(f"Empirical is {empirical_probabilities[violation]}, real is {probabilities[violation]}")
-        print(f"Difference is {abs(empirical_probabilities[violation] - probabilities[violation])}")
+        print(
+            f"Empirical is {empirical_probabilities[violation]}, real is {probabilities[violation]}"
+        )
+        print(
+            f"Difference is {abs(empirical_probabilities[violation] - probabilities[violation])}"
+        )
         print(f"100% range is {pretty_much_100_percent_range:.10f}")
         raise Exception("CLT apparently violated")
 

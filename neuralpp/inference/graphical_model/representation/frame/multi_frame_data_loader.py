@@ -1,18 +1,24 @@
-from neuralpp.inference.graphical_model.representation.frame.tuple_data_loader import get_data_loader
-from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
+from neuralpp.inference.graphical_model.representation.frame.tuple_data_loader import (
+    get_data_loader,
+)
+from neuralpp.inference.graphical_model.variable.discrete_variable import (
+    DiscreteVariable,
+)
 
 
 class MultiFrameDataLoader:
-
     def __init__(self, dataset, batch_size=100):
         try:
-            len(dataset[0]) == 2 and \
-            all(all(isinstance(v, DiscreteVariable) for v in dataset[0][i].keys()) for i in {0, 1})
+            len(dataset[0]) == 2 and all(
+                all(isinstance(v, DiscreteVariable) for v in dataset[0][i].keys())
+                for i in {0, 1}
+            )
         except TypeError as e:
             raise Exception(
                 "A dataset must be a sequence of tuples of two dicts. The first dict is the observation, "
                 "mapping variables to their observed values. The second dict is the query label, mapping query "
-                "variables to their queried values") from e
+                "variables to their queried values"
+            ) from e
 
         self.dataset = dataset
         self.batch_size = batch_size
@@ -31,6 +37,8 @@ class MultiFrameDataLoader:
         # The dataset is composed of frames, each defined on the same variables.
         # The usual training is therefore performed for each frame.
         for (observation_frame, query_assignment_frame) in self.dataset:
-            data_loader = get_data_loader(observation_frame, query_assignment_frame, self.batch_size)
+            data_loader = get_data_loader(
+                observation_frame, query_assignment_frame, self.batch_size
+            )
             for (observation_batch, query_assignment_batch) in data_loader:
                 yield observation_batch, query_assignment_batch

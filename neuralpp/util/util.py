@@ -5,6 +5,7 @@ from typing import List
 
 import torch
 
+
 def split(xs, predicate):
     result = {True: [], False: []}
     for x in xs:
@@ -87,12 +88,12 @@ def mean(sequence):
     for value in sequence:
         total += value
         length += 1
-    return total/length
+    return total / length
 
 
 def select_indices_fraction(n, fraction):
     assert 0 < fraction <= 1.0, "select_indices_fraction's fraction must be in (0, 1]"
-    rate = 1.0/fraction
+    rate = 1.0 / fraction
     result = []
     i = 0.0
     while i < n:
@@ -154,15 +155,19 @@ def tile_tensor(tensor, n, dim):
 
 def check_that_exception_is_thrown(thunk, exception_type):
     if isinstance(exception_type, BaseException):
-        raise Exception(f"check_that_exception_is_thrown received an exception instance rather than an exception type: "
-                        f"{exception_type}")
+        raise Exception(
+            f"check_that_exception_is_thrown received an exception instance rather than an exception type: "
+            f"{exception_type}"
+        )
     try:
         thunk()
         raise AssertionError(f"Should have thrown {exception_type}")
     except exception_type:
         pass
     except Exception as e:
-        raise AssertionError(f"Should have thrown {exception_type} but instead threw {e}")
+        raise AssertionError(
+            f"Should have thrown {exception_type} but instead threw {e}"
+        )
 
 
 def matrix_from_function(dims: List, function, prefix_index=None):
@@ -172,7 +177,10 @@ def matrix_from_function(dims: List, function, prefix_index=None):
         return function(*prefix_index)
     else:
         first_dim = dims.pop(0)
-        result = [matrix_from_function(dims, function, prefix_index=prefix_index + [index]) for index in first_dim]
+        result = [
+            matrix_from_function(dims, function, prefix_index=prefix_index + [index])
+            for index in first_dim
+        ]
         dims.insert(0, first_dim)
         return result
 
@@ -203,7 +211,12 @@ def set_default_tensor_type_and_return_device(try_cuda):
     return device
 
 
-def run_noisy_test(noisy_test, prob_spurious_failure=0.1, target_prob_of_unfair_rejection=0.01, print=print):
+def run_noisy_test(
+    noisy_test,
+    prob_spurious_failure=0.1,
+    target_prob_of_unfair_rejection=0.01,
+    print=print,
+):
     """
     A utility for testing routines that may fail, even if correct, with a small probability (a spurious failure).
     Assumes that a success only happens if the test is indeed passing
@@ -257,21 +270,30 @@ def assert_equal_up_to_relative_tolerance(actual, expected, tol, message=None):
     """
     try:
         if tol < 0:
-            raise ValueError("Tolerance must be a non-negative number but was " + str(tol))
-        if not (expected/(1 + tol) <= actual <= expected*(1 + tol)):
+            raise ValueError(
+                "Tolerance must be a non-negative number but was " + str(tol)
+            )
+        if not (expected / (1 + tol) <= actual <= expected * (1 + tol)):
             if message is None:
-                message = f"{actual} not equal to {expected} within relative tolerance {tol}"
+                message = (
+                    f"{actual} not equal to {expected} within relative tolerance {tol}"
+                )
             raise AssertionError(message)
     except Exception as e:
         if isinstance(e, AssertionError):
             raise e
         else:
-            raise ValueError(f"equal_to_up_to_relative_tolerance applies to numeric values only, "
-                             "and tol must be a non-negative number, but got actual = {actual}, expected = {expected}, and tol = {tol}")
+            raise ValueError(
+                f"equal_to_up_to_relative_tolerance applies to numeric values only, "
+                "and tol must be a non-negative number, but got actual = {actual}, expected = {expected}, and tol = {tol}"
+            )
 
 
 def check_path_like(path, caller=None):
     try:
         os.fspath(path)
     except TypeError:
-        raise TypeError(("E" if caller is None else f"{caller} e") + f"xpected path-like object but got {path}")
+        raise TypeError(
+            ("E" if caller is None else f"{caller} e")
+            + f"xpected path-like object but got {path}"
+        )

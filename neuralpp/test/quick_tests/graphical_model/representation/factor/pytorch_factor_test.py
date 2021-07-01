@@ -1,8 +1,9 @@
 import random
 
 import pytest
-
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
+from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
+    PyTorchTableFactor,
+)
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 
 
@@ -13,10 +14,13 @@ def log_space(request):
 
 @pytest.fixture(params=["No batch", "Empty batch", "Batch"])
 def batch_size(request):
-    return \
-    -1 if request.param == "No batch" else \
-    0 if request.param == "Empty batch" else \
-    10
+    return (
+        -1
+        if request.param == "No batch"
+        else 0
+        if request.param == "Empty batch"
+        else 10
+    )
 
 
 @pytest.fixture
@@ -32,7 +36,9 @@ def y():
 @pytest.fixture
 def factor1(x, y, log_space):
     # noinspection PyShadowingNames
-    result = PyTorchTableFactor.from_function([x, y], lambda x, y: 0.9 if x == y else 0.1, log_space=log_space)
+    result = PyTorchTableFactor.from_function(
+        [x, y], lambda x, y: 0.9 if x == y else 0.1, log_space=log_space
+    )
     print(f"factor1: {result}")
     return result
 
@@ -59,8 +65,28 @@ def test_sample(normalized_product_factor):
 
     print("Samples from neuralpp.normalized product:")
     actual = [normalized_product_factor.single_sample() for i in range(20)]
-    expected = [(0, 0), (1, 1), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0), (1, 0), (0, 0), (0, 0), (1, 1), (0, 0), (1, 0),
-                (0, 0), (0, 0), (1, 0), (0, 0), (1, 1), (1, 1), (0, 0)]
+    expected = [
+        (0, 0),
+        (1, 1),
+        (1, 0),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (1, 0),
+        (0, 0),
+        (0, 0),
+        (1, 1),
+        (0, 0),
+        (1, 0),
+        (0, 0),
+        (0, 0),
+        (1, 0),
+        (0, 0),
+        (1, 1),
+        (1, 1),
+        (0, 0),
+    ]
     print(f"Expected: {expected}")
     print(f"Actual  : {actual}")
     assert actual == expected
@@ -71,7 +97,9 @@ def test_normalization(x, y, factor1, factor2):
     print("Product:", product)
     normalized_product = product.normalize()
     print("Normalized product:", normalized_product)
-    expected = PyTorchTableFactor([y, x], [[0.6848, 0.0217, 0.0109], [0.0761, 0.1957, 0.0109]])
+    expected = PyTorchTableFactor(
+        [y, x], [[0.6848, 0.0217, 0.0109], [0.0761, 0.1957, 0.0109]]
+    )
     assert normalized_product == expected
 
 
@@ -103,16 +131,18 @@ def test_sum_out(x, y, factor1, factor2):
     print(f"factor1 ^ [x, y]: {factor1 ^ [x, y]}")
     print(f"factor2 ^ x: {factor2 ^ x}")
     assert PyTorchTableFactor([y], [1.1, 1.1]) == factor1 ^ x
-    assert PyTorchTableFactor([x], [1., 1., .2]) == factor1 ^ y
+    assert PyTorchTableFactor([x], [1.0, 1.0, 0.2]) == factor1 ^ y
     assert PyTorchTableFactor([], 2.2) == factor1 ^ [x, y]
-    assert PyTorchTableFactor([], 1.) == factor2 ^ x
+    assert PyTorchTableFactor([], 1.0) == factor2 ^ x
 
 
 def test_zeros():
     x = IntegerVariable("x", 2)
     y = IntegerVariable("y", 2)
     for log_space in {True, False}:
-        f = PyTorchTableFactor.from_function([x, y], lambda x, y: float(x == y), log_space=log_space)
+        f = PyTorchTableFactor.from_function(
+            [x, y], lambda x, y: float(x == y), log_space=log_space
+        )
         assert close(f({x: 0, y: 0}), 1.0)
         assert close(f({x: 0, y: 1}), 0.0)
         assert close(f({x: 1, y: 0}), 0.0)

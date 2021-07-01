@@ -27,7 +27,9 @@ class TensorMixedRadix:
         representation = torch.zeros((number_of_values, 0), dtype=torch.int)
         for i in range(len(self.strides)):
             i_th_digits = torch.tensor(values // self.strides[i], dtype=torch.int)
-            representation = torch.cat((representation, i_th_digits.reshape(number_of_values, 1)), dim=1)
+            representation = torch.cat(
+                (representation, i_th_digits.reshape(number_of_values, 1)), dim=1
+            )
             values -= i_th_digits * self.strides[i]
         return representation
 
@@ -45,13 +47,16 @@ class TensorMixedRadix:
 
 
 class MaxValueException(Exception):
-
     def __init__(self, violating_value, max_value):
-        super().__init__(f"Received value {violating_value} greater than mixed radix max value {max_value}")
+        super().__init__(
+            f"Received value {violating_value} greater than mixed radix max value {max_value}"
+        )
         self.violating_value = violating_value
         self.max_value = max_value
 
     def __eq__(self, other):
-        return isinstance(other, MaxValueException) and \
-               self.violating_value == other.violating_value and \
-               self.max_value == other.max_value
+        return (
+            isinstance(other, MaxValueException)
+            and self.violating_value == other.violating_value
+            and self.max_value == other.max_value
+        )

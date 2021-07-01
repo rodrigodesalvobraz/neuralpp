@@ -1,16 +1,29 @@
 import torch
-
-from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
-from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import FixedPyTorchTableFactor
-from neuralpp.inference.graphical_model.representation.factor.neural.neural_factor import NeuralFactor
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
-from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import PyTorchLogTable
+from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import (
+    GraphicalModelSGDLearner,
+)
+from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import (
+    FixedPyTorchTableFactor,
+)
+from neuralpp.inference.graphical_model.representation.factor.neural.neural_factor import (
+    NeuralFactor,
+)
+from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
+    PyTorchTableFactor,
+)
+from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
+    PyTorchLogTable,
+)
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
 from neuralpp.inference.neural_net.ConvNet import ConvNet
+from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
+    FromLogToProbabilitiesAdapter,
+)
 from neuralpp.inference.neural_net.MLP import MLP
-from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import FromLogToProbabilitiesAdapter
-from neuralpp.util.data_loader_from_random_data_point_thunk import data_loader_from_random_data_point_generator
+from neuralpp.util.data_loader_from_random_data_point_thunk import (
+    data_loader_from_random_data_point_generator,
+)
 
 # Trains a digit recognizer with the following factor graph:
 #
@@ -57,43 +70,50 @@ from neuralpp.util.data_loader_from_random_data_point_thunk import data_loader_f
 # whether negative examples are present (non-consecutive digits with Constraint = false),
 # whether to use a single digit image per digit,
 # and various possible initializations for the recognizer.
-from neuralpp.util.generic_sgd_learner import default_after_epoch, GenericSGDLearner
-
+from neuralpp.util.generic_sgd_learner import GenericSGDLearner, default_after_epoch
 from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
-
 from neuralpp.util.util import join, set_default_tensor_type_and_return_device
+
 
 # -------------- PARAMETERS
 
 number_of_digits = 10
 chain_length = 10
 use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
-use_conv_net = False # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
-use_positive_examples_only = True  # show only examples of consecutive pairs with the constraint labeled True,
+use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
+use_positive_examples_only = (
+    True  # show only examples of consecutive pairs with the constraint labeled True,
+)
 # as opposed to random pairs with constraint labeled True or False accordingly.
 # Including negative examples makes the problem easier, but less
 # uniform random tables still get stuck in local minima.
 
 show_examples = False  # show some examples of images (sanity check for data structure)
-use_a_single_image_per_digit = True  # to make the problem easier -- removes digit variability from the problem
+use_a_single_image_per_digit = (
+    True  # to make the problem easier -- removes digit variability from the problem
+)
 try_cuda = True
 batch_size = 200
-number_of_batches_between_updates = 1  # batches have two functions: how much to fit into CUDA if using it, and
-                                         # how many examples to observe before updating.
-                                         # Here we are splitting those two functions, leaving batch_size for the
-                                         # number of datapoints processed at a time, but allowing for updating
-                                         # only after a number of batches are processed.
-                                         # This allows for a better estimation of gradients at each update,
-                                         # decreasing the influence of random fluctuations in these estimates for
-                                         # each update, but may make learning much slower
+number_of_batches_between_updates = (
+    1  # batches have two functions: how much to fit into CUDA if using it, and
+)
+# how many examples to observe before updating.
+# Here we are splitting those two functions, leaving batch_size for the
+# number of datapoints processed at a time, but allowing for updating
+# only after a number of batches are processed.
+# This allows for a better estimation of gradients at each update,
+# decreasing the influence of random fluctuations in these estimates for
+# each update, but may make learning much slower
 number_of_batches_per_epoch = 100
 number_of_epochs_between_evaluations = 1
 max_real_mnist_datapoints = None
 number_of_digit_instances_in_evaluation = 1000
-seed = None   # use None for non-deterministic seed
+seed = None  # use None for non-deterministic seed
 evaluation_probability_precision = 2
 
-use_shared_recognizer = True  # the same recognizer is shared by both "image" -> digit pairs
+use_shared_recognizer = (
+    True  # the same recognizer is shared by both "image" -> digit pairs
+)
 # Note that, if given positive examples only, we need a shared recognizer for
 # learning to have a chance of succeeding
 # because otherwise the two recognizers never get to see 9 and 0 respectively.
@@ -102,27 +122,31 @@ use_shared_recognizer = True  # the same recognizer is shared by both "image" ->
 # If use_real_images is True, this selection is ignored and a ConvNet or MLP is used, along with number_of_digits = 10.
 
 recognizer_type = "neural net"  # if use_real_images, a ConvNet or MLP, depending on option use_conv_net
-                            # if use_real_images == False, an MLP with a single input unit, number_of_digits hidden units,
-                            # and number_of_digits output units.
-#recognizer_type = "fixed ground truth table"  # the correct table, with fixed parameters.
-#recognizer_type = "random table"  # an initialization with random potentials; see parameter below for increasing randomness
-#recognizer_type = "noisy left-shift"  # a hard starting point, in which digits map to their left-shift.
-                                   # This will get most consecutive pairs to satisfy the constraint
-                                   # but for (0, 1) and (8,9), even though *every* digit is being misclassified.
-                                   # See parameter below for selecting noise level.
-                                   # Making this noisier helps because it "dillutes" the hard starting point.
+# if use_real_images == False, an MLP with a single input unit, number_of_digits hidden units,
+# and number_of_digits output units.
+# recognizer_type = "fixed ground truth table"  # the correct table, with fixed parameters.
+# recognizer_type = "random table"  # an initialization with random potentials; see parameter below for increasing randomness
+# recognizer_type = "noisy left-shift"  # a hard starting point, in which digits map to their left-shift.
+# This will get most consecutive pairs to satisfy the constraint
+# but for (0, 1) and (8,9), even though *every* digit is being misclassified.
+# See parameter below for selecting noise level.
+# Making this noisier helps because it "dillutes" the hard starting point.
 recognizer_type = "uniform"  # a uniform table -- learning works well
 
 
-left_shift_noise = .1  # probability of noisy left-shift recognizer initialization not left-shifting
-                       # but hitting some other digit uniformly
+left_shift_noise = (
+    0.1  # probability of noisy left-shift recognizer initialization not left-shifting
+)
+# but hitting some other digit uniformly
 
-upper_bound_for_log_potential_in_random_table = 1  # log of potentials are uniformly sampled from
-                                                   # [0, upper_bound_for_log_potential_in_random_table].
-                                                   # The higher the value, the farther from the uniform the table is.
-                                                   # So far we observe that tables farther from the uniform
-                                                   # often get stuck in local minima,
-                                                   # and that uniform tables always converge to the correct answer.
+upper_bound_for_log_potential_in_random_table = (
+    1  # log of potentials are uniformly sampled from
+)
+# [0, upper_bound_for_log_potential_in_random_table].
+# The higher the value, the farther from the uniform the table is.
+# So far we observe that tables farther from the uniform
+# often get stuck in local minima,
+# and that uniform tables always converge to the correct answer.
 
 # -------------- END OF PARAMETERS
 
@@ -130,16 +154,20 @@ upper_bound_for_log_potential_in_random_table = 1  # log of potentials are unifo
 # -------------- PROCESSING PARAMETERS
 if use_real_images:
     if number_of_digits != 10 or recognizer_type != "neural net":
-        print("Using real images; forcing number of digits to 10 and recognizer type to neural net")
+        print(
+            "Using real images; forcing number of digits to 10 and recognizer type to neural net"
+        )
     number_of_digits = 10
     recognizer_type = "neural net"
 
 if recognizer_type == "uniform":
     recognizer_type = "random table"
-    upper_bound_for_log_potential_in_random_table = 0  # A value of 0 samples from [0, 0], providing a uniform table.
+    upper_bound_for_log_potential_in_random_table = (
+        0  # A value of 0 samples from [0, 0], providing a uniform table.
+    )
 
 lr = 1e-3 if use_real_images else 1e-3
-loss_decrease_tol = lr*.0001
+loss_decrease_tol = lr * 0.0001
 
 if batch_size * number_of_batches_between_updates < 500:
     max_epochs_to_go_before_stopping_due_to_loss_decrease = 15
@@ -159,7 +187,11 @@ def main():
     digits = []
     constraints = []
     for i in range(chain_length):
-        images.append(TensorVariable(f"image{i}") if use_real_images else IntegerVariable(f"image{i}", number_of_digits))
+        images.append(
+            TensorVariable(f"image{i}")
+            if use_real_images
+            else IntegerVariable(f"image{i}", number_of_digits)
+        )
         digits.append(IntegerVariable(f"digit{i}", number_of_digits))
         if i != chain_length - 1:
             constraints.append(IntegerVariable(f"constraint{i}", 2))
@@ -170,11 +202,20 @@ def main():
         global images_by_digits_by_phase  # so they are easily accessible in later functions
         global next_image_index_by_digit
         images_by_digits_by_phase = read_mnist(max_real_mnist_datapoints)
-        number_of_training_images = sum([len(images_by_digits_by_phase["train"][d]) for d in range(number_of_digits)])
+        number_of_training_images = sum(
+            [
+                len(images_by_digits_by_phase["train"][d])
+                for d in range(number_of_digits)
+            ]
+        )
         print(f"Loaded {number_of_training_images:,} training images")
         next_image_index_by_digit = {d: 0 for d in range(number_of_digits)}
         if show_examples:
-            images = [images_by_digits_by_phase["train"][d][i] for i in range(5) for d in range(number_of_digits)]
+            images = [
+                images_by_digits_by_phase["train"][d][i]
+                for i in range(5)
+                for d in range(number_of_digits)
+            ]
             labels = [d for i in range(5) for d in range(number_of_digits)]
             show_images_and_labels(5, 10, images, labels)
         from_digit_batch_to_image_batch = get_next_real_image_batch_for_digit_batch
@@ -205,13 +246,15 @@ def main():
 
     if recognizer_type != "fixed ground truth table":
         print("Learning...")
-        learner = \
-            GraphicalModelSGDLearner(
-                model, train_data_loader, device=device, lr=lr,
-                loss_decrease_tol=loss_decrease_tol,
-                max_epochs_to_go_before_stopping_due_to_loss_decrease=
-                    max_epochs_to_go_before_stopping_due_to_loss_decrease,
-                after_epoch=after_epoch)
+        learner = GraphicalModelSGDLearner(
+            model,
+            train_data_loader,
+            device=device,
+            lr=lr,
+            loss_decrease_tol=loss_decrease_tol,
+            max_epochs_to_go_before_stopping_due_to_loss_decrease=max_epochs_to_go_before_stopping_due_to_loss_decrease,
+            after_epoch=after_epoch,
+        )
         learner.learn()
 
     print("\nFinal model:")
@@ -221,10 +264,15 @@ def main():
 
 
 def make_constraint_factors():
-    constraint_predicate = lambda di, di_plus_one, constraint: int(di_plus_one == di + 1) == constraint
-    constraint_factors = \
-        [FixedPyTorchTableFactor.from_predicate((digits[i], digits[i + 1], constraints[i]), constraint_predicate)
-         for i in range(chain_length - 1)]
+    constraint_predicate = (
+        lambda di, di_plus_one, constraint: int(di_plus_one == di + 1) == constraint
+    )
+    constraint_factors = [
+        FixedPyTorchTableFactor.from_predicate(
+            (digits[i], digits[i + 1], constraints[i]), constraint_predicate
+        )
+        for i in range(chain_length - 1)
+    ]
     return constraint_factors
 
 
@@ -236,9 +284,11 @@ def make_recognizer_factors():
                 neural_net_maker = lambda: FromLogToProbabilitiesAdapter(ConvNet())
             else:
                 print("Using MLP for MNIST")
+
                 def neural_net_maker():
-                    net = MLP(28*28, number_of_digits, number_of_digits)
+                    net = MLP(28 * 28, number_of_digits, number_of_digits)
                     return net
+
         else:
             neural_net_maker = lambda: MLP(1, number_of_digits, number_of_digits)
 
@@ -248,15 +298,17 @@ def make_recognizer_factors():
             return neural_net
 
         def make_recognizer_factor(i, neural_net):
-            return NeuralFactor(neural_net, input_variables=[images[i]], output_variable=digits[i])
+            return NeuralFactor(
+                neural_net, input_variables=[images[i]], output_variable=digits[i]
+            )
 
     elif recognizer_type == "fixed ground truth table":
         predicate = lambda i, d: d == i
 
         def make_inner_function():
             return PyTorchTableFactor.from_predicate(
-                [images[0], digits[0]], predicate, log_space=True)\
-                .table
+                [images[0], digits[0]], predicate, log_space=True
+            ).table
 
         def make_recognizer_factor(i, image_and_digit_table):
             return PyTorchTableFactor([images[i], digits[i]], image_and_digit_table)
@@ -265,23 +317,32 @@ def make_recognizer_factors():
         probability_of_left_shift = 1 - left_shift_noise
         number_of_non_left_shift = number_of_digits - 1
         probability_of_each_non_left_shift = left_shift_noise / number_of_non_left_shift
-        left_shift_pairs = {(i, (i - 1) % number_of_digits) for i in range(number_of_digits)}
+        left_shift_pairs = {
+            (i, (i - 1) % number_of_digits) for i in range(number_of_digits)
+        }
 
         def potential(i, d):
-            return probability_of_left_shift if (i, d) in left_shift_pairs else probability_of_each_non_left_shift
+            return (
+                probability_of_left_shift
+                if (i, d) in left_shift_pairs
+                else probability_of_each_non_left_shift
+            )
 
         def make_inner_function():
             return PyTorchTableFactor.from_function(
-                [images[0], digits[0]], potential, log_space=True)\
-                .table
+                [images[0], digits[0]], potential, log_space=True
+            ).table
 
         def make_recognizer_factor(i, image_and_digit_table):
             return PyTorchTableFactor([images[i], digits[i]], image_and_digit_table)
 
     elif recognizer_type == "random table":
+
         def make_random_parameters():
-            return (torch.rand(number_of_digits, number_of_digits)
-                    * upper_bound_for_log_potential_in_random_table).requires_grad_(True)
+            return (
+                torch.rand(number_of_digits, number_of_digits)
+                * upper_bound_for_log_potential_in_random_table
+            ).requires_grad_(True)
 
         def make_inner_function():
             return PyTorchLogTable(make_random_parameters())
@@ -294,21 +355,30 @@ def make_recognizer_factors():
 
     inner_functions = []
     for i in range(chain_length):
-        inner_function = inner_functions[0] if i != 0 and use_shared_recognizer else make_inner_function()
+        inner_function = (
+            inner_functions[0]
+            if i != 0 and use_shared_recognizer
+            else make_inner_function()
+        )
         inner_functions.append(inner_function)
 
-    recognizer_factors = [make_recognizer_factor(i, inner_function) for i, inner_function in enumerate(inner_functions)]
+    recognizer_factors = [
+        make_recognizer_factor(i, inner_function)
+        for i, inner_function in enumerate(inner_functions)
+    ]
 
     return recognizer_factors
 
 
 def make_data_loader():
-    batch_generator = \
-        random_positive_examples_batch_generator() if use_positive_examples_only \
-            else random_positive_or_negative_examples_batch_generator()
-    train_data_loader = \
-        data_loader_from_random_data_point_generator(
-            number_of_batches_per_epoch, batch_generator, print=None)
+    batch_generator = (
+        random_positive_examples_batch_generator()
+        if use_positive_examples_only
+        else random_positive_or_negative_examples_batch_generator()
+    )
+    train_data_loader = data_loader_from_random_data_point_generator(
+        number_of_batches_per_epoch, batch_generator, print=None
+    )
     return train_data_loader
 
 
@@ -325,7 +395,9 @@ def get_next_real_image_batch_for_digit_batch(digit_batch):
             pass  # leave the index at the first position forever
         else:
             next_image_index_by_digit[d] += 1
-            if next_image_index_by_digit[d] == len(images_by_digits_by_phase["train"][d]):
+            if next_image_index_by_digit[d] == len(
+                images_by_digits_by_phase["train"][d]
+            ):
                 next_image_index_by_digit[d] = 0
         images_list.append(image)
     images_batch = torch.stack(images_list).to(digit_batch.device)
@@ -339,14 +411,21 @@ def random_positive_or_negative_examples_batch_generator():
         from_digit_batch_to_image_batch = get_next_fake_image_batch_for_digit_batch
 
     def generator():
-        d_values = [torch.randint(number_of_digits, (batch_size,)) for i in range(chain_length)]
-        i_values = [from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)]
-        constraint_values = [(d_values[i + 1] == d_values[i] + 1).long() for i in range(chain_length - 1)]
+        d_values = [
+            torch.randint(number_of_digits, (batch_size,)) for i in range(chain_length)
+        ]
+        i_values = [
+            from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)
+        ]
+        constraint_values = [
+            (d_values[i + 1] == d_values[i] + 1).long() for i in range(chain_length - 1)
+        ]
         random_chain_result = (
             {images[i]: i_values[i] for i in range(chain_length)},
-            {constraints[i]: constraint_values[i] for i in range(chain_length - 1)}
+            {constraints[i]: constraint_values[i] for i in range(chain_length - 1)},
         )
         return random_chain_result
+
     return generator
 
 
@@ -362,16 +441,26 @@ def random_positive_examples_batch_generator():
         number_of_transitions_in_the_chain = chain_length - 1
         max_value_of_first_digit = last_digit - number_of_transitions_in_the_chain
         exclusive_upper_bound_for_first_digit = max_value_of_first_digit + 1
-        d_values.append(torch.randint(exclusive_upper_bound_for_first_digit, (batch_size,)))
+        d_values.append(
+            torch.randint(exclusive_upper_bound_for_first_digit, (batch_size,))
+        )
         for i in range(1, chain_length):
             d_values.append(d_values[i - 1] + 1)
-        i_values = [from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)]
-        constraint_values = [(d_values[i + 1] == d_values[i] + 1).long() for i in range(chain_length - 1)]
+        i_values = [
+            from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)
+        ]
+        constraint_values = [
+            (d_values[i + 1] == d_values[i] + 1).long() for i in range(chain_length - 1)
+        ]
         random_chain_result = (
             {images[i]: i_values[i] for i in range(chain_length)},
-            {constraints[i]: torch.ones(batch_size).long() for i in range(chain_length - 1)}
+            {
+                constraints[i]: torch.ones(batch_size).long()
+                for i in range(chain_length - 1)
+            },
         )
         return random_chain_result
+
     return generator
 
 
@@ -383,10 +472,15 @@ def after_epoch(learner):
 
 
 def print_digit_evaluation(learner=None):
-    index_of_first_recognizer_factor_in_model = chain_length - 1 # number of constraint factors
+    index_of_first_recognizer_factor_in_model = (
+        chain_length - 1
+    )  # number of constraint factors
     recognizer_factor = lambda i: model[i + index_of_first_recognizer_factor_in_model]
     from_i_to_d = [
-        lambda image: recognizer_factor(i).condition({images[i]: image}).normalize().table_factor
+        lambda image: recognizer_factor(i)
+        .condition({images[i]: image})
+        .normalize()
+        .table_factor
         for i in range(chain_length)
     ]
     with torch.no_grad():
@@ -405,10 +499,14 @@ def print_posterior_of(predictor, learner=None):
             image_batch = image_batch.to(learner.device)
         posterior_probability = predictor(image_batch)
         if posterior_probability.batch:
-            posterior_probability_tensor = posterior_probability.table.potentials_tensor().sum(0)
+            posterior_probability_tensor = (
+                posterior_probability.table.potentials_tensor().sum(0)
+            )
             posterior_probability_tensor /= posterior_probability_tensor.sum()
         else:
-            posterior_probability_tensor = posterior_probability.table.potentials_tensor()
+            posterior_probability_tensor = (
+                posterior_probability.table.potentials_tensor()
+            )
         print_posterior_tensor(digit, posterior_probability_tensor)
 
 
@@ -418,7 +516,7 @@ def print_posterior_tensor(digit, output_probability_tensor):
 
 
 def make_digit_header(digit):
-    image_description = 'image' if use_real_images else 'fake "image"'
+    image_description = "image" if use_real_images else 'fake "image"'
     digit_header = f"Prediction for {image_description} {digit}: "
     return digit_header
 
@@ -429,7 +527,7 @@ def digit_distribution_tensor_str(tensor):
 
 def potential_str(potential):
     if potential < 1e-2:
-        return " "*(2 + evaluation_probability_precision)
+        return " " * (2 + evaluation_probability_precision)
     else:
         return f"{potential:0.{evaluation_probability_precision}f}"
 
@@ -463,7 +561,9 @@ def uniform_pre_training(recognizer):
 
         def loss_function(self, batch):
             probabilities = self.model(batch)
-            uniform_probabilities = torch.tensor([[1.0 / number_of_digits] * number_of_digits] * len(batch))
+            uniform_probabilities = torch.tensor(
+                [[1.0 / number_of_digits] * number_of_digits] * len(batch)
+            )
             loss = torch.square(uniform_probabilities - probabilities).sum()
             return loss
 
@@ -471,9 +571,9 @@ def uniform_pre_training(recognizer):
     print("Model:")
     print(recognizer)
     model = recognizer
-    data_loader = data_loader_from_random_data_point_generator(number_of_batches_per_epoch,
-                                                               random_batch_generator(),
-                                                               print=None)
+    data_loader = data_loader_from_random_data_point_generator(
+        number_of_batches_per_epoch, random_batch_generator(), print=None
+    )
     UniformTraining(model, data_loader).learn()
     print("Uniform pre-training completed")
     print("Model:")

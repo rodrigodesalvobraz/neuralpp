@@ -1,4 +1,6 @@
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
+from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
+    PyTorchTableFactor,
+)
 
 
 class FixedPyTorchTableFactor(PyTorchTableFactor):
@@ -10,16 +12,25 @@ class FixedPyTorchTableFactor(PyTorchTableFactor):
 
     # Overridden construction
 
-    def __init__(self, variables, array_or_table_of_potentials, log_space=True, batch=False):
-        super().__init__(variables, array_or_table_of_potentials, log_space=log_space, batch=batch)
+    def __init__(
+        self, variables, array_or_table_of_potentials, log_space=True, batch=False
+    ):
+        super().__init__(
+            variables, array_or_table_of_potentials, log_space=log_space, batch=batch
+        )
 
     @staticmethod
     def from_function(variables, function, log_space=True, batch_size=None):
-        return \
-            PyTorchTableFactor.from_function_and_constructor(
-                variables, function, FixedPyTorchTableFactor,
-                log_space=log_space, batch_size=batch_size)
+        return PyTorchTableFactor.from_function_and_constructor(
+            variables,
+            function,
+            FixedPyTorchTableFactor,
+            log_space=log_space,
+            batch_size=batch_size,
+        )
 
     @staticmethod
     def from_predicate(variables, predicate, log_space=True, batch_size=None):
-        return FixedPyTorchTableFactor.from_function(variables, lambda *args: float(predicate(*args)), log_space, batch_size)
+        return FixedPyTorchTableFactor.from_function(
+            variables, lambda *args: float(predicate(*args)), log_space, batch_size
+        )

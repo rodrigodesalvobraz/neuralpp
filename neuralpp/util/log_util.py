@@ -1,10 +1,10 @@
 import math
 
 import torch
-
 from neuralpp.util.timer import Timer
 
-LOG_OF_NEAR_ZERO = -35.
+
+LOG_OF_NEAR_ZERO = -35.0
 NEAR_ZERO = 1e-15
 
 
@@ -20,7 +20,9 @@ def log_of_nested_list_without_inf_non_differentiable(o):
             else:
                 return math.log(o)
         except Exception as e:
-            print(f"Error in log_of_nested_list_without_inf_non_differentiable for argument {o}: {e}")
+            print(
+                f"Error in log_of_nested_list_without_inf_non_differentiable for argument {o}: {e}"
+            )
             raise e
 
 
@@ -65,7 +67,7 @@ def fix_zeros_in_non_dimensional_tensor(tensor):
 
 
 def fix_zeros_in_non_zero_dimensional_tensor(tensor):
-    whether_it_is_zero = (tensor == 0)
+    whether_it_is_zero = tensor == 0
     indices_of_zeros = whether_it_is_zero.nonzero(as_tuple=True)
     if len(indices_of_zeros) != 0:
         tensor_clone = tensor.clone()
@@ -73,6 +75,7 @@ def fix_zeros_in_non_zero_dimensional_tensor(tensor):
         return tensor_clone
     else:
         return tensor
+
 
 # def sum_in_log_space(x, y):
 #     """

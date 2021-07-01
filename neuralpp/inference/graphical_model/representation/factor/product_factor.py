@@ -2,11 +2,10 @@ import math
 
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.util.group import Group
-from neuralpp.util.util import split, join
+from neuralpp.util.util import join, split
 
 
 class ProductFactor(Factor):
-
     def __init__(self, factors):
         super().__init__(set.union(*(set(f.variables) for f in factors)))
         self._factors = factors
@@ -32,19 +31,24 @@ class ProductFactor(Factor):
         return ProductFactor(self._factors + additional)
 
     def sum_out_variable(self, variable):
-        factors_with_variable, factors_without_variable = split(self._factors, lambda f: variable in f)
-        result_of_summing_out_variable_from_product_of_factors_with_variable = \
+        factors_with_variable, factors_without_variable = split(
+            self._factors, lambda f: variable in f
+        )
+        result_of_summing_out_variable_from_product_of_factors_with_variable = (
             Group.product(factors_with_variable) ^ variable
+        )
         if factors_without_variable:
-            return \
-                ProductFactor(
-                    factors_without_variable
-                    + [result_of_summing_out_variable_from_product_of_factors_with_variable])
+            return ProductFactor(
+                factors_without_variable
+                + [result_of_summing_out_variable_from_product_of_factors_with_variable]
+            )
         else:
             # at this point, result_of_summing_out_variable_from_product_of_factors_with_variable
             # may be a ProductFactor or an atomic factor.
             # Here we ensure it is a ProductFactor
-            return ProductFactor.make(result_of_summing_out_variable_from_product_of_factors_with_variable)
+            return ProductFactor.make(
+                result_of_summing_out_variable_from_product_of_factors_with_variable
+            )
 
     @staticmethod
     def make(factor):

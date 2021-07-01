@@ -1,9 +1,8 @@
 import torch
+from neuralpp.util import util
+from neuralpp.util.util import join, pairwise, vararg_or_array
 from torch import nn
 from torch.nn import Module
-
-from neuralpp.util import util
-from neuralpp.util.util import pairwise, vararg_or_array, join
 
 
 class MLP(Module):
@@ -17,9 +16,15 @@ class MLP(Module):
         super(MLP, self).__init__()
         self.layer_sizes = vararg_or_array(all_layer_sizes)
         assert len(self.layer_sizes) > 0
-        assert all(isinstance(layer_size, int) for layer_size in self.layer_sizes), f"Layer sizes must be ints but got a layer size value equal to {util.find(self.layer_sizes, lambda e: not isinstance(e, int))}"
-        assert all(layer_size > 0 for layer_size in self.layer_sizes), f"MLP layers must have sizes greater than zero, but were {all_layer_sizes}"
-        self.linear_transformations = nn.ModuleList([torch.nn.Linear(i, o) for i, o in pairwise(self.layer_sizes)])
+        assert all(
+            isinstance(layer_size, int) for layer_size in self.layer_sizes
+        ), f"Layer sizes must be ints but got a layer size value equal to {util.find(self.layer_sizes, lambda e: not isinstance(e, int))}"
+        assert all(
+            layer_size > 0 for layer_size in self.layer_sizes
+        ), f"MLP layers must have sizes greater than zero, but were {all_layer_sizes}"
+        self.linear_transformations = nn.ModuleList(
+            [torch.nn.Linear(i, o) for i, o in pairwise(self.layer_sizes)]
+        )
         self.last_layer_index = len(self.linear_transformations) - 1
 
     def forward(self, x):
@@ -56,7 +61,7 @@ class MLP(Module):
             # to ensure sigmoid produces values from near 0 to near 1,
             # divided by number of inputs so it does not saturate when there are many inputs
             n_inputs = layer.weight.shape[1] + 1
-            uniform_range = 5.0/n_inputs
+            uniform_range = 5.0 / n_inputs
             torch.nn.init.uniform_(layer.weight, -uniform_range, uniform_range)
             torch.nn.init.uniform_(layer.bias, -uniform_range, uniform_range)
 

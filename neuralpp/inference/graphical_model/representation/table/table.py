@@ -1,5 +1,4 @@
 class Table:
-
     def __init__(self):
         self._batch = None
         self._non_batch_shape = None
