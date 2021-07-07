@@ -2,6 +2,7 @@ import torch
 from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import (
     GraphicalModelSGDLearner,
 )
+from neuralpp.inference.graphical_model.learn.learning_problem_solver import solve_learning_problem, LearningProblem
 from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import (
     FixedPyTorchTableFactor,
 )
@@ -178,41 +179,7 @@ else:
 # -------------- END OF PROCESSING PARAMETERS
 
 
-class ProblemSolver:
-
-    def __init__(self, problem):
-        # Load data, if needed, before setting default device to cuda
-        train_data_loader = problem.make_data_loader()
-
-        device = set_default_tensor_type_and_return_device(try_cuda)
-
-        # Creating model after attempting to set default tensor type to cuda so it sits there
-        problem.setup_model()
-
-        print("\nInitial evaluation:")
-        problem.print_digit_evaluation()
-
-        if problem.learning_is_needed():
-            print("Learning...")
-            learner = GraphicalModelSGDLearner(
-                problem.model,
-                train_data_loader,
-                device=device,
-                lr=lr,
-                loss_decrease_tol=loss_decrease_tol,
-                max_epochs_to_go_before_stopping_due_to_loss_decrease=max_epochs_to_go_before_stopping_due_to_loss_decrease,
-                after_epoch=problem.after_epoch,
-            )
-            learner.learn()
-
-        print("\nFinal model:")
-        print(join(problem.model, "\n"))
-
-        print("\nFinal evaluation:")
-        problem.print_digit_evaluation()
-
-
-class MNISTChains:
+class MNISTChainsProblem(LearningProblem):
 
     def learning_is_needed(self):
         return recognizer_type != "fixed ground truth table"
@@ -475,9 +442,9 @@ class MNISTChains:
         print()
         default_after_epoch(learner)
         if learner.epoch % number_of_epochs_between_evaluations == 0:
-            self.print_digit_evaluation(learner)
+            self.print_evaluation(learner)
 
-    def print_digit_evaluation(self, learner=None):
+    def print_evaluation(self, learner=None):
         index_of_first_recognizer_factor_in_model = (
             chain_length - 1
         )  # number of constraint factors
@@ -572,4 +539,12 @@ class MNISTChains:
 
 
 set_seed(seed)
-ProblemSolver(MNISTChains())
+
+solve_learning_problem(
+    MNISTChainsProblem(),
+    try_cuda,
+    lr,
+    loss_decrease_tol,
+    max_epochs_to_go_before_stopping_due_to_loss_decrease
+)
+
