@@ -1,8 +1,7 @@
 import torch
-from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import (
-    GraphicalModelSGDLearner,
-)
+
 from neuralpp.inference.graphical_model.learn.learning_problem_solver import solve_learning_problem, LearningProblem
+from neuralpp.inference.graphical_model.learn.uniform_training import UniformTraining
 from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import (
     FixedPyTorchTableFactor,
 )
@@ -18,17 +17,16 @@ from neuralpp.inference.graphical_model.representation.table.pytorch_log_table i
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
 from neuralpp.inference.neural_net.ConvNet import ConvNet
+from neuralpp.inference.neural_net.MLP import MLP
 from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
     FromLogToProbabilitiesAdapter,
 )
-from neuralpp.inference.neural_net.MLP import MLP
 from neuralpp.util.data_loader_from_random_data_point_thunk import (
     data_loader_from_random_data_point_generator,
 )
-
-from neuralpp.util.generic_sgd_learner import GenericSGDLearner, default_after_epoch
+from neuralpp.util.generic_sgd_learner import default_after_epoch
 from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
-from neuralpp.util.util import join, set_default_tensor_type_and_return_device, set_seed
+from neuralpp.util.util import join, set_seed
 
 # Trains a digit recognizer with the following factor graph:
 #
@@ -153,21 +151,6 @@ upper_bound_for_log_potential_in_random_table = (
 # -------------- END OF PARAMETERS
 
 
-# -------------- PROCESSING PARAMETERS
-if use_real_images:
-    if number_of_digits != 10 or recognizer_type != "neural net":
-        print(
-            "Using real images; forcing number of digits to 10 and recognizer type to neural net"
-        )
-    number_of_digits = 10
-    recognizer_type = "neural net"
-
-if recognizer_type == "uniform":
-    recognizer_type = "random table"
-    upper_bound_for_log_potential_in_random_table = (
-        0  # A value of 0 samples from [0, 0], providing a uniform table.
-    )
-
 lr = 1e-3 if use_real_images else 1e-3
 loss_decrease_tol = lr * 0.0001
 
@@ -176,30 +159,99 @@ if batch_size * number_of_batches_between_updates < 500:
 else:
     max_epochs_to_go_before_stopping_due_to_loss_decrease = 1
 
-# -------------- END OF PROCESSING PARAMETERS
-
 
 class MNISTChainsProblem(LearningProblem):
 
+    def __init__(
+            self,
+            number_of_digits,
+            chain_length,
+            use_real_images,
+            use_conv_net,
+            use_positive_examples_only,
+
+            show_examples,
+            use_a_single_image_per_digit,
+            batch_size,
+            number_of_batches_between_updates,
+            number_of_batches_per_epoch,
+            number_of_epochs_between_evaluations,
+            max_real_mnist_datapoints,
+            number_of_digit_instances_in_evaluation,
+            seed,
+            evaluation_probability_precision,
+
+            use_shared_recognizer,
+            recognizer_type,
+            left_shift_noise,
+            upper_bound_for_log_potential_in_random_table,
+    ):
+        self.number_of_digits = number_of_digits
+        self.chain_length = chain_length
+        self.use_real_images = use_real_images
+        self.use_conv_net = use_conv_net
+        self.use_positive_examples_only = use_positive_examples_only
+
+        self.show_examples = show_examples
+        self.use_a_single_image_per_digit = use_a_single_image_per_digit
+        self.batch_size = batch_size
+        self.number_of_batches_between_updates = number_of_batches_between_updates
+        self.number_of_batches_per_epoch = number_of_batches_per_epoch
+        self.number_of_epochs_between_evaluations = number_of_epochs_between_evaluations
+        self.max_real_mnist_datapoints = max_real_mnist_datapoints
+        self.number_of_digit_instances_in_evaluation = number_of_digit_instances_in_evaluation
+        self.seed = seed
+        self.evaluation_probability_precision = evaluation_probability_precision
+
+        self.use_shared_recognizer = use_shared_recognizer
+        self.recognizer_type = recognizer_type
+        self.left_shift_noise = left_shift_noise
+        self.upper_bound_for_log_potential_in_random_table = upper_bound_for_log_potential_in_random_table
+
+        # to be defined later:
+        self.images_by_digits_by_phase = None
+        self.from_digit_batch_to_image_batch = None
+        self.next_image_index_by_digit = None
+        self.constraint_factors = None
+        self.model = None
+        self.images = None
+        self.digits = None
+        self.constraints = None
+
+        # Adjustments:
+        if self.use_real_images:
+            if self.number_of_digits != 10 or self.recognizer_type != "neural net":
+                print(
+                    "Using real images; forcing number of digits to 10 and recognizer type to neural net"
+                )
+            self.number_of_digits = 10
+            self.recognizer_type = "neural net"
+
+        if self.recognizer_type == "uniform":
+            self.recognizer_type = "random table"
+            self.upper_bound_for_log_potential_in_random_table = (
+                0  # A value of 0 samples from [0, 0], providing a uniform table.
+            )
+
     def learning_is_needed(self):
-        return recognizer_type != "fixed ground truth table"
+        return self.recognizer_type != "fixed ground truth table"
 
     def setup_images(self):
-        if use_real_images:
+        if self.use_real_images:
             self.setup_real_images()
         else:
             self.setup_fake_images()
 
     def setup_real_images(self):
-        self.images_by_digits_by_phase = read_mnist(max_real_mnist_datapoints)
+        self.images_by_digits_by_phase = read_mnist(self.max_real_mnist_datapoints)
         number_of_training_images = sum(
             [
                 len(self.images_by_digits_by_phase["train"][d])
-                for d in range(number_of_digits)
+                for d in range(self.number_of_digits)
             ]
         )
         print(f"Loaded {number_of_training_images:,} training images")
-        self.next_image_index_by_digit = {d: 0 for d in range(number_of_digits)}
+        self.next_image_index_by_digit = {d: 0 for d in range(self.number_of_digits)}
         self.show_digit_examples()
         self.from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
 
@@ -222,24 +274,24 @@ class MNISTChainsProblem(LearningProblem):
         self.images = []
         self.digits = []
         self.constraints = []
-        for i in range(chain_length):
+        for i in range(self.chain_length):
             self.images.append(
                 TensorVariable(f"image{i}")
-                if use_real_images
-                else IntegerVariable(f"image{i}", number_of_digits)
+                if self.use_real_images
+                else IntegerVariable(f"image{i}", self.number_of_digits)
             )
-            self.digits.append(IntegerVariable(f"digit{i}", number_of_digits))
-            if i != chain_length - 1:
+            self.digits.append(IntegerVariable(f"digit{i}", self.number_of_digits))
+            if i != self.chain_length - 1:
                 self.constraints.append(IntegerVariable(f"constraint{i}", 2))
 
     def show_digit_examples(self):
-        if show_examples:
+        if self.show_examples:
             images = [
                 self.images_by_digits_by_phase["train"][d][i]
                 for i in range(5)
-                for d in range(number_of_digits)
+                for d in range(self.number_of_digits)
             ]
-            labels = [d for i in range(5) for d in range(number_of_digits)]
+            labels = [d for i in range(5) for d in range(self.number_of_digits)]
             show_images_and_labels(5, 10, images, labels)
 
     def make_constraint_factors(self):
@@ -250,26 +302,25 @@ class MNISTChainsProblem(LearningProblem):
             FixedPyTorchTableFactor.from_predicate(
                 (self.digits[i], self.digits[i + 1], self.constraints[i]), constraint_predicate
             )
-            for i in range(chain_length - 1)
+            for i in range(self.chain_length - 1)
         ]
         return constraint_factors
 
-
     def make_recognizer_factors(self):
-        if recognizer_type == "neural net":
-            if use_real_images:
-                if use_conv_net:
+        if self.recognizer_type == "neural net":
+            if self.use_real_images:
+                if self.use_conv_net:
                     print("Using ConvNet")
                     neural_net_maker = lambda: FromLogToProbabilitiesAdapter(ConvNet())
                 else:
                     print("Using MLP for MNIST")
 
                     def neural_net_maker():
-                        net = MLP(28 * 28, number_of_digits, number_of_digits)
+                        net = MLP(28 * 28, self.number_of_digits, self.number_of_digits)
                         return net
 
             else:
-                neural_net_maker = lambda: MLP(1, number_of_digits, number_of_digits)
+                neural_net_maker = lambda: MLP(1, self.number_of_digits, self.number_of_digits)
 
             def make_inner_function():
                 neural_net = neural_net_maker()
@@ -281,7 +332,7 @@ class MNISTChainsProblem(LearningProblem):
                     neural_net, input_variables=[self.images[i]], output_variable=self.digits[i]
                 )
 
-        elif recognizer_type == "fixed ground truth table":
+        elif self.recognizer_type == "fixed ground truth table":
             predicate = lambda i, d: d == i
 
             def make_inner_function():
@@ -292,12 +343,12 @@ class MNISTChainsProblem(LearningProblem):
             def make_recognizer_factor(i, image_and_digit_table):
                 return PyTorchTableFactor([self.images[i], self.digits[i]], image_and_digit_table)
 
-        elif recognizer_type == "noisy left-shift":
-            probability_of_left_shift = 1 - left_shift_noise
-            number_of_non_left_shift = number_of_digits - 1
-            probability_of_each_non_left_shift = left_shift_noise / number_of_non_left_shift
+        elif self.recognizer_type == "noisy left-shift":
+            probability_of_left_shift = 1 - self.left_shift_noise
+            number_of_non_left_shift = self.number_of_digits - 1
+            probability_of_each_non_left_shift = self.left_shift_noise / number_of_non_left_shift
             left_shift_pairs = {
-                (i, (i - 1) % number_of_digits) for i in range(number_of_digits)
+                (i, (i - 1) % self.number_of_digits) for i in range(self.number_of_digits)
             }
 
             def potential(i, d):
@@ -315,12 +366,12 @@ class MNISTChainsProblem(LearningProblem):
             def make_recognizer_factor(i, image_and_digit_table):
                 return PyTorchTableFactor([self.images[i], self.digits[i]], image_and_digit_table)
 
-        elif recognizer_type == "random table":
+        elif self.recognizer_type == "random table":
 
             def make_random_parameters():
                 return (
-                    torch.rand(number_of_digits, number_of_digits)
-                    * upper_bound_for_log_potential_in_random_table
+                    torch.rand(self.number_of_digits, self.number_of_digits)
+                    * self.upper_bound_for_log_potential_in_random_table
                 ).requires_grad_(True)
 
             def make_inner_function():
@@ -330,13 +381,13 @@ class MNISTChainsProblem(LearningProblem):
                 return PyTorchTableFactor([self.images[i], self.digits[i]], image_and_digit_table)
 
         else:
-            raise Exception(f"Unknown recognizer type: {recognizer_type}")
+            raise Exception(f"Unknown recognizer type: {self.recognizer_type}")
 
         inner_functions = []
-        for i in range(chain_length):
+        for i in range(self.chain_length):
             inner_function = (
                 inner_functions[0]
-                if i != 0 and use_shared_recognizer
+                if i != 0 and self.use_shared_recognizer
                 else make_inner_function()
             )
             inner_functions.append(inner_function)
@@ -352,11 +403,11 @@ class MNISTChainsProblem(LearningProblem):
         self.setup_images()
         batch_generator = (
             self.random_positive_examples_batch_generator()
-            if use_positive_examples_only
+            if self.use_positive_examples_only
             else self.random_positive_or_negative_examples_batch_generator()
         )
         train_data_loader = data_loader_from_random_data_point_generator(
-            number_of_batches_per_epoch, batch_generator, print=None
+            self.number_of_batches_per_epoch, batch_generator, print=None
         )
         return train_data_loader
 
@@ -368,7 +419,7 @@ class MNISTChainsProblem(LearningProblem):
         for d in digit_batch:
             d = d.item()
             image = self.images_by_digits_by_phase["train"][d][self.next_image_index_by_digit[d]]
-            if use_a_single_image_per_digit:
+            if self.use_a_single_image_per_digit:
                 pass  # leave the index at the first position forever
             else:
                 self.next_image_index_by_digit[d] += 1
@@ -381,57 +432,57 @@ class MNISTChainsProblem(LearningProblem):
         return images_batch
 
     def random_positive_or_negative_examples_batch_generator(self):
-        if use_real_images:
+        if self.use_real_images:
             from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
         else:
             from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
 
         def generator():
             d_values = [
-                torch.randint(number_of_digits, (batch_size,)) for i in range(chain_length)
+                torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
             ]
             i_values = [
-                from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)
+                from_digit_batch_to_image_batch(d_values[i]) for i in range(self.chain_length)
             ]
             constraint_values = [
-                (d_values[i + 1] == d_values[i] + 1).long() for i in range(chain_length - 1)
+                (d_values[i + 1] == d_values[i] + 1).long() for i in range(self.chain_length - 1)
             ]
             random_chain_result = (
-                {self.images[i]: i_values[i] for i in range(chain_length)},
-                {self.constraints[i]: constraint_values[i] for i in range(chain_length - 1)},
+                {self.images[i]: i_values[i] for i in range(self.chain_length)},
+                {self.constraints[i]: constraint_values[i] for i in range(self.chain_length - 1)},
             )
             return random_chain_result
 
         return generator
 
     def random_positive_examples_batch_generator(self):
-        if use_real_images:
+        if self.use_real_images:
             from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
         else:
             from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
 
         def generator():
             d_values = []
-            last_digit = number_of_digits - 1
-            number_of_transitions_in_the_chain = chain_length - 1
+            last_digit = self.number_of_digits - 1
+            number_of_transitions_in_the_chain = self.chain_length - 1
             max_value_of_first_digit = last_digit - number_of_transitions_in_the_chain
             exclusive_upper_bound_for_first_digit = max_value_of_first_digit + 1
             d_values.append(
-                torch.randint(exclusive_upper_bound_for_first_digit, (batch_size,))
+                torch.randint(exclusive_upper_bound_for_first_digit, (self.batch_size,))
             )
-            for i in range(1, chain_length):
+            for i in range(1, self.chain_length):
                 d_values.append(d_values[i - 1] + 1)
             i_values = [
-                from_digit_batch_to_image_batch(d_values[i]) for i in range(chain_length)
+                from_digit_batch_to_image_batch(d_values[i]) for i in range(self.chain_length)
             ]
             constraint_values = [
-                (d_values[i + 1] == d_values[i] + 1).long() for i in range(chain_length - 1)
+                (d_values[i + 1] == d_values[i] + 1).long() for i in range(self.chain_length - 1)
             ]
             random_chain_result = (
-                {self.images[i]: i_values[i] for i in range(chain_length)},
+                {self.images[i]: i_values[i] for i in range(self.chain_length)},
                 {
-                    self.constraints[i]: torch.ones(batch_size).long()
-                    for i in range(chain_length - 1)
+                    self.constraints[i]: torch.ones(self.batch_size).long()
+                    for i in range(self.chain_length - 1)
                 },
             )
             return random_chain_result
@@ -441,12 +492,12 @@ class MNISTChainsProblem(LearningProblem):
     def after_epoch(self, learner):
         print()
         default_after_epoch(learner)
-        if learner.epoch % number_of_epochs_between_evaluations == 0:
+        if learner.epoch % self.number_of_epochs_between_evaluations == 0:
             self.print_evaluation(learner)
 
     def print_evaluation(self, learner=None):
         index_of_first_recognizer_factor_in_model = (
-            chain_length - 1
+            self.chain_length - 1
         )  # number of constraint factors
         recognizer_factor = lambda i: self.model[i + index_of_first_recognizer_factor_in_model]
         from_i_to_d = [
@@ -454,18 +505,18 @@ class MNISTChainsProblem(LearningProblem):
             .condition({self.images[i]: image})
             .normalize()
             .table_factor
-            for i in range(chain_length)
+            for i in range(self.chain_length)
         ]
         with torch.no_grad():
-            predictors = [from_i_to_d[0]] if use_shared_recognizer else from_i_to_d
+            predictors = [from_i_to_d[0]] if self.use_shared_recognizer else from_i_to_d
             for predictor in predictors:
                 self.print_posterior_of(predictor, learner)
 
     def print_posterior_of(self, predictor, learner=None):
         space_header = " " * len(self.make_digit_header(0))
-        print(space_header + ", ".join([f"   {i}" for i in range(number_of_digits)]))
-        for digit in range(number_of_digits):
-            digit_batch = torch.full((number_of_digit_instances_in_evaluation,), digit)
+        print(space_header + ", ".join([f"   {i}" for i in range(self.number_of_digits)]))
+        for digit in range(self.number_of_digits):
+            digit_batch = torch.full((self.number_of_digit_instances_in_evaluation,), digit)
             image_batch = self.from_digit_batch_to_image_batch(digit_batch)
             if learner is not None and learner.device is not None:
                 image_batch = image_batch.to(learner.device)
@@ -486,7 +537,7 @@ class MNISTChainsProblem(LearningProblem):
         print(digit_header + f"{self.digit_distribution_tensor_str(output_probability_tensor)}")
 
     def make_digit_header(self, digit):
-        image_description = "image" if use_real_images else 'fake "image"'
+        image_description = "image" if self.use_real_images else 'fake "image"'
         digit_header = f"Prediction for {image_description} {digit}: "
         return digit_header
 
@@ -495,44 +546,32 @@ class MNISTChainsProblem(LearningProblem):
 
     def potential_str(self, potential):
         if potential < 1e-2:
-            return " " * (2 + evaluation_probability_precision)
+            return " " * (2 + self.evaluation_probability_precision)
         else:
-            return f"{potential:0.{evaluation_probability_precision}f}"
+            return f"{potential:0.{self.evaluation_probability_precision}f}"
 
     def uniform_pre_training(self, recognizer):
         def random_batch_generator():
-            if use_real_images:
+            if self.use_real_images:
                 from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
             else:
                 from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
 
             def generator():
-                digits = torch.randint(number_of_digits, (batch_size,))
+                digits = torch.randint(self.number_of_digits, (self.batch_size,))
                 images = from_digit_batch_to_image_batch(digits)
                 return images
 
             return generator
-
-        class UniformTraining(GenericSGDLearner):
-            def __init__(self, model, data_loader):
-                super().__init__(model, data_loader)
-
-            def loss_function(self, batch):
-                probabilities = self.model(batch)
-                uniform_probabilities = torch.tensor(
-                    [[1.0 / number_of_digits] * number_of_digits] * len(batch)
-                )
-                loss = torch.square(uniform_probabilities - probabilities).sum()
-                return loss
 
         print("Uniform pre-training")
         print("Model:")
         print(recognizer)
         model = recognizer
         data_loader = data_loader_from_random_data_point_generator(
-            number_of_batches_per_epoch, random_batch_generator(), print=None
+            self.number_of_batches_per_epoch, random_batch_generator(), print=None
         )
-        UniformTraining(model, data_loader).learn()
+        UniformTraining(model, data_loader, self.number_of_digits).learn()
         print("Uniform pre-training completed")
         print("Model:")
         print(recognizer)
@@ -541,7 +580,29 @@ class MNISTChainsProblem(LearningProblem):
 set_seed(seed)
 
 solve_learning_problem(
-    MNISTChainsProblem(),
+    MNISTChainsProblem(
+        number_of_digits,
+        chain_length,
+        use_real_images,
+        use_conv_net,
+        use_positive_examples_only,
+
+        show_examples,
+        use_a_single_image_per_digit,
+        batch_size,
+        number_of_batches_between_updates,
+        number_of_batches_per_epoch,
+        number_of_epochs_between_evaluations,
+        max_real_mnist_datapoints,
+        number_of_digit_instances_in_evaluation,
+        seed,
+        evaluation_probability_precision,
+
+        use_shared_recognizer,
+        recognizer_type,
+        left_shift_noise,
+        upper_bound_for_log_potential_in_random_table,
+    ),
     try_cuda,
     lr,
     loss_decrease_tol,
