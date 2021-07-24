@@ -11,6 +11,14 @@ from neuralpp.util.generic_sgd_learner import GenericSGDLearner, default_after_e
 
 
 class GraphicalModelSGDLearner(GenericSGDLearner):
+    """
+    A GenericSGDLearner specialized to graphical model models,
+    making appropriate about datapoints being pairs of
+    observation and query assignment batches,
+    how to transfer them to a given device,
+    and a loss function implementing cross entropy for them.
+    """
+
     def __init__(
         self,
         model,
