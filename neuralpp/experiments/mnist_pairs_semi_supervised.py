@@ -233,8 +233,24 @@ class MNISTChainsProblem(LearningProblem):
                 0  # A value of 0 samples from [0, 0], providing a uniform table.
             )
 
+    # override
     def learning_is_needed(self):
         return self.recognizer_type != "fixed ground truth table"
+
+    # Section: making the data loader
+
+    # override
+    def make_data_loader(self):
+        self.setup_images()
+        batch_generator = (
+            self.random_positive_examples_batch_generator()
+            if self.use_positive_examples_only
+            else self.random_positive_or_negative_examples_batch_generator()
+        )
+        train_data_loader = data_loader_from_random_data_point_generator(
+            self.number_of_batches_per_epoch, batch_generator, print=None
+        )
+        return train_data_loader
 
     def setup_images(self):
         if self.use_real_images:
@@ -255,9 +271,100 @@ class MNISTChainsProblem(LearningProblem):
         self.show_digit_examples()
         self.from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
 
+    def show_digit_examples(self):
+        if self.show_examples:
+            images = [
+                self.images_by_digits_by_phase["train"][d][i]
+                for i in range(5)
+                for d in range(self.number_of_digits)
+            ]
+            labels = [d for i in range(5) for d in range(self.number_of_digits)]
+            show_images_and_labels(5, 10, images, labels)
+
     def setup_fake_images(self):
         self.from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
 
+    def get_next_fake_image_batch_for_digit_batch(self, digit_batch):
+        return digit_batch
+
+    def get_next_real_image_batch_for_digit_batch(self, digit_batch):
+        images_list = []
+        for d in digit_batch:
+            d = d.item()
+            image = self.images_by_digits_by_phase["train"][d][self.next_image_index_by_digit[d]]
+            if self.use_a_single_image_per_digit:
+                pass  # leave the index at the first position forever
+            else:
+                self.next_image_index_by_digit[d] += 1
+                if self.next_image_index_by_digit[d] == len(
+                    self.images_by_digits_by_phase["train"][d]
+                ):
+                    self.next_image_index_by_digit[d] = 0
+            images_list.append(image)
+        images_batch = torch.stack(images_list).to(digit_batch.device)
+        return images_batch
+
+    def random_positive_or_negative_examples_batch_generator(self):
+        if self.use_real_images:
+            from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
+        else:
+            from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
+
+        def generator():
+            d_values = [
+                torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
+            ]
+            i_values = [
+                from_digit_batch_to_image_batch(d_values[i]) for i in range(self.chain_length)
+            ]
+            constraint_values = [
+                (d_values[i + 1] == d_values[i] + 1).long() for i in range(self.chain_length - 1)
+            ]
+            random_chain_result = (
+                {self.images[i]: i_values[i] for i in range(self.chain_length)},
+                {self.constraints[i]: constraint_values[i] for i in range(self.chain_length - 1)},
+            )
+            return random_chain_result
+
+        return generator
+
+    def random_positive_examples_batch_generator(self):
+        if self.use_real_images:
+            from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
+        else:
+            from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
+
+        def generator():
+            d_values = []
+            last_digit = self.number_of_digits - 1
+            number_of_transitions_in_the_chain = self.chain_length - 1
+            max_value_of_first_digit = last_digit - number_of_transitions_in_the_chain
+            exclusive_upper_bound_for_first_digit = max_value_of_first_digit + 1
+            d_values.append(
+                torch.randint(exclusive_upper_bound_for_first_digit, (self.batch_size,))
+            )
+            for i in range(1, self.chain_length):
+                d_values.append(d_values[i - 1] + 1)
+            i_values = [
+                from_digit_batch_to_image_batch(d_values[i]) for i in range(self.chain_length)
+            ]
+            constraint_values = [
+                (d_values[i + 1] == d_values[i] + 1).long() for i in range(self.chain_length - 1)
+            ]
+            random_chain_result = (
+                {self.images[i]: i_values[i] for i in range(self.chain_length)},
+                {
+                    self.constraints[i]: torch.ones(self.batch_size).long()
+                    for i in range(self.chain_length - 1)
+                },
+            )
+            return random_chain_result
+
+        return generator
+
+    # Section: making the model
+
+    # override
     def setup_model(self):
         self.create_random_variables()
         self.constraint_factors = self.make_constraint_factors()
@@ -283,16 +390,6 @@ class MNISTChainsProblem(LearningProblem):
             self.digits.append(IntegerVariable(f"digit{i}", self.number_of_digits))
             if i != self.chain_length - 1:
                 self.constraints.append(IntegerVariable(f"constraint{i}", 2))
-
-    def show_digit_examples(self):
-        if self.show_examples:
-            images = [
-                self.images_by_digits_by_phase["train"][d][i]
-                for i in range(5)
-                for d in range(self.number_of_digits)
-            ]
-            labels = [d for i in range(5) for d in range(self.number_of_digits)]
-            show_images_and_labels(5, 10, images, labels)
 
     def make_constraint_factors(self):
         constraint_predicate = (
@@ -399,102 +496,16 @@ class MNISTChainsProblem(LearningProblem):
 
         return recognizer_factors
 
-    def make_data_loader(self):
-        self.setup_images()
-        batch_generator = (
-            self.random_positive_examples_batch_generator()
-            if self.use_positive_examples_only
-            else self.random_positive_or_negative_examples_batch_generator()
-        )
-        train_data_loader = data_loader_from_random_data_point_generator(
-            self.number_of_batches_per_epoch, batch_generator, print=None
-        )
-        return train_data_loader
+    # Section: Evaluation
 
-    def get_next_fake_image_batch_for_digit_batch(self, digit_batch):
-        return digit_batch
-
-    def get_next_real_image_batch_for_digit_batch(self, digit_batch):
-        images_list = []
-        for d in digit_batch:
-            d = d.item()
-            image = self.images_by_digits_by_phase["train"][d][self.next_image_index_by_digit[d]]
-            if self.use_a_single_image_per_digit:
-                pass  # leave the index at the first position forever
-            else:
-                self.next_image_index_by_digit[d] += 1
-                if self.next_image_index_by_digit[d] == len(
-                    self.images_by_digits_by_phase["train"][d]
-                ):
-                    self.next_image_index_by_digit[d] = 0
-            images_list.append(image)
-        images_batch = torch.stack(images_list).to(digit_batch.device)
-        return images_batch
-
-    def random_positive_or_negative_examples_batch_generator(self):
-        if self.use_real_images:
-            from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
-        else:
-            from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
-
-        def generator():
-            d_values = [
-                torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
-            ]
-            i_values = [
-                from_digit_batch_to_image_batch(d_values[i]) for i in range(self.chain_length)
-            ]
-            constraint_values = [
-                (d_values[i + 1] == d_values[i] + 1).long() for i in range(self.chain_length - 1)
-            ]
-            random_chain_result = (
-                {self.images[i]: i_values[i] for i in range(self.chain_length)},
-                {self.constraints[i]: constraint_values[i] for i in range(self.chain_length - 1)},
-            )
-            return random_chain_result
-
-        return generator
-
-    def random_positive_examples_batch_generator(self):
-        if self.use_real_images:
-            from_digit_batch_to_image_batch = self.get_next_real_image_batch_for_digit_batch
-        else:
-            from_digit_batch_to_image_batch = self.get_next_fake_image_batch_for_digit_batch
-
-        def generator():
-            d_values = []
-            last_digit = self.number_of_digits - 1
-            number_of_transitions_in_the_chain = self.chain_length - 1
-            max_value_of_first_digit = last_digit - number_of_transitions_in_the_chain
-            exclusive_upper_bound_for_first_digit = max_value_of_first_digit + 1
-            d_values.append(
-                torch.randint(exclusive_upper_bound_for_first_digit, (self.batch_size,))
-            )
-            for i in range(1, self.chain_length):
-                d_values.append(d_values[i - 1] + 1)
-            i_values = [
-                from_digit_batch_to_image_batch(d_values[i]) for i in range(self.chain_length)
-            ]
-            constraint_values = [
-                (d_values[i + 1] == d_values[i] + 1).long() for i in range(self.chain_length - 1)
-            ]
-            random_chain_result = (
-                {self.images[i]: i_values[i] for i in range(self.chain_length)},
-                {
-                    self.constraints[i]: torch.ones(self.batch_size).long()
-                    for i in range(self.chain_length - 1)
-                },
-            )
-            return random_chain_result
-
-        return generator
-
+    # override
     def after_epoch(self, learner):
         print()
         default_after_epoch(learner)
         if learner.epoch % self.number_of_epochs_between_evaluations == 0:
             self.print_evaluation(learner)
 
+    # override
     def print_evaluation(self, learner=None):
         index_of_first_recognizer_factor_in_model = (
             self.chain_length - 1
@@ -576,6 +587,8 @@ class MNISTChainsProblem(LearningProblem):
         print("Model:")
         print(recognizer)
 
+
+# Section: execution
 
 set_seed(seed)
 
