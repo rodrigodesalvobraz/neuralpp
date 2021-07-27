@@ -82,7 +82,7 @@ chain_length = 10
 use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
 use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
 use_positive_examples_only = (
-    True  # show only examples of consecutive pairs with the constraint labeled True,
+    False  # show only examples of consecutive pairs with the constraint labeled True,
 )
 # as opposed to random pairs with constraint labeled True or False accordingly.
 # Including negative examples makes the problem easier, but less
@@ -313,16 +313,23 @@ class MNISTChainsProblem(LearningProblem):
         return images_batch
 
     def generate_random_positive_examples_batch(self):
-        digit_values = self.generate_random_positive_examples_batch_digits()
+        return self.generate_examples_batch(
+            digits_maker=self.generate_digits_for_random_positive_examples_batch,
+            i_th_constraint_evaluator=self.ith_constraint_values_all_true)
 
+    def generate_random_positive_or_negative_examples_batch(self):
+        return self.generate_examples_batch(
+            digits_maker=self.generate_digits_for_random_positive_or_negative_examples_batch,
+            i_th_constraint_evaluator=self.ith_constraint_values)
+
+    def generate_examples_batch(self, digits_maker, i_th_constraint_evaluator):
+        digit_values = digits_maker()
         constraint_values = [
-            self.ith_constraint_values_all_true(i, digit_values) for i in range(self.chain_length - 1)
+            i_th_constraint_evaluator(i, digit_values) for i in range(self.chain_length - 1)
         ]
-
         image_values = [
             self.get_image_batch_from_digit_batch(digit_values[i]) for i in range(self.chain_length)
         ]
-
         observation_dict = {
             self.image_random_variables[i]: image_values[i]
             for i in range(self.chain_length)
@@ -331,13 +338,9 @@ class MNISTChainsProblem(LearningProblem):
             self.constraint_random_variables[i]: constraint_values[i]
             for i in range(self.chain_length - 1)
         }
-
         return observation_dict, query_assignment_dict
 
-    def ith_constraint_values_all_true(self, i, digit_values):
-        return torch.ones(self.batch_size).long()
-
-    def generate_random_positive_examples_batch_digits(self):
+    def generate_digits_for_random_positive_examples_batch(self):
         digit_values = []
         last_digit = self.number_of_digits - 1
         number_of_transitions_in_the_chain = self.chain_length - 1
@@ -350,29 +353,10 @@ class MNISTChainsProblem(LearningProblem):
             digit_values.append(digit_values[i - 1] + 1)
         return digit_values
 
-    def generate_random_positive_or_negative_examples_batch(self):
-        digit_values = self.generate_random_positive_or_negative_examples_batch_digits()
+    def ith_constraint_values_all_true(self, i, digit_values):
+        return torch.ones(self.batch_size).long()
 
-        constraint_values = [
-            self.ith_constraint_values(i, digit_values) for i in range(self.chain_length - 1)
-        ]
-
-        image_values = [
-            self.get_image_batch_from_digit_batch(digit_values[i]) for i in range(self.chain_length)
-        ]
-
-        observation_dict = {
-            self.image_random_variables[i]: image_values[i]
-            for i in range(self.chain_length)
-        }
-        query_assignment_dict = {
-            self.constraint_random_variables[i]: constraint_values[i]
-            for i in range(self.chain_length - 1)
-        }
-
-        return observation_dict, query_assignment_dict
-
-    def generate_random_positive_or_negative_examples_batch_digits(self):
+    def generate_digits_for_random_positive_or_negative_examples_batch(self):
         digit_values = [
             torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
         ]
