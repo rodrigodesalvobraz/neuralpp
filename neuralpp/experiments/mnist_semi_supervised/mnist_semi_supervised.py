@@ -78,11 +78,11 @@ from neuralpp.util.util import join, set_seed
 # -------------- PARAMETERS
 
 number_of_digits = 10
-chain_length = 10
+chain_length = 3
 use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
 use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
 use_positive_examples_only = (
-    False  # show only examples of consecutive pairs with the constraint labeled True,
+    False  # only generate examples where all constraints are True,
 )
 # as opposed to random pairs with constraint labeled True or False accordingly.
 # Including negative examples makes the problem easier, but less

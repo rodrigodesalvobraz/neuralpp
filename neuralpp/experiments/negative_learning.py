@@ -18,7 +18,7 @@
 # # the *negative* of the epoch_average_loss we would use to *predict* 0 (analogously for 9).
 # # We expect the network to learn what is *not* a 0, and indirectly learn what *is*
 # # (analogously for 9).
-# # This script is a simplified version of mnist_pairs_semi_supervised.py.
+# # This script is a simplified version of mnist_semi_supervised.py.
 
 
 # number_of_digits = 10  # actual script will use digits 0..number_of_digits and treat (number_of_digits - 1) as the '9'
