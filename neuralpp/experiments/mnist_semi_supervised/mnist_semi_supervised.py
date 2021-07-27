@@ -79,6 +79,7 @@ from neuralpp.util.util import join, set_seed
 
 number_of_digits = 10
 chain_length = 3
+number_of_constraints = chain_length - 1
 use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
 use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
 use_positive_examples_only = (
@@ -168,6 +169,7 @@ class MNISTChainsProblem(LearningProblem):
             self,
             number_of_digits,
             chain_length,
+            number_of_constraints,
             use_real_images,
             use_conv_net,
             use_positive_examples_only,
@@ -189,6 +191,8 @@ class MNISTChainsProblem(LearningProblem):
             upper_bound_for_log_potential_in_random_table,
     ):
         self.number_of_digits = number_of_digits
+        self.chain_length = chain_length
+        self.number_of_constraints = number_of_constraints
         self.use_real_images = use_real_images
         self.use_conv_net = use_conv_net
         self.use_positive_examples_only = use_positive_examples_only
@@ -238,8 +242,6 @@ class MNISTChainsProblem(LearningProblem):
             self.upper_bound_for_log_potential_in_random_table = (
                 0  # A value of 0 samples from [0, 0], providing a uniform table.
             )
-
-        self.chain_length = chain_length
 
     # override
     def learning_is_needed(self):
@@ -324,16 +326,18 @@ class MNISTChainsProblem(LearningProblem):
 
     def generate_examples_batch(self, digits_maker, i_th_constraint_evaluator):
         digit_values = digits_maker()
-        constraint_values = [
-            i_th_constraint_evaluator(i, digit_values) for i in range(self.chain_length - 1)
-        ]
         image_values = [
-            self.get_image_batch_from_digit_batch(digit_values[i]) for i in range(self.chain_length)
+            self.get_image_batch_from_digit_batch(digit_values[i])
+            for i in range(self.chain_length)
         ]
         observation_dict = {
             self.image_random_variables[i]: image_values[i]
             for i in range(self.chain_length)
         }
+        constraint_values = [
+            i_th_constraint_evaluator(i, digit_values)
+            for i in range(self.number_of_constraints)
+        ]
         query_assignment_dict = {
             self.constraint_random_variables[i]: constraint_values[i]
             for i in range(self.chain_length - 1)
@@ -600,6 +604,7 @@ solve_learning_problem(
     MNISTChainsProblem(
         number_of_digits,
         chain_length,
+        number_of_constraints,
         use_real_images,
         use_conv_net,
         use_positive_examples_only,
