@@ -311,3 +311,12 @@ def set_seed(seed=None, print=print):
         torch.manual_seed(seed)
     print(f"Seed: {seed}")
 
+
+def go_up_until_we_have_subdirectory(subdir):
+    initial_directory = os.getcwd()
+    while not os.path.isdir(subdir):
+        if os.getcwd() == "/":
+            os.chdir(initial_directory)
+            raise FileNotFoundError(f"Cannot find ancestor of '{initial_directory}' containing subdirectory '{subdir}'")
+        os.chdir("..")
+

@@ -2,7 +2,7 @@ from itertools import islice
 
 import torch
 from neuralpp.util.pickle_cache import pickle_cache
-from neuralpp.util.util import get_or_put
+from neuralpp.util.util import get_or_put, go_up_until_we_have_subdirectory
 from torchvision import datasets, transforms
 from tqdm import tqdm
 
@@ -11,14 +11,16 @@ read_mnist_from_original_files = False
 
 
 def read_mnist(max_datapoints=None):
+    go_up_until_we_have_subdirectory("data")
     return pickle_cache(
         lambda: read_mnist_no_cache(max_datapoints),
-        f"../data/cache/indexed_mnist_max_points={max_datapoints}.pkl",
+        f"data/cache/indexed_mnist_max_points={max_datapoints}.pkl",
         read_mnist_from_original_files,
     )
 
 
 def read_mnist_no_cache(max_datapoints=None):
+    go_up_until_we_have_subdirectory("data")
     """Return a map from phase to a map from digit to a list of its images: images_for_digit_by_phase[phase][digit]"""
     transform = transforms.Compose(
         [
@@ -31,7 +33,7 @@ def read_mnist_no_cache(max_datapoints=None):
     images_by_digits = {}
     for p in phases:
         mnist_dataset = datasets.MNIST(
-            "../data", train=(p == "train"), download=True, transform=transform
+            "data", train=(p == "train"), download=True, transform=transform
         )
         loader[p] = torch.utils.data.DataLoader(mnist_dataset, batch_size=1)
         images_by_digits[p] = {}

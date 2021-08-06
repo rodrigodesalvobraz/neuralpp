@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import torch
 
 from neuralpp.inference.graphical_model.learn.learning_problem_solver import solve_learning_problem, LearningProblem
@@ -30,12 +32,18 @@ from neuralpp.util.util import join, set_seed
 
 # Trains a digit recognizer with the following factor graph:
 #
-#                                 Constraint0                                   Constraint1
-#                                      |                                             |
-#                           +---------------------+                       +---------------------+
-#                           |   Constraint0 <=>   |                       |   Constraint1 <=>   |
-#             Digit0  ------| Digit1 = Digit0 + 1 |------- Digit1 --------| Digit2 = Digit1 + 1 |------- ...
-#               |           +---------------------+          |            +---------------------+
+#                         Constraint0                                           Constraint_k              ...
+#                              |                                                     |
+#                   +---------------------+                               +---------------------+
+#                   |   Constraint0 <=>   |                 ...           |   Constraint_k <=>  |
+#                   |  0-th condition     |                               |    <k-th condition> |         ...
+#                   +---------------------+                               +---------------------+
+#                             |||  (different constraints involve different digits) |||
+#     -------------------------------------------------------------------------------------------------------
+#               |                                            |
+#               |                                            |
+#             Digit0                                       Digit1                                        ...
+#               |                                            |
 #               |                                            |
 #      +------------------+                         +------------------+
 #      | Digit recognizer |                         | Digit recognizer |
@@ -44,23 +52,9 @@ from neuralpp.util.util import join, set_seed
 #               |                                            |
 #             Image0                                       Image1
 #
-# that is to say, (3n - 1) variables
-# Constraint_0, ..., Constraint_(n-2), Digit0, ..., Digit_(n-1), Image0, ... Image_(n-1),
-# where Digit_i is constrained to be Digit_(i-1) + 1 iff Constraint_(i-1) is true,
-# and Digit_i is the recognition of Image_i.
-#
-# The original, harder and more interesting case is for n = 2.
-#
-# We anticipate that presenting pairs images of consecutive digits to the model,
-# querying Constraint and minimizing its epoch_average_loss in comparison to the expected value "true"
-# will train the recognizer (a shared neural net applied to both images)
-# to recognize MNIST digits.
-#
-# The idea is that images for 0 will only appear in Image0 (because it has no antecessor),
-# and images for 9 only in Image_(n-1) (because it has no successor),
-# and this will be a strong enough signal for the recognizer to learn those images.
-# Once that happens, those images work as the signal for 1 and 8, which work as signals for 2 and 7
-# and so on, until all digits are learned.
+# that is to say, n variables for images, n for digits, (k + 1) for constraints,
+# where constraints are defined (each of them) on a particular subset of digit variables,
+# according to user-provided functions.
 #
 # This script offers multiple ways of running the above, including a simplified setting
 # in which the "images" are just integers from 0 to 9.
@@ -75,12 +69,93 @@ from neuralpp.util.util import join, set_seed
 # and various possible initializations for the recognizer.
 
 
-# -------------- PARAMETERS
+# -------------- DEFAULT PARAMETERS
 
-number_of_digits = 10
-chain_length = 9
-number_of_constraints = chain_length - 1
+def default_parameters():
+    number_of_digits = 10
+    chain_length = 9
+    number_of_constraints = chain_length - 1
 
+
+    use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
+    use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
+    use_positive_examples_only = (
+        False  # only generate examples where all constraints are True,
+    )
+    # as opposed to random pairs with constraint labeled True or False accordingly.
+    # Including negative examples makes the problem easier, but less
+    # uniform random tables still get stuck in local minima.
+
+    show_examples = False  # show some examples of images (sanity check for data structure)
+    use_a_single_image_per_digit = (
+        False  # to make the problem easier -- removes digit variability from the problem
+    )
+    try_cuda = True
+    batch_size = 200
+    number_of_batches_between_updates = (
+        1  # batches have two functions: how much to fit into CUDA if using it, and
+    )
+    # how many examples to observe before updating.
+    # Here we are splitting those two functions, leaving batch_size for the
+    # number of datapoints processed at a time, but allowing for updating
+    # only after a number of batches are processed.
+    # This allows for a better estimation of gradients at each update,
+    # decreasing the influence of random fluctuations in these estimates for
+    # each update, but may make learning much slower
+    number_of_batches_per_epoch = 100
+    number_of_epochs_between_evaluations = 1
+    max_real_mnist_datapoints = None
+    number_of_digit_instances_in_evaluation = 1000
+    seed = None  # use None for non-deterministic seed
+    evaluation_probability_precision = 2
+
+    use_shared_recognizer = (
+        True  # the same recognizer is shared by both "image" -> digit pairs
+    )
+    # Note that, if given positive examples only, we need a shared recognizer for
+    # learning to have a chance of succeeding
+    # because otherwise the two recognizers never get to see 9 and 0 respectively.
+
+    # 'recognizer_type' below allows the selection of different functions and initializations for recognizer.
+    # If use_real_images is True, this selection is ignored and a ConvNet or MLP is used, along with number_of_digits = 10.
+
+    recognizer_type = "neural net"  # if use_real_images, a ConvNet or MLP, depending on option use_conv_net
+    # if use_real_images == False, an MLP with a single input unit, number_of_digits hidden units,
+    # and number_of_digits output units.
+
+    # recognizer_type = "fixed ground truth table"  # the correct table, with fixed parameters.
+
+    # recognizer_type = "random table"  # an initialization with random potentials; see parameter below for increasing randomness
+
+    # recognizer_type = "noisy left-shift"  # a hard starting point, in which digits map to their left-shift.
+    # This will get most consecutive pairs to satisfy the constraint
+    # but for (0, 1) and (8,9), even though *every* digit is being misclassified.
+    # See parameter below for selecting noise level.
+    # Making this noisier helps because it "dillutes" the hard starting point.
+    left_shift_noise = (
+        0.1  # probability of noisy left-shift recognizer initialization not left-shifting
+        # but hitting some other digit uniformly
+    )
+
+    recognizer_type = "uniform"  # a uniform table -- learning works well
+
+    upper_bound_for_log_potential_in_random_table = (
+        1  # log of potentials are uniformly sampled from
+    )
+    # [0, upper_bound_for_log_potential_in_random_table].
+    # The higher the value, the farther from the uniform the table is.
+    # So far we observe that tables farther from the uniform
+    # often get stuck in local minima,
+    # and that uniform tables always converge to the correct answer.
+
+    lr = 1e-3 if use_real_images else 1e-3
+    loss_decrease_tol = lr * 0.0001
+
+    max_epochs_to_go_before_stopping_due_to_loss_decrease = 15 if batch_size * number_of_batches_between_updates < 500 else 1
+
+    return SimpleNamespace(**locals())
+
+# -------------- END OF DEFAULT PARAMETERS
 
 def indices_of_ith_and_i_plus_oneth_digits(constraint_index):
     i = constraint_index
@@ -108,88 +183,10 @@ def generate_batch_of_successive_digits_chains(number_of_digits, chain_length, b
         digit_values.append(digit_values[i - 1] + 1)
     return digit_values
 
-
-use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
-use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
-use_positive_examples_only = (
-    False  # only generate examples where all constraints are True,
-)
-# as opposed to random pairs with constraint labeled True or False accordingly.
-# Including negative examples makes the problem easier, but less
-# uniform random tables still get stuck in local minima.
-
-show_examples = False  # show some examples of images (sanity check for data structure)
-use_a_single_image_per_digit = (
-    False  # to make the problem easier -- removes digit variability from the problem
-)
-try_cuda = True
-batch_size = 200
-number_of_batches_between_updates = (
-    1  # batches have two functions: how much to fit into CUDA if using it, and
-)
-# how many examples to observe before updating.
-# Here we are splitting those two functions, leaving batch_size for the
-# number of datapoints processed at a time, but allowing for updating
-# only after a number of batches are processed.
-# This allows for a better estimation of gradients at each update,
-# decreasing the influence of random fluctuations in these estimates for
-# each update, but may make learning much slower
-number_of_batches_per_epoch = 100
-number_of_epochs_between_evaluations = 1
-max_real_mnist_datapoints = None
-number_of_digit_instances_in_evaluation = 1000
-seed = None  # use None for non-deterministic seed
-evaluation_probability_precision = 2
-
-use_shared_recognizer = (
-    True  # the same recognizer is shared by both "image" -> digit pairs
-)
-# Note that, if given positive examples only, we need a shared recognizer for
-# learning to have a chance of succeeding
-# because otherwise the two recognizers never get to see 9 and 0 respectively.
-
-# 'recognizer_type' below allows the selection of different functions and initializations for recognizer.
-# If use_real_images is True, this selection is ignored and a ConvNet or MLP is used, along with number_of_digits = 10.
-
-recognizer_type = "neural net"  # if use_real_images, a ConvNet or MLP, depending on option use_conv_net
-# if use_real_images == False, an MLP with a single input unit, number_of_digits hidden units,
-# and number_of_digits output units.
-
-# recognizer_type = "fixed ground truth table"  # the correct table, with fixed parameters.
-
-# recognizer_type = "random table"  # an initialization with random potentials; see parameter below for increasing randomness
-
-# recognizer_type = "noisy left-shift"  # a hard starting point, in which digits map to their left-shift.
-# This will get most consecutive pairs to satisfy the constraint
-# but for (0, 1) and (8,9), even though *every* digit is being misclassified.
-# See parameter below for selecting noise level.
-# Making this noisier helps because it "dillutes" the hard starting point.
-left_shift_noise = (
-    0.1  # probability of noisy left-shift recognizer initialization not left-shifting
-    # but hitting some other digit uniformly
-)
-
-recognizer_type = "uniform"  # a uniform table -- learning works well
-
-upper_bound_for_log_potential_in_random_table = (
-    1  # log of potentials are uniformly sampled from
-)
-# [0, upper_bound_for_log_potential_in_random_table].
-# The higher the value, the farther from the uniform the table is.
-# So far we observe that tables farther from the uniform
-# often get stuck in local minima,
-# and that uniform tables always converge to the correct answer.
-
-# -------------- END OF PARAMETERS
-
-
-lr = 1e-3 if use_real_images else 1e-3
-loss_decrease_tol = lr * 0.0001
-
-if batch_size * number_of_batches_between_updates < 500:
-    max_epochs_to_go_before_stopping_due_to_loss_decrease = 15
-else:
-    max_epochs_to_go_before_stopping_due_to_loss_decrease = 1
+parameters = default_parameters()
+parameters.indices_of_digit_arguments_of_constraint = indices_of_ith_and_i_plus_oneth_digits
+parameters.constraint_function = are_successors
+parameters.constrained_examples_batch_generator = generate_batch_of_successive_digits_chains
 
 
 class MNISTChainsProblem(LearningProblem):
@@ -363,6 +360,24 @@ class MNISTChainsProblem(LearningProblem):
             digits_maker=self.generate_digits_for_random_positive_or_negative_examples_batch,
             i_th_constraint_evaluator=self.ith_constraint_values)
 
+    def generate_digits_for_random_positive_examples_batch(self):
+        return \
+            self.constrained_examples_batch_generator(
+            self.number_of_digits, self.chain_length, self.batch_size)
+
+    def ith_constraint_values_all_true(self, i, digit_values):
+        return torch.ones(self.batch_size).long()
+
+    def generate_digits_for_random_positive_or_negative_examples_batch(self):
+        digit_values = [
+            torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
+        ]
+        return digit_values
+
+    def ith_constraint_values(self, i, digit_values):
+        digit_arguments = [digit_values[j] for j in self.indices_of_digit_arguments_of_constraint(i)]
+        return are_successors(i, *digit_arguments).long()
+
     def generate_examples_batch(self, digits_maker, i_th_constraint_evaluator):
         digit_values = digits_maker()
         image_values = [
@@ -382,24 +397,6 @@ class MNISTChainsProblem(LearningProblem):
             for i in range(self.number_of_constraints)
         }
         return observation_dict, query_assignment_dict
-
-    def generate_digits_for_random_positive_examples_batch(self):
-        return \
-            self.constrained_examples_batch_generator(
-            self.number_of_digits, self.chain_length, self.batch_size)
-
-    def ith_constraint_values_all_true(self, i, digit_values):
-        return torch.ones(self.batch_size).long()
-
-    def generate_digits_for_random_positive_or_negative_examples_batch(self):
-        digit_values = [
-            torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
-        ]
-        return digit_values
-
-    def ith_constraint_values(self, i, digit_values):
-        digit_arguments = [digit_values[j] for j in self.indices_of_digit_arguments_of_constraint(i)]
-        return are_successors(i, *digit_arguments).long()
 
     # Section: making the model
 
@@ -638,41 +635,41 @@ class MNISTChainsProblem(LearningProblem):
 
 # Section: execution
 
-set_seed(seed)
+def solve_learning_problem_from_parameters(parameters):
+    set_seed(parameters.seed)
+    solve_learning_problem(
+        MNISTChainsProblem(
+            number_of_digits=parameters.number_of_digits,
+            chain_length=parameters.chain_length,
+            number_of_constraints=parameters.number_of_constraints,
 
-solve_learning_problem(
-    MNISTChainsProblem(
-        number_of_digits,
-        chain_length,
-        number_of_constraints,
+            indices_of_digit_arguments_of_constraint=parameters.indices_of_digit_arguments_of_constraint,
+            constraint_function=parameters.constraint_function,
+            constrained_examples_batch_generator=parameters.constrained_examples_batch_generator,
 
-        indices_of_ith_and_i_plus_oneth_digits,
-        are_successors,
-        generate_batch_of_successive_digits_chains,
+            use_real_images=parameters.use_real_images,
+            use_conv_net=parameters.use_conv_net,
+            use_positive_examples_only=parameters.use_positive_examples_only,
 
-        use_real_images,
-        use_conv_net,
-        use_positive_examples_only,
+            show_examples=parameters.show_examples,
+            use_a_single_image_per_digit=parameters.use_a_single_image_per_digit,
+            batch_size=parameters.batch_size,
+            number_of_batches_between_updates=parameters.number_of_batches_between_updates,
+            number_of_batches_per_epoch=parameters.number_of_batches_per_epoch,
+            number_of_epochs_between_evaluations=parameters.number_of_epochs_between_evaluations,
+            max_real_mnist_datapoints=parameters.max_real_mnist_datapoints,
+            number_of_digit_instances_in_evaluation=parameters.number_of_digit_instances_in_evaluation,
+            seed=parameters.seed,
+            evaluation_probability_precision=parameters.evaluation_probability_precision,
 
-        show_examples,
-        use_a_single_image_per_digit,
-        batch_size,
-        number_of_batches_between_updates,
-        number_of_batches_per_epoch,
-        number_of_epochs_between_evaluations,
-        max_real_mnist_datapoints,
-        number_of_digit_instances_in_evaluation,
-        seed,
-        evaluation_probability_precision,
-
-        use_shared_recognizer,
-        recognizer_type,
-        left_shift_noise,
-        upper_bound_for_log_potential_in_random_table,
-    ),
-    try_cuda,
-    lr,
-    loss_decrease_tol,
-    max_epochs_to_go_before_stopping_due_to_loss_decrease
-)
+            use_shared_recognizer=parameters.use_shared_recognizer,
+            recognizer_type=parameters.recognizer_type,
+            left_shift_noise=parameters.left_shift_noise,
+            upper_bound_for_log_potential_in_random_table=parameters.upper_bound_for_log_potential_in_random_table,
+        ),
+        try_cuda=parameters.try_cuda,
+        lr=parameters.lr,
+        loss_decrease_tol=parameters.loss_decrease_tol,
+        max_epochs_to_go_before_stopping_due_to_loss_decrease=parameters.max_epochs_to_go_before_stopping_due_to_loss_decrease
+    )
 
