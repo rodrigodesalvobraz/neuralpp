@@ -69,17 +69,17 @@ from neuralpp.util.util import join, set_seed
 # There are multiple ways of running this experiment. See mnist_semi_supervised.py for extra options.
 
 
-def indices_of_ith_and_i_plus_oneth_digits(constraint_index):
+def indices_of_digit_arguments_of_constraint(constraint_index):
     i = constraint_index
     return i, i + 1
 
 
-def are_successors(constraint_index, di, di_plus_one) -> bool:
+def constraint_function(constraint_index, di, di_plus_one):
     # all constraints use the same predicate, so constraint_index is irrelevant.
     return di_plus_one == di + 1
 
 
-def generate_batch_of_successive_digits_chains(number_of_digits, chain_length, batch_size):
+def constrained_examples_batch_generator(number_of_digits, chain_length, batch_size):
     """
     Must generate an example guaranteed to satisfy all constraints
     """
@@ -96,8 +96,8 @@ def generate_batch_of_successive_digits_chains(number_of_digits, chain_length, b
     return digit_values
 
 parameters = default_parameters()
-parameters.indices_of_digit_arguments_of_constraint = indices_of_ith_and_i_plus_oneth_digits
-parameters.constraint_function = are_successors
-parameters.constrained_examples_batch_generator = generate_batch_of_successive_digits_chains
+parameters.indices_of_digit_arguments_of_constraint = indices_of_digit_arguments_of_constraint
+parameters.constraint_function = constraint_function
+parameters.constrained_examples_batch_generator = constrained_examples_batch_generator
 
 solve_learning_problem_from_parameters(parameters)
