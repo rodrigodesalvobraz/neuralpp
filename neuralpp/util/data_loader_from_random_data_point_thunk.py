@@ -14,7 +14,7 @@ def random_epoch_generator(epoch_size, random_data_point_thunk, print=print):
         yield data_point
 
 
-def data_loader_from_random_data_point_generator(
+def data_loader_from_batch_generator(
     epoch_size, random_data_point_generator, print=print
 ):
     return DataLoaderFromEpochGeneratorThunk(

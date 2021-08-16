@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import torch
 
 from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import default_parameters, \
-    solve_learning_problem_from_parameters
+    solve_learning_problem_from_parameters, make_digits_and_all_true_constraints_values_batches_generator
 from neuralpp.inference.graphical_model.learn.learning_problem_solver import solve_learning_problem, LearningProblem
 from neuralpp.inference.graphical_model.learn.uniform_training import UniformTraining
 from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import (
@@ -26,7 +26,7 @@ from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
     FromLogToProbabilitiesAdapter,
 )
 from neuralpp.util.data_loader_from_random_data_point_thunk import (
-    data_loader_from_random_data_point_generator,
+    data_loader_from_batch_generator,
 )
 from neuralpp.util.generic_sgd_learner import default_after_epoch
 from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
@@ -79,7 +79,7 @@ def constraint_function(constraint_index, di, di_plus_one):
     return di_plus_one == di + 1
 
 
-def constrained_examples_batch_generator(number_of_digits, chain_length, batch_size):
+def generate_chain_of_successive_digits_batch(number_of_digits, chain_length, batch_size):
     """
     Must generate an example guaranteed to satisfy all constraints
     """
@@ -95,9 +95,20 @@ def constrained_examples_batch_generator(number_of_digits, chain_length, batch_s
         digit_values.append(digit_values[i - 1] + 1)
     return digit_values
 
+
+chain_of_successive_digits_and_all_true_constraints_batch_generator = \
+    make_digits_and_all_true_constraints_values_batches_generator(
+        generate_chain_of_successive_digits_batch
+    )
+
 parameters = default_parameters()
+parameters.chain_length = 9
+parameters.number_of_constraints = parameters.chain_length - 1
+parameters.number_of_constraint_values = 2  # boolean constraints
 parameters.indices_of_digit_arguments_of_constraint = indices_of_digit_arguments_of_constraint
 parameters.constraint_function = constraint_function
-parameters.constrained_examples_batch_generator = constrained_examples_batch_generator
+
+parameters.custom_digits_and_constraints_values_batches_generator = None
+parameters.custom_digits_and_constraints_values_batches_generator = chain_of_successive_digits_and_all_true_constraints_batch_generator
 
 solve_learning_problem_from_parameters(parameters)

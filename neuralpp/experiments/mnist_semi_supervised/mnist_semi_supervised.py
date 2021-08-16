@@ -24,7 +24,7 @@ from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
     FromLogToProbabilitiesAdapter,
 )
 from neuralpp.util.data_loader_from_random_data_point_thunk import (
-    data_loader_from_random_data_point_generator,
+    data_loader_from_batch_generator,
 )
 from neuralpp.util.generic_sgd_learner import default_after_epoch
 from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
@@ -77,17 +77,11 @@ from neuralpp.util.util import join, set_seed
 
 def default_parameters():
     number_of_digits = 10
-    chain_length = 9
-    number_of_constraints = chain_length - 1
 
     use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
-    use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
-    use_positive_examples_only = (
-        True  # only generate examples where all constraints are True,
-    )
-    # as opposed to random pairs with constraint labeled True or False accordingly.
-    # Including negative examples makes the problem easier, but less
-    # uniform random tables still get stuck in local minima.
+    use_conv_net = True  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
+    custom_digits_and_constraints_values_batches_generator = None
+    # Custom examples generator provided by user; if None, use random sequences of digits.
 
     show_examples = False  # show some examples of images (sanity check for data structure)
     use_a_single_image_per_digit = (
@@ -162,6 +156,30 @@ def default_parameters():
 # -------------- END OF DEFAULT PARAMETERS
 
 
+def make_digits_and_all_true_constraints_values_batches_generator(digit_values_batch_generator):
+    """
+    A convenience method for taking a generator of digits values batches
+    and returning a generator of digit values batches and all-true constraints (value 1).
+    This is useful for problems that have boolean constraints and we have
+    a generator for digits values that is guaranteed to generate examples satisfying
+    all constraints.
+    """
+    def generate(number_of_digits,
+        chain_length,
+        number_of_constraints,
+        batch_size):
+
+        digit_values = digit_values_batch_generator(
+            number_of_digits, chain_length, batch_size)
+        constraint_values = [  # TODO: is returning a tensor more efficient?
+            torch.ones(batch_size).long()
+            for _ in range(number_of_constraints)
+        ]
+        return digit_values, constraint_values
+
+    return generate
+
+
 class MNISTChainsProblem(LearningProblem):
 
     def __init__(
@@ -169,14 +187,14 @@ class MNISTChainsProblem(LearningProblem):
             number_of_digits,
             chain_length,
             number_of_constraints,
+            number_of_constraint_values,
 
             indices_of_digit_arguments_of_constraint,
             constraint_function,
-            constrained_examples_batch_generator,
+            custom_digits_and_constraints_values_batches_generator,
 
             use_real_images,
             use_conv_net,
-            use_positive_examples_only,
 
             show_examples,
             use_a_single_image_per_digit,
@@ -197,14 +215,14 @@ class MNISTChainsProblem(LearningProblem):
         self.number_of_digits = number_of_digits
         self.chain_length = chain_length
         self.number_of_constraints = number_of_constraints
+        self.number_of_constraint_values = number_of_constraint_values
 
         self.indices_of_digit_arguments_of_constraint = indices_of_digit_arguments_of_constraint
         self.constraint_function = constraint_function
-        self.constrained_examples_batch_generator = constrained_examples_batch_generator
+        self.custom_digits_and_constraints_values_batches_generator = custom_digits_and_constraints_values_batches_generator
 
         self.use_real_images = use_real_images
         self.use_conv_net = use_conv_net
-        self.use_positive_examples_only = use_positive_examples_only
 
         self.show_examples = show_examples
         self.use_a_single_image_per_digit = use_a_single_image_per_digit
@@ -261,14 +279,16 @@ class MNISTChainsProblem(LearningProblem):
     # override
     def make_data_loader(self):
         self.setup_images()
-        batch_generator = (
-            self.generate_random_positive_examples_batch
-            if self.use_positive_examples_only
-            else self.generate_random_positive_or_negative_examples_batch
-        )
-        train_data_loader = data_loader_from_random_data_point_generator(
+
+        if self.custom_digits_and_constraints_values_batches_generator is not None:
+            batch_generator = self.generate_custom_examples_batch
+        else:
+            batch_generator = self.generate_random_examples_batch
+
+        train_data_loader = data_loader_from_batch_generator(
             self.number_of_batches_per_epoch, batch_generator, print=None
         )
+
         return train_data_loader
 
     def setup_images(self):
@@ -323,21 +343,21 @@ class MNISTChainsProblem(LearningProblem):
         images_batch = torch.stack(images_list).to(digit_batch.device)
         return images_batch
 
-    ### Generation of positive and negative examples
+    ### Generation of random examples
 
-    def generate_random_positive_or_negative_examples_batch(self):
+    def generate_random_examples_batch(self):
         return self.generate_examples_batch_from_digits_and_constraints_values_generator(
-            self.generate_positive_and_negative_digits_and_constraints_values)
+            self.generate_random_digits_and_constraints_values_batches)
 
-    def generate_positive_and_negative_digits_and_constraints_values(self):
-        digit_values = self.generate_digits_for_random_positive_or_negative_examples_batch()
+    def generate_random_digits_and_constraints_values_batches(self):
+        digit_values = self.generate_random_digits_values_batch()
         constraint_values = [
             self.ith_constraint_values(i, digit_values)
             for i in range(self.number_of_constraints)
         ]
-        return constraint_values, digit_values
+        return digit_values , constraint_values
 
-    def generate_digits_for_random_positive_or_negative_examples_batch(self):
+    def generate_random_digits_values_batch(self):
         digit_values = [
             torch.randint(self.number_of_digits, (self.batch_size,)) for i in range(self.chain_length)
         ]
@@ -347,39 +367,35 @@ class MNISTChainsProblem(LearningProblem):
         digit_arguments = [digit_values[j] for j in self.indices_of_digit_arguments_of_constraint(i)]
         return self.constraint_function(i, *digit_arguments).long()
 
-    ### Generation of positive examples
+    ### Custom generation of examples
 
-    def generate_random_positive_examples_batch(self):
+    def generate_custom_examples_batch(self):
         return self.generate_examples_batch_from_digits_and_constraints_values_generator(
-            self.generate_positive_digits_and_constraints_values)
+            self.generate_custom_digits_and_constraints_values_batches)
 
-    def generate_positive_digits_and_constraints_values(self):
-        digit_values = self.constrained_examples_batch_generator(
-            self.number_of_digits, self.chain_length, self.batch_size)
-        constraint_values = [
-            torch.ones(self.batch_size).long()
-            for i in range(self.number_of_constraints)
-        ]
-        return constraint_values, digit_values
+    def generate_custom_digits_and_constraints_values_batches(self):
+        return self.custom_digits_and_constraints_values_batches_generator(
+            self.number_of_digits, self.chain_length, self.number_of_constraints, self.batch_size
+        )
 
     ### Generation of batches
 
     def generate_examples_batch_from_digits_and_constraints_values_generator(
             self, digits_and_constraints_values_generator):
 
-        constraint_values, digit_values = digits_and_constraints_values_generator()
+        digit_values, constraint_values = digits_and_constraints_values_generator()
 
         image_values = [
-            self.get_image_batch_from_digit_batch(digit_values[i])
-            for i in range(self.chain_length)
+            self.get_image_batch_from_digit_batch(digit_value)
+            for digit_value in digit_values
         ]
         observation_dict = {
-            self.image_random_variables[i]: image_values[i]
-            for i in range(self.chain_length)
+            self.image_random_variables[i]: image_value
+            for i, image_value in enumerate(image_values)
         }
         query_assignment_dict = {
             self.constraint_variables[i]: constraint_values[i]
-            for i in range(self.number_of_constraints)
+            for i, constraint_value in enumerate(constraint_values)
         }
         return observation_dict, query_assignment_dict
 
@@ -410,7 +426,7 @@ class MNISTChainsProblem(LearningProblem):
             )
             self.digit_variables.append(IntegerVariable(f"digit{i}", self.number_of_digits))
             if i != self.number_of_constraints:
-                self.constraint_variables.append(IntegerVariable(f"constraint{i}", 2))
+                self.constraint_variables.append(IntegerVariable(f"constraint{i}", self.number_of_constraint_values))
 
     def make_recognizer_factors(self):
         if self.recognizer_type == "neural net":
@@ -613,7 +629,7 @@ class MNISTChainsProblem(LearningProblem):
         print("Model:")
         print(recognizer)
         model = recognizer
-        data_loader = data_loader_from_random_data_point_generator(
+        data_loader = data_loader_from_batch_generator(
             self.number_of_batches_per_epoch, random_batch_generator(), print=None
         )
         UniformTraining(model, data_loader, self.number_of_digits).learn()
@@ -631,14 +647,14 @@ def solve_learning_problem_from_parameters(parameters):
             number_of_digits=parameters.number_of_digits,
             chain_length=parameters.chain_length,
             number_of_constraints=parameters.number_of_constraints,
+            number_of_constraint_values=parameters.number_of_constraint_values,
 
             indices_of_digit_arguments_of_constraint=parameters.indices_of_digit_arguments_of_constraint,
             constraint_function=parameters.constraint_function,
-            constrained_examples_batch_generator=parameters.constrained_examples_batch_generator,
+            custom_digits_and_constraints_values_batches_generator=parameters.custom_digits_and_constraints_values_batches_generator,
 
             use_real_images=parameters.use_real_images,
             use_conv_net=parameters.use_conv_net,
-            use_positive_examples_only=parameters.use_positive_examples_only,
 
             show_examples=parameters.show_examples,
             use_a_single_image_per_digit=parameters.use_a_single_image_per_digit,
