@@ -11,7 +11,7 @@ class TensorVariable(Variable):
         assert isinstance(pytorch_tensor_value, torch.Tensor), (
             f"Values of {TensorVariable.__name__} must be tensors. "
             f"Moreover, they must be batch tensors even if they "
-            f"contain is a single value."
+            f"contain a single value."
         )
         return pytorch_tensor_value
 

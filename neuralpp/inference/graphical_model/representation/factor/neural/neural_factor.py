@@ -116,12 +116,13 @@ class NeuralFactor(AtomicFactor):
         assignment_and_conditioning_dict = util.union_of_dicts(
             assignment_dict, self.conditioning_dict
         )
-
         tuple_of_featurized_value_tensors = tuple(
             v.featurize(assignment_and_conditioning_dict[v])
             for v in self.input_variables
         )
         try:
+            # TODO: this function won't work if variables
+            # have a different number of batch rows
             neural_net_input = torch.cat(tuple_of_featurized_value_tensors)
         except Exception as e:
             raise Exception(
