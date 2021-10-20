@@ -3,8 +3,8 @@ import math
 
 import torch
 from neuralpp.inference.graphical_model.representation.representation import (
-    contains_batch_coordinate,
-    is_batch_coordinate,
+    contains_multivalue_coordinate,
+    is_multivalue_coordinate,
 )
 from neuralpp.inference.graphical_model.representation.table.table import Table
 from neuralpp.inference.graphical_model.representation.table.table_util import (
@@ -128,7 +128,7 @@ class PyTorchTable(Table):
         else:
             all_coordinates = tuple_of_non_batch_slice_coordinates
 
-        self.check_all_batch_coordinates_are_1d_and_have_the_same_size(all_coordinates)
+        self.check_all_multivalue_coordinates_are_1d_and_have_the_same_size(all_coordinates)
 
         return self.raw_tensor[all_coordinates]
 
@@ -140,35 +140,35 @@ class PyTorchTable(Table):
         # A[slice(None), range(n)] is equal to A.
         # However, if there are no batch coordinates then we can use slice and obtain the same result,
         # hence the case analysis used here.
-        if any(is_batch_coordinate(c) for c in tuple_of_non_batch_slice_coordinates):
+        if any(is_multivalue_coordinate(c) for c in tuple_of_non_batch_slice_coordinates):
             batch_rows_coordinate = range(self.number_of_batch_rows())
         else:
             batch_rows_coordinate = slice(None)
         return batch_rows_coordinate
 
-    def check_all_batch_coordinates_are_1d_and_have_the_same_size(
+    def check_all_multivalue_coordinates_are_1d_and_have_the_same_size(
         self, all_coordinates
     ):
-        batch_coordinates = [c for c in all_coordinates if is_batch_coordinate(c)]
+        multivalue_coordinates = [c for c in all_coordinates if is_multivalue_coordinate(c)]
 
-        invalid_batch_coordinate = first(
-            batch_coordinates, lambda bc: len(bc) != 0 and is_iterable(bc[0])
+        invalid_multivalue_coordinate = first(
+            multivalue_coordinates, lambda bc: len(bc) != 0 and is_iterable(bc[0])
         )
-        if invalid_batch_coordinate is not None:
-            raise BatchCoordinateFirstElementIsIterable(invalid_batch_coordinate)
+        if invalid_multivalue_coordinate is not None:
+            raise BatchCoordinateFirstElementIsIterable(invalid_multivalue_coordinate)
 
-        set_of_len_of_batch_coordinates = {
-            len(batch_coordinate) for batch_coordinate in batch_coordinates
+        set_of_len_of_multivalue_coordinates = {
+            len(multivalue_coordinate) for multivalue_coordinate in multivalue_coordinates
         }
 
-        if len(set_of_len_of_batch_coordinates) > 1:
+        if len(set_of_len_of_multivalue_coordinates) > 1:
             raise BatchCoordinatesDoNotAgreeException()
 
     def slice(self, non_batch_slice_coordinates):
         raw_tensor_slice = self.get_raw_tensor_slice(
             non_batch_slice_coordinates
         )  # already covers batch cases
-        new_table_is_batch = self.batch or contains_batch_coordinate(
+        new_table_is_batch = self.batch or contains_multivalue_coordinate(
             non_batch_slice_coordinates
         )
         return self.new_table_from_raw_entries(raw_tensor_slice, new_table_is_batch)
@@ -351,10 +351,10 @@ class BatchCoordinateFirstElementIsIterable(Exception):
     will be raised anyway).
     """
 
-    def __init__(self, invalid_batch_coordinate):
+    def __init__(self, invalid_multivalue_coordinate):
         super(BatchCoordinateFirstElementIsIterable, self).__init__(
             f"Batch coordinate first element is iterable; they should all be integral scalars: "
-            f"{invalid_batch_coordinate[0]}"
+            f"{invalid_multivalue_coordinate[0]}"
         )
 
 

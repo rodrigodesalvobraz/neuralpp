@@ -102,13 +102,13 @@ chain_of_successive_digits_and_all_true_constraints_batch_generator = \
     )
 
 parameters = default_parameters()
-parameters.chain_length = 9
+parameters.chain_length = 4
 parameters.number_of_constraints = parameters.chain_length - 1
 parameters.number_of_constraint_values = 2  # boolean constraints
 parameters.indices_of_digit_arguments_of_constraint = indices_of_digit_arguments_of_constraint
 parameters.constraint_function = constraint_function
 
 parameters.custom_digits_and_constraints_values_batches_generator = None
-parameters.custom_digits_and_constraints_values_batches_generator = chain_of_successive_digits_and_all_true_constraints_batch_generator
+#parameters.custom_digits_and_constraints_values_batches_generator = chain_of_successive_digits_and_all_true_constraints_batch_generator
 
 solve_learning_problem_from_parameters(parameters)

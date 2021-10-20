@@ -1,5 +1,6 @@
 import functools
 from math import prod
+from typing import Any
 
 import torch
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
@@ -13,21 +14,12 @@ from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
     convert_scalar_frame_to_tensor_frame,
     convert_values_to_at_least_two_dimensions,
 )
-from neuralpp.inference.graphical_model.representation.representation import (
-    contains_batch_coordinate,
-)
 from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
 )
+from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
-from neuralpp.util.util import find, join
-
-
-def value_tensor(value):
-    if isinstance(value, torch.Tensor):
-        return value
-    else:
-        return torch.tensor([value], dtype=torch.float)
+from neuralpp.util.util import find, join, value_tensor
 
 
 class NeuralFactor(AtomicFactor):
@@ -49,8 +41,6 @@ class NeuralFactor(AtomicFactor):
         self, neural_net, input_variables, output_variable, conditioning_dict={}
     ):
 
-        all_variables = input_variables + [output_variable]
-
         super().__init__(
             self.non_conditioned_variables(
                 input_variables, output_variable, conditioning_dict.keys()
@@ -62,7 +52,8 @@ class NeuralFactor(AtomicFactor):
         ), f"{NeuralFactor.__name__} requires output variable {output_variable} to be {DiscreteVariable.__name__}"
         assert (
             output_variable.cardinality is not None
-        ), f"{NeuralFactor.__name__} requires output variable {output_variable} to have a well-defined cardinality, but {output_variable} has none"
+        ), f"{NeuralFactor.__name__} requires output variable {output_variable} to have a well-defined cardinality, " \
+           f"but {output_variable} has none"
 
         self.input_variables = input_variables
         self.free_input_variables = [
@@ -88,18 +79,23 @@ class NeuralFactor(AtomicFactor):
     def call_after_validation(self, assignment_dict, assignment_values):
         probabilities = self.probabilities_from_assignment_dict(assignment_dict)
         output_value = assignment_dict[self.output_variable]
-        if contains_batch_coordinate(assignment_values):
-            # we used to have : for the first coordinate below, but that failed if output_value is a batch coordinate.
-            # In that case, we would obtain the probability for each output value, per row.
-            # Instead, we want the probability for each i-th output value from the *corresponding* i-th row.
-            probability = probabilities[list(range(len(probabilities))), output_value]
+
+        assert(probabilities.dim() in {1, 2}
+               and (isinstance(output_value, int) or output_value.dim() == 1))
+
+        # if probabilities.shape == (n,) and output_value is scalar
+        # or
+        # probabilities.shape == (n,) and output_value.shape == (m,)
+        # or
+        # probabilities.shape == (k, n) and output_value is scalar:
+        #   return probabilities[output_value]
+        # else:  # probabilities.shape == (k, n) and output_value.shape == (m,)
+        #   return probabilities.gather(dim=1, index=output_value.unsqueeze(1)).squeeze()
+
+        if probabilities.dim() == 2 and isinstance(output_value, torch.Tensor) and output_value.dim() == 1:
+            probability = probabilities.gather(dim=1, index=output_value.unsqueeze(1)).squeeze()
         else:
             probability = probabilities[output_value]
-
-        # # if output_value is a batch coordinate, probability will be a n x 1 tensor, but we
-        # # want it to be a n-dimensional tensor.
-        # if is_batch_coordinate(output_value):
-        #     probability = probability.squeeze(1)
 
         return probability
 
@@ -120,14 +116,33 @@ class NeuralFactor(AtomicFactor):
             v.featurize(assignment_and_conditioning_dict[v])
             for v in self.input_variables
         )
-        try:
-            # TODO: this function won't work if variables
-            # have a different number of batch rows
-            neural_net_input = torch.cat(tuple_of_featurized_value_tensors)
-        except Exception as e:
-            raise Exception(
-                f"Could not concatenate tensor values for {self.input_variables}"
-            ) from e
+
+        def variable_value_featurized():
+            return ((v, assignment_and_conditioning_dict[v], fvt)
+                    for v, fvt in zip(self.input_variables, tuple_of_featurized_value_tensors))
+
+        multivalue_lengths = set(len(fvt) for v, value, fvt in variable_value_featurized() if v.is_multivalue(value))
+
+        if len(multivalue_lengths) > 1:
+            raise Exception(f"neural factor received multivalue inputs of different lengths: {multivalue_lengths}")
+
+        def make_batch(tensor, batch_size):
+            return tensor.unsqueeze(dim=0).expand([batch_size] + [-1] * tensor.dim())
+
+        if len(multivalue_lengths) == 1:
+            # we have at least one multivalue;
+            # all multivalues have the same length;
+            # so we need to make all values multivalues of this same length.
+            batch_size = next(iter(multivalue_lengths))
+            tuple_of_featurized_value_tensors = tuple(
+                make_batch(fvt, batch_size) if not v.is_multivalue(value) else fvt
+                for v, value, fvt in variable_value_featurized()
+            )
+            dim_to_concatenate = 1
+        else:
+            dim_to_concatenate = 0
+
+        neural_net_input = torch.cat(tuple_of_featurized_value_tensors, dim=dim_to_concatenate)
 
         return neural_net_input
 

@@ -42,9 +42,6 @@ class DiscreteVariable(Variable):
     def assignments(self):
         self._not_implemented("assignments")
 
-    def featurize(self, value):
-        self._not_implemented("featurize")
-
     def _not_implemented(self, name):
         error = NotImplementedError(f"{name} not implemented for {type(self)}")
         raise error

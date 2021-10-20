@@ -320,3 +320,9 @@ def go_up_until_we_have_subdirectory(subdir):
             raise FileNotFoundError(f"Cannot find ancestor of '{initial_directory}' containing subdirectory '{subdir}'")
         os.chdir("..")
 
+
+def value_tensor(value):
+    if isinstance(value, torch.Tensor):
+        return value
+    else:
+        return torch.tensor([value], dtype=torch.float)

@@ -116,3 +116,45 @@ def test_normalize():
         [p, q, xor],
         [[[0.2482, 0.0018], [0.002, 0.248]], [[0.002, 0.248], [0.25, 0.00001]]],
     )
+
+
+def test_call_simple():
+    neural_factor, p, q, xor = get_data()
+
+    print("neural_factor({p: 0, q:1, xor: 1}))", neural_factor({p: 0, q: 1, xor: 1}))
+    assert neural_factor({p: 0, q: 1, xor: 1}) > 0.9
+
+    print("neural_factor({p: 0, q:1, xor: 0}))", neural_factor({p: 0, q: 1, xor: 0}))
+    assert neural_factor({p: 0, q: 1, xor: 0}) < 0.1
+
+    print("neural_factor({p: 1, q:1, xor: 0}))", neural_factor({p: 1, q: 1, xor: 0}))
+    assert neural_factor({p: 1, q: 1, xor: 0}) > 0.9
+
+
+def test_call_multivalue():
+    neural_factor, p, q, xor = get_data()
+
+    assignment = {p: torch.tensor([0, 1]), q: 1, xor: 1}
+    expected = [0.9, 0.1]
+    run_test_call_multivalue(assignment, expected, neural_factor)
+
+    assignment = {p: [0, 1], q: 1, xor: 1}
+    expected = [0.9, 0.1]
+    run_test_call_multivalue(assignment, expected, neural_factor)
+
+    assignment = {p: [0, 1], q: [1, 1], xor: 1}
+    expected = [0.9, 0.1]
+    run_test_call_multivalue(assignment, expected, neural_factor)
+
+    # assignment = {p: [], q: [], xor: 1}
+    # expected = []
+    # run_test_call_multivalue(assignment, expected, neural_factor)
+
+
+def run_test_call_multivalue(assignment, expected, neural_factor):
+    expected_tensor = torch.tensor(expected)
+    small = torch.tensor([0.05, 0.05])
+    actual = neural_factor(assignment)
+    print("neural_factor({p: [0, 1], q:1, xor: 1}))", actual)
+    assert all((actual - expected_tensor) ** 2 < small)
+

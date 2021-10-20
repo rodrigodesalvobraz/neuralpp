@@ -79,7 +79,7 @@ def default_parameters():
     number_of_digits = 10
 
     use_real_images = True  # use real images; otherwise, use its digit value only as input (simpler version of experiment)
-    use_conv_net = True  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
+    use_conv_net = False  # if use_real_images, neural net used is ConvNet for MNIST; otherwise, a simpler MLP for MNIST.
     custom_digits_and_constraints_values_batches_generator = None
     # Custom examples generator provided by user; if None, use random sequences of digits.
 

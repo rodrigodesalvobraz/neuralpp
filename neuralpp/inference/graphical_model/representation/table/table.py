@@ -24,12 +24,8 @@ class Table:
         Returns a tensor corresponding to the values indexed by given non-batch coordinates,
         that is, coordinates for dimensions that are not the batch row index dimension.
         A coordinate can be either an integer, slice(None), or an array-like object of integers
-        (TODO: the latter are called 'batch coordinates' in the sense that they represent a batch of values,
-        but note that this is confusing because a non-batch coordinate, that is, a coordinate on a non-batch dimension,
-        may be a batch coordinate! Sorry for the confusing terminology -- this should be cleaned up).
         To describe the result, let us divide into cases.
-        If there are no batch coordinates (that is, no non-batch coordinates with multiple values),
-        and the table is not a batch,
+        If there are no multivalue coordinates and the table is not a batch,
         then the result is table[non_batch_slice_coordinates].
         This will be either a scalar, if there are no slice(None) coordinates, or a tensor-like object if there
         are slice(None) coordinates.

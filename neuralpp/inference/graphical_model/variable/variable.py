@@ -1,12 +1,23 @@
+from typing import Any
+
+import torch
+
+
 class Variable:
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         self._not_implemented("__eq__")
 
     def __hash__(self):
         self._not_implemented("__hash__")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         self._not_implemented("__repr__")
+
+    def featurize(self, value) -> torch.Tensor:
+        self._not_implemented("featurize")
+
+    def is_multivalue(self, value: Any) -> bool:
+        self._not_implemented("is_multivalue")
 
     def _not_implemented(self, name):
         error = NotImplementedError(f"{name} not implemented for {type(self)}")

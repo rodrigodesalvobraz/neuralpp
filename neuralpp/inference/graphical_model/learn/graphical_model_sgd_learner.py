@@ -12,8 +12,8 @@ from neuralpp.util.generic_sgd_learner import GenericSGDLearner, default_after_e
 
 class GraphicalModelSGDLearner(GenericSGDLearner):
     """
-    A GenericSGDLearner specialized to graphical model models,
-    making appropriate about datapoints being pairs of
+    A GenericSGDLearner specialized to graphical models,
+    making assumptions about datapoints being pairs of
     observation and query assignment batches,
     how to transfer them to a given device,
     and a loss function implementing cross entropy for them.
@@ -48,7 +48,7 @@ class GraphicalModelSGDLearner(GenericSGDLearner):
         (observation_batch, query_assignment_batch) = batch
         observation_batch = to(observation_batch, device)
         query_assignment_batch = to(query_assignment_batch, device)
-        return (observation_batch, query_assignment_batch)
+        return observation_batch, query_assignment_batch
 
     def get_number_of_datapoints_in_batch(self, batch):
         (observation_batch, query_assignment_batch) = batch
