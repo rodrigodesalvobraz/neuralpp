@@ -19,7 +19,7 @@ from neuralpp.inference.graphical_model.variable.discrete_variable import (
 )
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
-from neuralpp.util.util import find, join, value_tensor
+from neuralpp.util.util import find, join, value_tensor, is_iterable
 
 
 class NeuralFactor(AtomicFactor):
@@ -81,19 +81,27 @@ class NeuralFactor(AtomicFactor):
         output_value = assignment_dict[self.output_variable]
 
         assert(probabilities.dim() in {1, 2}
-               and (isinstance(output_value, int) or output_value.dim() == 1))
+               and (isinstance(output_value, int)
+                    or is_iterable(output_value)
+                    or (isinstance(output_value, torch.Tensor) and output_value.dim() == 1)))
 
         # if probabilities.shape == (n,) and output_value is scalar
         # or
         # probabilities.shape == (n,) and output_value.shape == (m,)
-        # or
-        # probabilities.shape == (k, n) and output_value is scalar:
         #   return probabilities[output_value]
+        # elif probabilities.shape == (k, n) and output_value is scalar:
+        #   return probabilities[:, output_value]
         # else:  # probabilities.shape == (k, n) and output_value.shape == (m,)
         #   return probabilities.gather(dim=1, index=output_value.unsqueeze(1)).squeeze()
 
-        if probabilities.dim() == 2 and isinstance(output_value, torch.Tensor) and output_value.dim() == 1:
-            probability = probabilities.gather(dim=1, index=output_value.unsqueeze(1)).squeeze()
+        if probabilities.dim() == 2:
+            if (isinstance(output_value, torch.Tensor) and output_value.dim() == 1) \
+                    or is_iterable(output_value):
+                if not isinstance(output_value, torch.Tensor):
+                    output_value = torch.tensor(output_value)
+                probability = probabilities.gather(dim=1, index=output_value.unsqueeze(1)).squeeze()
+            else:  # output_value is scalar
+                probability = probabilities[:, output_value]
         else:
             probability = probabilities[output_value]
 
