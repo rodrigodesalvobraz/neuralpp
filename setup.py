@@ -50,7 +50,6 @@ setup(
     name="neuralpp",
     description="Normalizing Flows for PyTorch",
     author="Rodrigo de Salvo Braz",
-    author_email="info@stefanwebb.me",
     license="MIT",
     url="https://github.com/rodrigodesalvobraz/neuralpp",
     project_urls={
