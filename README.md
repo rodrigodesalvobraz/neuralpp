@@ -29,5 +29,7 @@ In `src/experiments/mnist_pairs_semi_supervised.py` there is code attempting to 
 
 ## Tests
 
-Tests in `test` are split into `quick_tests` and `slow_tests`.
+Tests in `tests` are split into `quick_tests` and `slow_tests`.
 The former include tests of basic data structure implementations while the latter includes  learning sessions with stochastic gradient descent and take several minutes.
+
+Run them with `pytest tests/` from the root directory.
