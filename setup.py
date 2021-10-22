@@ -75,7 +75,6 @@ setup(
     python_requires=">={}.{}".format(REQUIRED_MAJOR, REQUIRED_MINOR),
     install_requires=[
         "torch>=1.8.1",
-        "cudatoolkit>=10.2"
     ],
     packages=find_packages(
         include=["neuralpp", "neuralpp.*"],
