@@ -18,7 +18,29 @@ This repository contains:
 
 * source code, including an experiments directory
 * test code (to be run with PyTest)
+* `setup.py` for installing with Pip
 * `environment.yml` for importing a Conda environment 
+
+## Installation
+
+First, clone the repo locally:
+
+```
+git clone https://github.com/rodrigodesalvobraz/neuralpp.git
+cd neuralpp
+```
+
+Then, to install a developer copy, run:
+
+```
+python setup.py develop
+```
+
+Alternatively, for a regular installation:
+
+```
+python setup.py install
+```
 
 ## Experiments
 
