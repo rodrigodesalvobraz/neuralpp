@@ -48,7 +48,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="neuralpp",
-    description="Normalizing Flows for PyTorch",
+    description="Neural Probabilistic Programs (NeuralPPs)",
     author="Rodrigo de Salvo Braz",
     license="MIT",
     url="https://github.com/rodrigodesalvobraz/neuralpp",
@@ -58,7 +58,6 @@ setup(
     },
     keywords=[
         "Bayesian Inference",
-        "Statistical Modeling",
         "Exact Inference",
         "PyTorch",
     ],
