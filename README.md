@@ -18,7 +18,29 @@ This repository contains:
 
 * source code, including an experiments directory
 * test code (to be run with PyTest)
+* `setup.py` for installing with Pip
 * `environment.yml` for importing a Conda environment 
+
+## Installation
+
+First, clone the repo locally:
+
+```
+git clone https://github.com/rodrigodesalvobraz/neuralpp.git
+cd neuralpp
+```
+
+Then, to install a developer copy, run:
+
+```
+python setup.py develop
+```
+
+Alternatively, for a regular installation:
+
+```
+python setup.py install
+```
 
 ## Experiments
 
@@ -29,5 +51,7 @@ In `src/experiments/mnist_pairs_semi_supervised.py` there is code attempting to 
 
 ## Tests
 
-Tests in `test` are split into `quick_tests` and `slow_tests`.
+Tests in `neuralpp.test` are split into `quick_tests` and `slow_tests`.
 The former include tests of basic data structure implementations while the latter includes  learning sessions with stochastic gradient descent and take several minutes.
+
+Run them with `pytest .` from the root directory.
