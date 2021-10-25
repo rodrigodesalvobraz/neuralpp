@@ -19,6 +19,9 @@ class Variable:
     def is_multivalue(self, value: Any) -> bool:
         self._not_implemented("is_multivalue")
 
+    def multivalue_len(self, value: Any) -> int:
+        self._not_implemented("multivalue_len")
+
     def _not_implemented(self, name):
         error = NotImplementedError(f"{name} not implemented for {type(self)}")
         raise error

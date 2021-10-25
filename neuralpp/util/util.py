@@ -326,3 +326,15 @@ def value_tensor(value):
         return value
     else:
         return torch.tensor([value], dtype=torch.float)
+
+
+def expand_into_batch(tensor, batch_size):
+    """
+    Returns a batch (of the given size) of replicas of given tensor.
+    """
+    tensor_with_newly_added_batch_dimension = tensor.unsqueeze(dim=0)
+    number_of_non_batch_dimensions = tensor.dim()
+    expansion_of_first_dimension = [batch_size]
+    expansion_of_remaining_dimensions = [-1] * number_of_non_batch_dimensions
+    expansions_by_dimensions = expansion_of_first_dimension + expansion_of_remaining_dimensions
+    return tensor_with_newly_added_batch_dimension.expand(expansions_by_dimensions)

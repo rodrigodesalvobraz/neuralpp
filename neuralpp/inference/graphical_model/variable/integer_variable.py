@@ -23,6 +23,10 @@ class IntegerVariable(DiscreteVariable):
     def is_multivalue(self, value: Any) -> bool:
         return is_iterable(value)
 
+    def multivalue_len(self, value: Any) -> int:
+        assert self.is_multivalue(value)
+        return len(value)
+
     def __eq__(self, other):
         assert isinstance(
             other, IntegerVariable

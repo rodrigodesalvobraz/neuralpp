@@ -1,6 +1,5 @@
 import functools
 from math import prod
-from typing import Any
 
 import torch
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
@@ -9,17 +8,14 @@ from neuralpp.inference.graphical_model.representation.factor.atomic_factor impo
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
-from neuralpp.inference.graphical_model.representation.frame import dict_frame
 from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
-    convert_scalar_frame_to_tensor_frame,
-    convert_values_to_at_least_two_dimensions,
+    concatenate_into_single_tensor,
 )
 from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
 )
-from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
-from neuralpp.util.util import find, join, value_tensor, is_iterable
+from neuralpp.util.util import find, join, value_tensor, is_iterable, expand_into_batch
 
 
 class NeuralFactor(AtomicFactor):
@@ -113,6 +109,7 @@ class NeuralFactor(AtomicFactor):
         return probabilities
 
     def neural_net_input_from_assignment_dict(self, assignment_dict):
+
         self.check_assignment_dict_is_complete(assignment_dict)
         self.check_assignment_dict_does_not_contradict_conditioning_dict(
             assignment_dict
@@ -120,36 +117,44 @@ class NeuralFactor(AtomicFactor):
         assignment_and_conditioning_dict = util.union_of_dicts(
             assignment_dict, self.conditioning_dict
         )
+
+        # featurize
+        # check lengths
+        # obtain multivalues length
+        # if there are multivalues
+        #     expand univalues into 2D tensors
+        #     concatenate along dimension 1
+        # else
+        #     concatenate along dimension 0
+
+        multivalue_lengths = set(v.multivalue_len(value)
+                                 for v, value in assignment_and_conditioning_dict.items()
+                                 if v.is_multivalue(value))
+
+        if len(multivalue_lengths) > 1:
+            raise Exception(f"neural factor received multivalue inputs of different lengths: {multivalue_lengths}")
+
         tuple_of_featurized_value_tensors = tuple(
             v.featurize(assignment_and_conditioning_dict[v])
             for v in self.input_variables
         )
 
         def variable_value_featurized():
-            return ((v, assignment_and_conditioning_dict[v], fvt)
-                    for v, fvt in zip(self.input_variables, tuple_of_featurized_value_tensors))
+            return (
+                (v, assignment_and_conditioning_dict[v], fvt)
+                for v, fvt in zip(self.input_variables, tuple_of_featurized_value_tensors)
+            )
 
-        multivalue_lengths = set(len(fvt) for v, value, fvt in variable_value_featurized() if v.is_multivalue(value))
+        there_are_multivalues = len(multivalue_lengths) == 1
 
-        if len(multivalue_lengths) > 1:
-            raise Exception(f"neural factor received multivalue inputs of different lengths: {multivalue_lengths}")
-
-        def make_batch(tensor, batch_size):
-            return tensor.unsqueeze(dim=0).expand([batch_size] + [-1] * tensor.dim())
-
-        if len(multivalue_lengths) == 1:
-            # we have at least one multivalue;
-            # all multivalues have the same length;
-            # so we need to make all values multivalues of this same length.
+        if there_are_multivalues:
             batch_size = next(iter(multivalue_lengths))
             tuple_of_featurized_value_tensors = tuple(
-                make_batch(fvt, batch_size) if not v.is_multivalue(value) else fvt
+                expand_into_batch(fvt, batch_size) if not v.is_multivalue(value) else fvt
                 for v, value, fvt in variable_value_featurized()
             )
-            dim_to_concatenate = 1
-        else:
-            dim_to_concatenate = 0
 
+        dim_to_concatenate = 1 if there_are_multivalues else 0
         neural_net_input = torch.cat(tuple_of_featurized_value_tensors, dim=dim_to_concatenate)
 
         return neural_net_input
@@ -260,18 +265,7 @@ class NeuralFactor(AtomicFactor):
             if v in self.input_variables
         }
         if len(relevant_conditioning_dict) > 0:
-            broadcast_assignment_dict = dict_frame.broadcast_values(
-                relevant_conditioning_dict
-            )
-            broadcast_assignment_dict = convert_scalar_frame_to_tensor_frame(
-                broadcast_assignment_dict
-            )
-            broadcast_assignment_dict = convert_values_to_at_least_two_dimensions(
-                broadcast_assignment_dict
-            )
-            conditioning_tensor = torch.cat(
-                tuple(broadcast_assignment_dict.values()), dim=1
-            )
+            conditioning_tensor = concatenate_into_single_tensor(relevant_conditioning_dict)
         else:
             conditioning_tensor = torch.ones(1, 0)
 

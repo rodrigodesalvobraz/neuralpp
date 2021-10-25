@@ -6,10 +6,10 @@ def is_frame(dictionary):
     return all(has_len(v) for v in dictionary.values())
 
 
-def generalized_len_of_dict_frame(dictionary):
-    if len(dictionary) == 0:
+def generalized_len_of_dict_frame(dict_frame):
+    if len(dict_frame) == 0:
         raise DictionaryShouldHaveAtLeastOneItem()
-    set_of_lengths = {generalized_len(values) for values in dictionary.values()}
+    set_of_lengths = {generalized_len(values) for values in dict_frame.values()}
     if len(set_of_lengths) != 1:
         raise DictionaryValuesShouldAllHaveTheSameLength()
     (length,) = set_of_lengths
@@ -55,6 +55,28 @@ def to_if_tensor(obj, device):
         return obj.to(device)
     else:
         return obj
+
+
+def concatenate_into_single_tensor(dict_frame):
+    """
+    Given an ordered dictionary frame with all multivalue values of same length
+    (but some possible univalues),
+    returns a 2D tensor where element (i,j) is
+    the j-th value of the i-th variable.
+    """
+    broadcast_assignment_dict = broadcast_values(
+        dict_frame
+    )
+    broadcast_assignment_dict = convert_scalar_frame_to_tensor_frame(
+        broadcast_assignment_dict
+    )
+    broadcast_assignment_dict = convert_values_to_at_least_two_dimensions(
+        broadcast_assignment_dict
+    )
+    conditioning_tensor = torch.cat(
+        tuple(broadcast_assignment_dict.values()), dim=1
+    )
+    return conditioning_tensor
 
 
 def broadcast_values(dict_frame):

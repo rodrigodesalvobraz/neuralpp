@@ -30,6 +30,10 @@ class TensorVariable(Variable):
         self._check_value_dimension(value)
         return value.dim() == self.non_batch_dim + 1
 
+    def multivalue_len(self, value: Any) -> int:
+        assert self.is_multivalue(value)
+        return value.shape[0]
+
     @staticmethod
     def _check_value_is_tensor(value):
         if not isinstance(value, torch.Tensor):
