@@ -364,6 +364,7 @@ def cartesian_product_of_two_tensors(tensor1, tensor2):
     Returns a tensor [ cat(tensor11,tensor21), cat(tensor11, tensor22), ..., cat(tensor1n,tensor2m)]
     where tensor1 is [tensor11, tensor12, ..., tensor1n]
     and tensor2 is [tensor21, tensor22, ..., tensor2m].
+    The result is placed in the same device as tensor1.
     """
     expanded_tensor1 = tensor1.repeat_interleave(len(tensor2), dim=0)
     expanded_tensor2 = tensor2.repeat(len(tensor1), 1)

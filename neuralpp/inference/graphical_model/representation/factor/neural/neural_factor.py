@@ -255,11 +255,18 @@ class NeuralFactor(AtomicFactor):
             }
             return self(total_assignment)
 
+        # FIXME: uses Python iteration.
+        # Should use same method used in to_table_factor_if_output_variable_is_not_conditioned
+        # which uses PyTorch's vectorized cartesian product.
         return PyTorchTableFactor.from_function(
             self.free_input_variables, probability_of_completion_of_free_input_values
         )
 
     def to_table_factor_if_output_variable_is_not_conditioned(self):
+        assert len(self.free_input_variables) == 0,\
+            "Free variables for neural factor without conditioned output variable not yet supported"
+        # FIXME: free variables are incorrectly assumed to always be the last variables fed to neural net.
+        # Solution must reorder all_inputs_tensor appropriately.
         all_inputs_tensor = self.cartesian_product_with_assignments_on_free_variables(self.conditioning_tensor)
         probabilities_tensor = self.neural_net(all_inputs_tensor)
         resulting_factor = self.make_table_factor_for_free_and_output_variable(probabilities_tensor)
