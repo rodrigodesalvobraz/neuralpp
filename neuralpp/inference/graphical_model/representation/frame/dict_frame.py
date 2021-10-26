@@ -6,16 +6,6 @@ def is_frame(dictionary):
     return all(has_len(v) for v in dictionary.values())
 
 
-def generalized_len_of_dict_frame(dict_frame):
-    if len(dict_frame) == 0:
-        raise DictionaryShouldHaveAtLeastOneItem()
-    set_of_lengths = {generalized_len(values) for values in dict_frame.values()}
-    if len(set_of_lengths) != 1:
-        raise DictionaryValuesShouldAllHaveTheSameLength()
-    (length,) = set_of_lengths
-    return length
-
-
 def generalized_len_of_dict_frames(*dict_frames):
     if len(dict_frames) == 0:
         raise ThereShouldBeAtLeastOneDictFrame()
@@ -24,6 +14,21 @@ def generalized_len_of_dict_frames(*dict_frames):
         raise DictFramesShouldAllHaveTheSameLength()
     (length,) = set_of_lengths
     return length
+
+
+def generalized_len_of_dict_frame(dict_frame):
+    set_of_lengths = compute_set_of_lengths(dict_frame)
+    if len(set_of_lengths) != 1:
+        raise DictionaryValuesShouldAllHaveTheSameLength()
+    (length,) = set_of_lengths
+    return length
+
+
+def compute_set_of_lengths(dict_frame):
+    if len(dict_frame) == 0:
+        raise DictionaryShouldHaveAtLeastOneItem()
+    set_of_lengths = {generalized_len(values) for values in dict_frame.values()}
+    return set_of_lengths
 
 
 def number_of_equal_values_in_dict_frames(dict_frame1, dict_frame2):
@@ -57,50 +62,55 @@ def to_if_tensor(obj, device):
         return obj
 
 
-def concatenate_into_single_tensor(dict_frame):
+def concatenate_into_single_2d_tensor(dict_frame):
     """
     Given an ordered dictionary frame with all multivalue values of same length
     (but some possible univalues),
     returns a 2D tensor where element (i,j) is
     the j-th value of the i-th variable.
     """
-    broadcast_assignment_dict = broadcast_values(
+    dict_frame_with_tensor_values = convert_frame_scalar_values_to_tensors(
         dict_frame
     )
-    broadcast_assignment_dict = convert_scalar_frame_to_tensor_frame(
-        broadcast_assignment_dict
+    dict_frame_with_2d_tensor_values = convert_tensor_values_to_at_least_two_dimensions(
+        dict_frame_with_tensor_values
     )
-    broadcast_assignment_dict = convert_values_to_at_least_two_dimensions(
-        broadcast_assignment_dict
+    dict_frame_with_2d_tensor_values_with_same_length = expand_tensor_values_of_len_1_to_make_all_tensors_of_same_length(
+        dict_frame_with_2d_tensor_values
     )
     conditioning_tensor = torch.cat(
-        tuple(broadcast_assignment_dict.values()), dim=1
+        tuple(dict_frame_with_2d_tensor_values_with_same_length.values()), dim=1
     )
     return conditioning_tensor
 
 
-def broadcast_values(dict_frame):
-    try:
-        generalized_len_of_dict_frame(dict_frame)
-    except (DictionaryShouldHaveAtLeastOneItem, DictFramesShouldAllHaveTheSameLength):
-        raise Exception(
-            f"broadcast_values not implemented yet. dict_frame: {dict_frame}"
-        )
-    return dict_frame
+def expand_tensor_values_of_len_1_to_make_all_tensors_of_same_length(dict_frame_with_2d_tensors):
+    lengths = compute_set_of_lengths(dict_frame_with_2d_tensors)
+    if len(lengths) == 1:  # there is already a single length
+        return dict_frame_with_2d_tensors
+    elif (len(lengths) == 2 and 1 not in lengths) or len(lengths) > 2:
+        raise DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength()
+    else:
+        other_length = next(iter(l for l in lengths if l != 1))
+        dict_frame_with_broadcast_2d_tensors = {
+            variable: value.extend(other_length, -1) if len(value) == 1 else value
+            for variable, value in dict_frame_with_2d_tensors.items()
+        }
+        return dict_frame_with_broadcast_2d_tensors
 
 
-def convert_scalar_frame_to_tensor_frame(dict_frame):
-    return {k: convert_scalar_to_1d_if_scalar(v) for k, v in dict_frame.items()}
+def convert_frame_scalar_values_to_tensors(dict_frame):
+    return {k: convert_to_1d_tensor_if_scalar(v) for k, v in dict_frame.items()}
 
 
-def convert_scalar_to_1d_if_scalar(o):
+def convert_to_1d_tensor_if_scalar(o):
     if isinstance(o, torch.Tensor):
         return o
     else:
         return torch.tensor([o])
 
 
-def convert_values_to_at_least_two_dimensions(dict_frame):
+def convert_tensor_values_to_at_least_two_dimensions(dict_frame):
     return {
         k: unsqueeze_if_needed_for_at_least_two_dimensions(v)
         for k, v in dict_frame.items()
@@ -108,10 +118,10 @@ def convert_values_to_at_least_two_dimensions(dict_frame):
 
 
 def unsqueeze_if_needed_for_at_least_two_dimensions(tensor):
-    if tensor.dim() < 2:
-        return tensor.unsqueeze(1)
-    else:
-        return tensor
+    assert isinstance(tensor, torch.Tensor), "Must be tensor argument."
+    while tensor.dim() < 2:
+        tensor = tensor.unsqueeze(1)
+    return tensor
 
 
 class DictionaryShouldHaveAtLeastOneItem(BaseException):
@@ -125,6 +135,13 @@ class DictionaryValuesShouldAllHaveTheSameLength(BaseException):
     def __init__(self):
         super(DictionaryValuesShouldAllHaveTheSameLength, self).__init__(
             "Dictionary values should all have the same length"
+        )
+
+
+class DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength(BaseException):
+    def __init__(self):
+        super(DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength, self).__init__(
+            "Dictionary values should all have either length 1 or some other shared length"
         )
 
 

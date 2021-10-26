@@ -9,13 +9,14 @@ from neuralpp.inference.graphical_model.representation.factor.pytorch_table_fact
     PyTorchTableFactor,
 )
 from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
-    concatenate_into_single_tensor,
+    concatenate_into_single_2d_tensor,
 )
 from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
 )
 from neuralpp.util import util
-from neuralpp.util.util import find, join, value_tensor, is_iterable, expand_into_batch
+from neuralpp.util.util import find, join, value_tensor, is_iterable, expand_into_batch, cartesian_prod_2d, \
+    cartesian_product_of_two_tensors
 
 
 class NeuralFactor(AtomicFactor):
@@ -259,51 +260,36 @@ class NeuralFactor(AtomicFactor):
         )
 
     def to_table_factor_if_output_variable_is_not_conditioned(self):
+        all_inputs_tensor = self.cartesian_product_with_assignments_on_free_variables(self.conditioning_tensor)
+        probabilities_tensor = self.neural_net(all_inputs_tensor)
+        resulting_factor = self.make_table_factor_for_free_and_output_variable(probabilities_tensor)
+        return resulting_factor
+
+    @property
+    @functools.lru_cache(1)
+    def conditioning_tensor(self):
         relevant_conditioning_dict = {
             v: value
             for v, value in self.conditioning_dict.items()
             if v in self.input_variables
         }
         if len(relevant_conditioning_dict) > 0:
-            conditioning_tensor = concatenate_into_single_tensor(relevant_conditioning_dict)
+            conditioning_tensor = concatenate_into_single_2d_tensor(relevant_conditioning_dict)
         else:
             conditioning_tensor = torch.ones(1, 0)
+        return conditioning_tensor
 
-        free_cardinalities = [
-            torch.arange(free_variable.cardinality)
-            for free_variable in self.free_input_variables
-        ]
-        if len(free_cardinalities) > 0:
-            assert (
-                len(conditioning_tensor.shape) == 2
-            ), "Neural factor with unconditioned input variables must be defined on scalar-typed variables only"
-
-            free_assignments = torch.cartesian_prod(*free_cardinalities)
-            if len(free_cardinalities) == 1:
-                free_assignments = free_assignments.unsqueeze(
-                    1
-                )  # to make sure free_assignments is always 2D
-
-            expanded_conditioning_tensor = conditioning_tensor.repeat_interleave(
-                len(free_assignments), dim=0
-            )
-
-            expanded_free_assignments = free_assignments.repeat(
-                len(conditioning_tensor), 1
-            )
-            expanded_free_assignments = expanded_free_assignments.to(
-                expanded_conditioning_tensor.device
-            ).detach()
-
-            all_inputs_tensor = torch.cat(
-                (expanded_conditioning_tensor, expanded_free_assignments), dim=1
-            )
+    def cartesian_product_with_assignments_on_free_variables(self, conditioning_tensor):
+        if len(self.free_input_variables) > 0:
+            free_cardinalities = [torch.arange(fv.cardinality) for fv in self.free_input_variables]
+            free_assignments = cartesian_prod_2d(free_cardinalities)
+            all_inputs_tensor = cartesian_product_of_two_tensors(conditioning_tensor, free_assignments)
         else:
             all_inputs_tensor = conditioning_tensor
+        return all_inputs_tensor
 
-        probabilities = self.neural_net(all_inputs_tensor)
-
-        number_of_batch_rows = probabilities.numel() // self.numel
+    def make_table_factor_for_free_and_output_variable(self, probabilities_tensor):
+        number_of_batch_rows = probabilities_tensor.numel() // self.number_of_probabilities_per_batch_row
         batch = number_of_batch_rows != 1
         if batch:
             probabilities_shape = (
@@ -312,95 +298,13 @@ class NeuralFactor(AtomicFactor):
             )
         else:
             probabilities_shape = self.non_batch_shape_including_output_variable
-
-        probabilities_in_right_shape = probabilities.reshape(probabilities_shape)
-
-        resulting_factor = PyTorchTableFactor(
-            self.free_input_variables + [self.output_variable],
-            probabilities_in_right_shape,
-            log_space=True,
-            batch=batch,
-        )
-
-        return resulting_factor
-
-    def to_table_factor_if_output_variable_is_not_conditioned1(self):
-        def get_completed_input_values_tensor(free_input_values):
-            """
-            Given a values assignment to free input variables
-            return a tensor values assignment to all input variables
-            by adding the conditioned input values to the values to free input variables.
-            """
-
-            def complete_with_conditioned_input_values(free_input_values):
-                # TODO: need to review for cases where some values are batches and others are not
-                index_of_next_free_input_value = 0
-                input_values = []
-                for v in self.input_variables:
-                    if v in self.conditioning_dict:
-                        next_value = self.conditioning_dict[v]
-                    else:
-                        next_value = free_input_values[index_of_next_free_input_value]
-                        index_of_next_free_input_value += 1
-                    input_values.append(next_value)
-                return input_values
-
-            def from_input_values_to_tensor(input_values):
-                # TODO: simplify by making a list of tensors and stacking
-                if len(input_values) == 1 and isinstance(
-                    input_values[0], torch.Tensor
-                ):  # optimization of singleton case
-                    return input_values[0]
-                else:
-
-                    def horizontal_stack(t1, t2):
-                        return torch.cat((t1, t2))
-
-                    stacked_input_tensors = functools.reduce(
-                        horizontal_stack, map(value_tensor, input_values)
-                    )
-                    return stacked_input_tensors
-
-            input_values = complete_with_conditioned_input_values(free_input_values)
-            tensor = from_input_values_to_tensor(input_values)
-            return tensor
-
-        self._check_whether_free_input_variables_can_be_enumerated()
-        assignments_of_free_input_variables = list(
-            DiscreteVariable.assignments_product(self.free_input_variables)
-        )
-
-        # TODO: should be creating a tensor directly without intermediary list:
-        list_of_completed_input_values_tensors_for_each_free_input_variables_assignment = list(
-            map(get_completed_input_values_tensor, assignments_of_free_input_variables)
-        )
-        input_tensor = torch.stack(
-            list_of_completed_input_values_tensors_for_each_free_input_variables_assignment
-        )
-
-        probabilities_tensor = self.output_probabilities(input_tensor)
-
-        number_of_batch_rows = probabilities_tensor.numel() // self.numel
-        batch = number_of_batch_rows != 1
-        if batch:
-            probabilities_shape = (
-                number_of_batch_rows,
-                *self.non_batch_shape_including_output_variable,
-            )
-        else:
-            probabilities_shape = self.non_batch_shape_including_output_variable
-
-        probabilities_tensor_in_right_shape = probabilities_tensor.reshape(
-            probabilities_shape
-        )
-
+        probabilities_tensor_in_right_shape = probabilities_tensor.reshape(probabilities_shape)
         resulting_factor = PyTorchTableFactor(
             self.free_input_variables + [self.output_variable],
             probabilities_tensor_in_right_shape,
             log_space=True,
             batch=batch,
         )
-
         return resulting_factor
 
     @property
@@ -413,7 +317,7 @@ class NeuralFactor(AtomicFactor):
 
     @property
     @functools.lru_cache(1)
-    def numel(self):
+    def number_of_probabilities_per_batch_row(self):
         return prod(self.non_batch_shape_including_output_variable)
 
     def _check_whether_free_input_variables_can_be_enumerated(self):

@@ -338,3 +338,35 @@ def expand_into_batch(tensor, batch_size):
     expansion_of_remaining_dimensions = [-1] * number_of_non_batch_dimensions
     expansions_by_dimensions = expansion_of_first_dimension + expansion_of_remaining_dimensions
     return tensor_with_newly_added_batch_dimension.expand(expansions_by_dimensions)
+
+
+def cartesian_prod_2d(tensors):
+    """
+    Returns a tensor of tensors CP,
+    where CP_i,j is the j-th element of the i-th tuple
+    in the cartesian product of given tensors.
+    This differs from torch.cartensian_prod in the case
+    'tensors' is a single tensor, because in that case
+    torch.cartesian_prod returns the tensor itself,
+    while this function returns a tensor of tensor,
+    which is consistent with the general case of multiple input tensors.
+    """
+    cartesian_product = torch.cartesian_prod(*tensors)
+    if len(tensors) == 1:
+        cartesian_product = cartesian_product.unsqueeze(
+            1
+        )  # to make sure cartesian_product is always 2D
+    return cartesian_product
+
+
+def cartesian_product_of_two_tensors(tensor1, tensor2):
+    """
+    Returns a tensor [ cat(tensor11,tensor21), cat(tensor11, tensor22), ..., cat(tensor1n,tensor2m)]
+    where tensor1 is [tensor11, tensor12, ..., tensor1n]
+    and tensor2 is [tensor21, tensor22, ..., tensor2m].
+    """
+    expanded_tensor1 = tensor1.repeat_interleave(len(tensor2), dim=0)
+    expanded_tensor2 = tensor2.repeat(len(tensor1), 1)
+    expanded_tensor2 = expanded_tensor2.to(expanded_tensor1.device).detach()
+    cartesian_product = torch.cat((expanded_tensor1, expanded_tensor2), dim=1)
+    return cartesian_product
