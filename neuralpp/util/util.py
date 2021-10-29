@@ -371,3 +371,9 @@ def cartesian_product_of_two_tensors(tensor1, tensor2):
     expanded_tensor2 = expanded_tensor2.to(expanded_tensor1.device).detach()
     cartesian_product = torch.cat((expanded_tensor1, expanded_tensor2), dim=1)
     return cartesian_product
+
+
+def dict_slice(dict, keys):
+    return {k: v for k, v in dict.items() if k in keys}
+
+

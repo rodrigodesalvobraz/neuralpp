@@ -1,5 +1,5 @@
 import torch
-from neuralpp.util.util import generalized_len, has_len
+from neuralpp.util.util import generalized_len, has_len, cartesian_prod_2d
 
 
 def is_frame(dictionary):
@@ -24,10 +24,58 @@ def generalized_len_of_dict_frame(dict_frame):
     return length
 
 
+def len_of_expanded_dict_frame(dict_frame):
+    """
+    Same as generalized_len_of_dict_frame, but considering
+    that univalues will be expanded to the length of multivalues.
+    """
+    set_of_lengths = compute_set_of_lengths(dict_frame)
+    if len(set_of_lengths) == 1:
+        length = next(iter(set_of_lengths))
+    elif len(set_of_lengths) == 2 and 1 in set_of_lengths:
+        length = next(l for l in set_of_lengths if l != 1)
+    else:
+        raise DictionaryValuesShouldAllHaveTheSameLength()
+    return length
+
+
+def expand_univalues_in_dict_frame(tensor_dict_frame):
+    """
+    Assumes dict_frame has either univalues or multivalues of the same length.
+    Returns a new dict_frame with same multivalues and univalues expanded to same length as multivalues.
+    """
+    multivalue_lengths = compute_set_of_multivalue_lengths(tensor_dict_frame)
+    if multivalue_lengths is None or len(multivalue_lengths) == 0:
+        return tensor_dict_frame
+    elif len(multivalue_lengths) > 1:
+        raise DictFramesShouldAllHaveTheSameLength()
+    else:
+        multivalue_length = next(iter(multivalue_lengths))
+        return \
+            {
+                variable: (
+                    value.expand(multivalue_length)
+                    if variable.multivalue_len(value) == 1
+                    else value
+                )
+                for variable, value in tensor_dict_frame.items()
+            }
+
+
 def compute_set_of_lengths(dict_frame):
     if len(dict_frame) == 0:
         raise DictionaryShouldHaveAtLeastOneItem()
-    set_of_lengths = {generalized_len(values) for values in dict_frame.values()}
+    # FIXME: use multivalue_len instead of generalized_len
+    set_of_lengths = {generalized_len(value) for value in dict_frame.values()}
+    return set_of_lengths
+
+
+def compute_set_of_multivalue_lengths(dict_frame):
+    if len(dict_frame) == 0:
+        return None
+    set_of_lengths = {variable.multivalue_len(value)
+                      for variable, value in dict_frame.items()
+                      if variable.is_multivalue(value)}
     return set_of_lengths
 
 
@@ -62,12 +110,40 @@ def to_if_tensor(obj, device):
         return obj
 
 
-def concatenate_into_single_2d_tensor(dict_frame):
+def featurize_dict_frame(dict_frame):
+    return {variable: variable.featurize(value) for variable, value in dict_frame.items()}
+
+
+def make_cartesian_features_dict_frame(variables):
+    if len(variables) > 0:
+        free_cardinalities = [torch.arange(fv.cardinality) for fv in variables]
+        free_assignments = cartesian_prod_2d(free_cardinalities)
+        cartesian_free_features_dict_frame = {variable: free_assignments[:, i]
+                                              for i, variable in enumerate(variables)}
+    else:
+        cartesian_free_features_dict_frame = {}
+    return cartesian_free_features_dict_frame
+
+
+def concatenate_into_single_tensor(dict_frame):
+    if len(dict_frame) > 0:
+        tensor_2d = concatenate_non_empty_dict_frame_into_single_2d_tensor(dict_frame)
+    else:
+        tensor_2d = torch.ones(1, 0)
+    batch = any(variable.is_multivalue(value) for variable, value in dict_frame.items())
+    if batch:
+        tensor = tensor_2d
+    else:
+        tensor = tensor_2d[0]
+    return tensor
+
+
+def concatenate_non_empty_dict_frame_into_single_2d_tensor(dict_frame):
     """
-    Given an ordered dictionary frame with all multivalue values of same length
+    Given an ordered non-empty dictionary frame with all multivalue values of same length
     (but some possible univalues),
     returns a 2D tensor where element (i,j) is
-    the j-th value of the i-th variable.
+    the i-th value of the j-th variable.
     """
     dict_frame_with_tensor_values = convert_frame_scalar_values_to_tensors(
         dict_frame
@@ -93,7 +169,7 @@ def expand_tensor_values_of_len_1_to_make_all_tensors_of_same_length(dict_frame_
     else:
         other_length = next(iter(l for l in lengths if l != 1))
         dict_frame_with_broadcast_2d_tensors = {
-            variable: value.extend(other_length, -1) if len(value) == 1 else value
+            variable: value.expand(other_length, -1) if len(value) == 1 else value
             for variable, value in dict_frame_with_2d_tensors.items()
         }
         return dict_frame_with_broadcast_2d_tensors
@@ -122,6 +198,27 @@ def unsqueeze_if_needed_for_at_least_two_dimensions(tensor):
     while tensor.dim() < 2:
         tensor = tensor.unsqueeze(1)
     return tensor
+
+
+def cartesian_product_of_tensor_dict_frames(dict_frame1, dict_frame2):
+    n = generalized_len_of_dict_frame(dict_frame2) \
+        if dict_frame2 \
+        else 1
+    m = generalized_len_of_dict_frame(dict_frame1) \
+        if dict_frame1 \
+        else 1
+    repeated_expanded_featurized_dict_frame = repeat_interleave_dict_frame(dict_frame2, m)
+    repeated_cartesian_features_dict_frame = repeat_dict_frame(dict_frame1, n)
+    all_inputs_dict_frame = {**repeated_expanded_featurized_dict_frame, **repeated_cartesian_features_dict_frame}
+    return all_inputs_dict_frame
+
+
+def repeat_dict_frame(dict_frame, n):
+    return {variable: value.repeat(n) for variable, value in dict_frame.items()}
+
+
+def repeat_interleave_dict_frame(dict_frame, n):
+    return {variable: value.repeat_interleave(n) for variable, value in dict_frame.items()}
 
 
 class DictionaryShouldHaveAtLeastOneItem(BaseException):
