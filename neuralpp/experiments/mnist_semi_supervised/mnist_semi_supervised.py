@@ -420,7 +420,7 @@ class MNISTChainsProblem(LearningProblem):
         self.constraint_variables = []
         for i in range(self.chain_length):
             self.image_random_variables.append(
-                TensorVariable(f"image{i}")
+                TensorVariable(f"image{i}", non_batch_dim=2)
                 if self.use_real_images
                 else IntegerVariable(f"image{i}", self.number_of_digits)
             )

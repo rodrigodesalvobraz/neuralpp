@@ -46,7 +46,7 @@ def main():
         random.seed(0)
 
     digit_var = IntegerVariable("digit_var", 10)
-    image_var = TensorVariable("image_var")
+    image_var = TensorVariable("image_var", non_batch_dim=2)
 
     # Read dataset before setting default tensor type to cuda
 

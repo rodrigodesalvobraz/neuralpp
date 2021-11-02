@@ -1,3 +1,4 @@
+import functools
 from typing import Optional, Tuple, Union, Any
 
 import torch
@@ -8,7 +9,7 @@ FlexibleShape = Union[torch.Size, Tuple[int, ...]]
 
 
 class TensorVariable(Variable):
-    def __init__(self, name, non_batch_shape=Optional[FlexibleShape]):
+    def __init__(self, name, non_batch_dim: int):
         """
         Constructs a tensor variable with given name and optional non-batch shape.
 
@@ -19,7 +20,7 @@ class TensorVariable(Variable):
         """
         super().__init__()
         self.name = name
-        self.non_batch_shape = non_batch_shape
+        self.non_batch_dim = non_batch_dim
 
     def featurize(self, value) -> torch.Tensor:
         self._check_value_is_tensor(value)
@@ -43,20 +44,6 @@ class TensorVariable(Variable):
         if tensor.dim() not in {self.non_batch_dim, self.non_batch_dim + 1}:
             raise Exception(f"Tensor value for {self} must have dimension "
                             f"{self.non_batch_dim} or {self.non_batch_dim + 1} (if batch)")
-
-    @property
-    def non_batch_shape(self) -> FlexibleShape:
-        if self._non_batch_shape is None:
-            raise Exception(f"Non-batch shape required for {self} but it is not available")
-        return self._non_batch_shape
-
-    @non_batch_shape.setter
-    def non_batch_shape(self, non_batch_shape):
-        self._non_batch_shape = non_batch_shape
-
-    @property
-    def non_batch_dim(self) -> int:
-        return len(self.non_batch_shape)
 
     def __eq__(self, other):
         assert isinstance(

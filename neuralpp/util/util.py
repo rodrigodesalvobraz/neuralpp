@@ -377,3 +377,29 @@ def dict_slice(dict, keys):
     return {k: v for k, v in dict.items() if k in keys}
 
 
+class RepeatFirstDimensionException(BaseException):
+    def __init__(self):
+        super(RepeatFirstDimensionException, self).__init__(
+            "repeat_first_dimension methods require tensor with at least one dimension"
+        )
+
+
+def _check_repeat_first_dimension_conditions(tensor):
+    if not (isinstance(tensor, torch.Tensor) and tensor.dim() != 0):
+        raise RepeatFirstDimensionException()
+
+
+def repeat_first_dimension_with_expand(tensor, n):
+    _check_repeat_first_dimension_conditions(tensor)
+    original_first_dimension_length = tensor.shape[0]
+    final_first_dimension_length = n * original_first_dimension_length
+    final_shape = (final_first_dimension_length,) + tensor.shape[1:]
+    one_d = tensor.reshape(1, tensor.numel(),)
+    expanded = one_d.expand(n, *((-1,)*(one_d.dim() - 1)))
+    result = expanded.reshape(final_shape)
+    return result
+
+
+def repeat_interleave_first_dimension(tensor, n):
+    _check_repeat_first_dimension_conditions(tensor)
+    return torch.repeat_interleave(tensor, n, dim=0)

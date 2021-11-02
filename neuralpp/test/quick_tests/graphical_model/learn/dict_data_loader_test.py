@@ -6,39 +6,43 @@ from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
     DictionaryShouldHaveAtLeastOneItem,
     DictionaryValuesShouldAllHaveTheSameLength,
 )
+from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.util.util import check_that_exception_is_thrown
 
 
 def test_dict_data_loader():
 
-    dictionary = {"name": ["john", "mary", "bob"], "age": [34, 45, 56]}
+    name = IntegerVariable("name", 10)
+    age = IntegerVariable("age", 10)
+
+    dictionary = {name: [1, 2, 3], age: [34, 45, 56]}
     batch_size = 2
     expected_batches = [
-        {"name": ["john", "mary"], "age": [34, 45]},
-        {"name": ["bob"], "age": [56]},
+        {name: [1, 2], age: [34, 45]},
+        {name: [3], age: [56]},
     ]
     run_dict_data_loader_test(dictionary, expected_batches, batch_size)
 
-    dictionary = {"name": ["john", "mary", "bob"], "age": [34, 45, 56]}
+    dictionary = {name: [1, 2, 3], age: [34, 45, 56]}
     batch_size = 3
     expected_batches = [dictionary]
     run_dict_data_loader_test(dictionary, expected_batches, batch_size)
 
-    dictionary = {"name": ["john", "mary", "bob"], "age": [34, 45, 56]}
+    dictionary = {name: [1, 2, 3], age: [34, 45, 56]}
     batch_size = 1
     expected_batches = [
-        {"name": ["john"], "age": [34]},
-        {"name": ["mary"], "age": [45]},
-        {"name": ["bob"], "age": [56]},
+        {name: [1], age: [34]},
+        {name: [2], age: [45]},
+        {name: [3], age: [56]},
     ]
     run_dict_data_loader_test(dictionary, expected_batches, batch_size)
 
-    dictionary = {"name": ["john", "mary", "bob"], "age": [34, 45, 56]}
+    dictionary = {name: [1, 2, 3], age: [34, 45, 56]}
     batch_size = 0
     expected_batches = [
-        {"name": ["john"], "age": [34]},
-        {"name": ["mary"], "age": [45]},
-        {"name": ["bob"], "age": [56]},
+        {name: [1], age: [34]},
+        {name: [2], age: [45]},
+        {name: [3], age: [56]},
     ]
     check_that_exception_is_thrown(
         lambda: run_dict_data_loader_test(dictionary, expected_batches, batch_size),
@@ -48,21 +52,21 @@ def test_dict_data_loader():
     dictionary = {}
     batch_size = 3
     expected_batches = [
-        {"name": ["john"], "age": [34]},
-        {"name": ["mary"], "age": [45]},
-        {"name": ["bob"], "age": [56]},
+        {name: [1], age: [34]},
+        {name: [2], age: [45]},
+        {name: [3], age: [56]},
     ]
     check_that_exception_is_thrown(
         lambda: run_dict_data_loader_test(dictionary, expected_batches, batch_size),
         DictionaryShouldHaveAtLeastOneItem,
     )
 
-    dictionary = {"name": ["john", "mary", "bob"], "age": [34]}
+    dictionary = {name: [1, 2, 3], age: [34]}
     batch_size = 3
     expected_batches = [
-        {"name": ["john"], "age": [34]},
-        {"name": ["mary"], "age": [45]},
-        {"name": ["bob"], "age": [56]},
+        {name: [1], age: [34]},
+        {name: [2], age: [45]},
+        {name: [3], age: [56]},
     ]
     check_that_exception_is_thrown(
         lambda: run_dict_data_loader_test(dictionary, expected_batches, batch_size),

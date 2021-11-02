@@ -12,6 +12,7 @@ from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
     generalized_len_of_dict_frame, featurize_dict_frame, expand_univalues_in_dict_frame,
     concatenate_non_empty_dict_frame_into_single_2d_tensor, repeat_dict_frame, repeat_interleave_dict_frame,
     cartesian_product_of_tensor_dict_frames, concatenate_into_single_tensor, make_cartesian_features_dict_frame,
+    compute_set_of_multivalue_lengths,
 )
 from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
@@ -119,9 +120,8 @@ class NeuralFactor(AtomicFactor):
 
     def neural_net_input_from_assignment_dict(self, assignment_dict):
         self.check_assignment_dict_is_complete(assignment_dict)
-        self.check_assignment_dict_does_not_contradict_conditioning_dict(
-            assignment_dict
-        )
+        self.check_assignment_dict_does_not_contradict_conditioning_dict(assignment_dict)
+
         assignment_and_conditioning_dict = util.union_of_dicts(
             assignment_dict, self.conditioning_dict
         )
@@ -135,9 +135,7 @@ class NeuralFactor(AtomicFactor):
         # else
         #     concatenate along dimension 0
 
-        multivalue_lengths = set(v.multivalue_len(value)
-                                 for v, value in assignment_and_conditioning_dict.items()
-                                 if v.is_multivalue(value))
+        multivalue_lengths = compute_set_of_multivalue_lengths(assignment_and_conditioning_dict)
 
         if len(multivalue_lengths) > 1:
             raise Exception(f"neural factor received multivalue inputs of different lengths: {multivalue_lengths}")
@@ -277,21 +275,20 @@ class NeuralFactor(AtomicFactor):
         expanded_featurized_conditioning_dict_frame = expand_univalues_in_dict_frame(featurized_conditioning_dict_frame)
 
         if no_free_variables:
-            ordered_inputs_tensor = expanded_featurized_conditioning_dict_frame
+            all_inputs_dict_frame = expanded_featurized_conditioning_dict_frame
         else:
-            ordered_inputs_tensor = self.complete_with_free_variables(expanded_featurized_conditioning_dict_frame)
+            all_inputs_dict_frame = self.complete_with_free_variables(expanded_featurized_conditioning_dict_frame)
 
-        ordered_inputs_tensor = concatenate_into_single_tensor(ordered_inputs_tensor)
-        probabilities_tensor = self.neural_net(ordered_inputs_tensor)
+        all_inputs_tensor = concatenate_into_single_tensor(all_inputs_dict_frame)
+        probabilities_tensor = self.neural_net(all_inputs_tensor)
         return probabilities_tensor
 
     def complete_with_free_variables(self, expanded_featurized_conditioning_dict_frame):
         free_input_variables = self.input_variables - expanded_featurized_conditioning_dict_frame.keys()
         cartesian_free_features_dict_frame = make_cartesian_features_dict_frame(free_input_variables)
-        all_inputs_dict_frame = cartesian_product_of_tensor_dict_frames(cartesian_free_features_dict_frame,
-                                                                        expanded_featurized_conditioning_dict_frame)
-        ordered_inputs_tensor = {variable: all_inputs_dict_frame[variable] for variable in self.input_variables}
-        return ordered_inputs_tensor
+        all_inputs_dict_frame = cartesian_product_of_tensor_dict_frames(expanded_featurized_conditioning_dict_frame,
+                                                                        cartesian_free_features_dict_frame)
+        return all_inputs_dict_frame
 
     def make_cartesian_features_dict_frame(variables):
         if len(variables) > 0:

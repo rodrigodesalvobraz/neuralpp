@@ -19,6 +19,12 @@ class Variable:
     def is_multivalue(self, value: Any) -> bool:
         self._not_implemented("is_multivalue")
 
+    def value_len(self, value: Any) -> int:
+        """
+        Returns the length of the value if it is a multivalue, or 1 otherwise.
+        """
+        return self.multivalue_len(value) if self.is_multivalue(value) else 1
+
     def multivalue_len(self, value: Any) -> int:
         self._not_implemented("multivalue_len")
 
