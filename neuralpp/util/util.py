@@ -17,6 +17,10 @@ def join(xs, sep=", "):
     return sep.join([str(x) for x in xs])
 
 
+def map(func, iterable):
+    return (func(e) for e in iterable)
+
+
 def map_of_nested_list(f, o):
     if isinstance(o, list):
         return [map_of_nested_list(f, e) for e in o]
@@ -403,3 +407,14 @@ def repeat_first_dimension_with_expand(tensor, n):
 def repeat_interleave_first_dimension(tensor, n):
     _check_repeat_first_dimension_conditions(tensor)
     return torch.repeat_interleave(tensor, n, dim=0)
+
+
+def flatten_one_level(iterable, is_nested, get_nested):
+    """
+    Returns [get_nested(e) if is_nested(e) else e for e in iterable]
+    """
+    return [get_nested(e) if is_nested(e) else e for e in iterable]
+
+
+def isinstance_predicate(type):
+    return lambda o: isinstance(o, type)

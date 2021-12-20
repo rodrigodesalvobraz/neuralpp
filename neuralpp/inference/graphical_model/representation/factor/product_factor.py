@@ -1,14 +1,19 @@
+import functools
+import itertools
 import math
+import operator
+from typing import List
 
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
+from neuralpp.util import util
 from neuralpp.util.group import Group
 from neuralpp.util.util import join, split
 
 
 class ProductFactor(Factor):
-    def __init__(self, factors):
+    def __init__(self, factors: List[Factor]):
         super().__init__(set.union(*(set(f.variables) for f in factors)))
-        self._factors = factors
+        self._factors = util.flatten_one_level(factors, util.isinstance_predicate(ProductFactor), ProductFactor.factors)
 
     def call_after_validation(self, assignment_dict, assignment_values):
         return math.prod(f(assignment_dict) for f in self._factors)

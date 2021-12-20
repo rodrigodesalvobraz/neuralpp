@@ -1,4 +1,7 @@
+import torch
+
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
+from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
 from neuralpp.inference.graphical_model.representation.factor.table_factor import TableFactor
 from neuralpp.util import util
 
@@ -25,57 +28,7 @@ class Normal(AtomicFactor):
         return torch.distributions.Gaussian()
 
     def mul_by_non_identity(self, other):
-        """Multiplies factors so that (f1 * f2)(assignment) = f1(assignment)*f2(assignment)"""
-
-        # TableFactor only knows how to multiply by another TableFactor.
-        # If other is not TableFactor, we ask that it handle the multiplication.
-        if not isinstance(other, TableFactor):
-            return other * self
-
-        """
-        Implementation rationale:
-        Let 'common' be the shared variables between the two factors, and e1 and e2
-        the variables exclusive to each representation respectively.
-
-        We want to compute f(e1, e2, common) = f1(e1, common) * f2(e2, common)
-        Such multiplication operation is not readily available, however.
-        Instead, we use component-wise multiplication by computing:
-        for all e1, e2, common:
-        f1'(e1, e2, common) = f1(e1, common)
-        f2'(e1, e2, common) = f2(e2, common)
-        f(e1, e2, common) = f1'(e1, e2, common) * f2'(e1, e2, common)
-
-        We compute f1' and f2' by using Table.expand
-
-        Note that things work transparently if tables are batches.
-        """
-
-        common = list(set(self.variables) & set(other.variables))
-
-        (
-            f1_e1_common_table,
-            e1,
-        ) = self.get_permuted_table_with_selected_variables_moved_to_the_end(
-            self, common
-        )
-        (
-            f2_e2_common_table,
-            e2,
-        ) = self.get_permuted_table_with_selected_variables_moved_to_the_end(
-            other, common
-        )
-
-        result_variables = e1 + e2 + common
-
-        f1p_table = f1_e1_common_table.expand(
-            shape_to_be_inserted=shape(e2), dim=len(e1)
-        )
-        f2p_table = f2_e2_common_table.expand(shape_to_be_inserted=shape(e1), dim=0)
-        result_table = f1p_table * f2p_table
-
-        result = self.new_instance(result_variables, result_table)
-
-        return result
+        return ProductFactor(self, other)
 
     @staticmethod
     def get_permuted_table_with_selected_variables_moved_to_the_end(
