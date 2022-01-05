@@ -1,9 +1,10 @@
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
+from neuralpp.util import util
 
 
 class AtomicFactor(Factor):
-    def __init__(self, variables):
-        super().__init__(variables)
+    def __init__(self, variables, conditioning_dict=None):
+        super().__init__(variables, conditioning_dict)
 
     def atomic_factor(self):
         return self

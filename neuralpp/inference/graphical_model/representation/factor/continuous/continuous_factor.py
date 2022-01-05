@@ -11,6 +11,15 @@ from neuralpp.util.util import join
 class ContinuousFactor(AtomicFactor):
     """An abstract specialization of AtomicFactor with at least one continuous variable"""
 
+    def __init__(self, variables, conditioning_dict=None):
+        super().__init__(variables)
+        self.conditioning_dict = conditioning_dict if conditioning_dict else {}
+
+    def total_conditioning_dict(self, assignment_dict):
+        return util.union_of_dicts(
+            assignment_dict, self.conditioning_dict
+        )
+
     def assignments(self):
         self._invalid_method("assignments")
 
@@ -19,8 +28,10 @@ class ContinuousFactor(AtomicFactor):
     def table_factor(self):
         self._invalid_method("table_factor")
 
-    def _invalid_method(self, method_name):
-        raise NotImplementedError(f"Factor.{method_name} invalid for factors with continuous variables")
+    @staticmethod
+    def _invalid_method(method_name):
+        error = NotImplementedError(f"Factor.{method_name} invalid for factors with continuous variables")
+        raise error
 
     def mul_by_non_identity(self, other):
         return ProductFactor(self, other)
@@ -38,4 +49,5 @@ class ContinuousFactor(AtomicFactor):
         self._not_implemented("sample")
 
     def _not_implemented(self, method_name):
-        raise NotImplementedError(f"Factor.{method_name} not yet supported for {type(self)}")
+        error = NotImplementedError(f"Factor.{method_name} not yet supported for {type(self)}")
+        raise error
