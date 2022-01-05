@@ -104,16 +104,16 @@ class Factor:
     def atomic_factor(self):
         self._not_implemented("atomic_factor")
 
-    def _not_implemented(self, name):
-        # creating a variable first prevents compiler from thinking this is an abstract method
-        error = NotImplementedError(f"{name} not implemented for {type(self)}")
-        raise error
-
     @property
     @functools.lru_cache(1)
     def table_factor(self):
         """Table factor equivalent to self"""
-        self._not_implemented("to")
+        self._not_implemented("table_factor property")
+
+    def _not_implemented(self, name):
+        # creating a variable first prevents compiler from thinking this is an abstract method
+        error = NotImplementedError(f"{name} not implemented for {type(self)}")
+        raise error
 
     # Convenience methods
 
