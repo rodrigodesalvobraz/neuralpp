@@ -48,6 +48,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="neuralpp",
+    version="0.1.0",
     description="Neural Probabilistic Programs (NeuralPPs)",
     author="Rodrigo de Salvo Braz",
     license="MIT",
