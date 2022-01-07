@@ -3,7 +3,7 @@ from collections import Counter
 
 import pytest
 import torch
-from neuralpp.inference.graphical_model.representation.factor import PyTorchTableFactor
+from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
 from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
     PyTorchLogTable,
 )
@@ -11,7 +11,7 @@ from neuralpp.inference.graphical_model.representation.table.pytorch_table impor
     BatchCoordinatesDoNotAgreeException,
     PyTorchTable,
 )
-from neuralpp.inference.graphical_model.variable import DiscreteVariable
+from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.util.discrete_sampling import discrete_sample
 

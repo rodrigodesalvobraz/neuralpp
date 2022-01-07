@@ -3,8 +3,8 @@ from neuralpp.util import util
 
 
 class AtomicFactor(Factor):
-    def __init__(self, variables, conditioning_dict=None):
-        super().__init__(variables, conditioning_dict)
+    def __init__(self, variables):
+        super().__init__(variables)
 
     def atomic_factor(self):
         return self
