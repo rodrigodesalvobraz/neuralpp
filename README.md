@@ -23,6 +23,16 @@ This repository contains:
 
 ## Installation
 
+### PyPI
+
+The library can be installed with
+
+```
+pip install neuralpp
+```
+
+### Installation from source
+
 First, clone the repo locally:
 
 ```
@@ -47,11 +57,19 @@ python setup.py install
 In `src/experiments` one can find `src/experiments/simple_mnist.py`, which shows how to use a "graphical model" with a single factor,
 implemented by a convolutional neural network, to learn how to recognize MNIST digits.
 
-In `src/experiments/mnist_pairs_semi_supervised.py` there is code attempting to train a MNIST recognizer from pairs of images of successive digits only. It does not yet work but the script offers many options for running simplified versions of the problem, many of which do work.
+In `src/experiments/successive_digits.py` 
+there is code for training a MNIST recognizer from pairs of images of digits, 
+labeled as being successive digits (positive examples) or not (negative examples).
+The correct digit labels are still learned in spite of a total absence of digit labels.
+This is possible due to the reasoning performed by the graphical model component of the model
+(based on the knowledge of what successive digits are).
+
+In `src/experiments/sum_of_pair.py` pairs of images are labeled by the sum of their corresponding digits.
+Again the reasoning aspect of graphical models helps by using knowledge about addition.
 
 ## Tests
 
 Tests in `neuralpp.test` are split into `quick_tests` and `slow_tests`.
 The former include tests of basic data structure implementations while the latter includes  learning sessions with stochastic gradient descent and take several minutes.
 
-Run them with `pytest .` from the root directory.
+Run them with `pytest .` from the root directory if installed from the source code.
