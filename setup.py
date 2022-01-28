@@ -75,6 +75,7 @@ setup(
     python_requires=">={}.{}".format(REQUIRED_MAJOR, REQUIRED_MINOR),
     install_requires=[
         "torch>=1.8.1",
+        "networkx",
     ],
     packages=find_packages(
         include=["neuralpp", "neuralpp.*"],

@@ -418,3 +418,12 @@ def flatten_one_level(iterable, is_nested, get_nested):
 
 def isinstance_predicate(type):
     return lambda o: isinstance(o, type)
+
+
+def not_implemented(self, name):
+    """
+    Stub for non-implemented methods in abstract classes.
+    """
+    # creating a variable first prevents compiler from thinking this is an abstract method
+    error = NotImplementedError(f"{name} not implemented for {type(self)}")
+    raise error
