@@ -427,3 +427,7 @@ def not_implemented(self, name):
     # creating a variable first prevents compiler from thinking this is an abstract method
     error = NotImplementedError(f"{name} not implemented for {type(self)}")
     raise error
+
+
+def subtract(container, to_be_subtracted):
+    return [e for e in container if e not in container]

@@ -1,4 +1,4 @@
-class ConditionalProbability(AtomicFactor):
+class ConditionalProbability(Factor):
 
     @property
     def children(self):
@@ -15,3 +15,11 @@ class ConditionalProbability(AtomicFactor):
     @children.setter
     def parents(self, new_value):
         util.not_implemented(self, "parents.setter")
+
+    @property
+    def edges(self):
+        util.not_implemented(self, "edges")
+
+    @children.setter
+    def edges(self, new_value):
+        util.not_implemented(self, "edges.setter")

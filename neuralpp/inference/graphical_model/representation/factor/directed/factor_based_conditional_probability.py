@@ -1,14 +1,20 @@
 class FactorBasedConditionalProbability(AbstractConditionalProbability):
 
-    def __init__(self, factor, children):
+    def __init__(self, factor, parents, children, edges):
+        super(AbstractConditionalProbability, self).__init__(parents, children, edges)
         self.factor = factor
-        self.children = children
-        self.parents = [v for v in factor.variables if v not in children]
 
-    def aggregate(self, variable):
-        all_edges = [e for e in factor.edges
-                     for factor in ProductFactors.factors(self.factor)
-                     if isinstance(factor, ConditionalProbability)]
-        children_of_variable = [c for (p, c) in all_edges if p is variable]
-        parents_of_variable = [p for (p, c) in all_edges if c is variable]
-        edges_without_variable = [e for e in all_edges if variable not in e]
+    def aggregate_edges_when_eliminating_variable(self, variable):
+        """
+        Returns the children, parents and edges of the conditional probability
+        resulting from eliminating a variable from self.
+        """
+        aggregated_parents = util.subtract(self.parents, [variable])
+        aggregated_children = util.subtract(self.children, [variable])
+        aggregated_edges = make_aggregated_edges_when_eliminating_edges(self.edges, variable)
+        return aggregated_parents, aggregated_children, aggregated_edges
+
+    def __xor__(self, variable_or_variables):
+        resulting_factor = self.factor ^ variable_or_variables
+        aggregated_data = self.aggregate_edges_when_eliminating_variable(variable)
+        return FactorBasedConditionalProbability(resulting_factor, *aggregated_data)

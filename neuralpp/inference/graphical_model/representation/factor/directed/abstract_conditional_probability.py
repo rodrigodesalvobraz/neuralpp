@@ -1,4 +1,9 @@
-class AbstractConditionalProbability(AtomicFactor):
+class AbstractConditionalProbability(ConditionalProbability):
+
+    def __init__(self, parents, children, edges):
+        self.parents = parents
+        self.children = children
+        self.edges = edges
 
     @property
     def children(self):
@@ -17,3 +22,12 @@ class AbstractConditionalProbability(AtomicFactor):
     def parents(self, new_value):
         self._parents = new_value
         return self._parents
+
+    @property
+    def edges(self):
+        return self._edges
+
+    @edges.setter
+    def parents(self, new_value):
+        self._edges = new_value
+        return self._edges
