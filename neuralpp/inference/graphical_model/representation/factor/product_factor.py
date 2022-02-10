@@ -48,12 +48,7 @@ class ProductFactor(Factor):
                 + [result_of_summing_out_variable_from_product_of_factors_with_variable]
             )
         else:
-            # at this point, result_of_summing_out_variable_from_product_of_factors_with_variable
-            # may be a ProductFactor or an atomic factor.
-            # Here we ensure it is a ProductFactor
-            return ProductFactor.make(
-                result_of_summing_out_variable_from_product_of_factors_with_variable
-            )
+            return result_of_summing_out_variable_from_product_of_factors_with_variable
 
     @staticmethod
     def make(factor):
