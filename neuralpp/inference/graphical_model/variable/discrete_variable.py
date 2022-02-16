@@ -1,5 +1,5 @@
 import itertools
-
+from typing import Iterable
 from neuralpp.inference.graphical_model.variable.variable import Variable
 
 
@@ -39,7 +39,7 @@ class DiscreteVariable(Variable):
     def name(self, new_value):
         self._name = new_value
 
-    def assignments(self):
+    def assignments(self) -> Iterable:
         self._not_implemented("assignments")
 
     def _not_implemented(self, name):

@@ -1,16 +1,17 @@
 from neuralpp.inference.graphical_model import variable
-from neuralpp.inference.graphical_model.representation.factor.continuous.continuous_internal_parameterless_factor import (
-    ContinuousInternalParameterlessFactor,
+from neuralpp.inference.graphical_model.representation.factor.continuous.continuous_factor import (
+    ContinuousFactor,
 )
+from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.inference.graphical_model.variable.integer_variable import (
     DiscreteVariable,
 )
 
-
-class MarginalizationFactor(ContinuousInternalParameterlessFactor):
+# TODO: make Factor class takes in the conditioning_dict and swap the base class here
+class MarginalizationFactor(ContinuousFactor):
     def __init__(
         self,
-        factor: ContinuousInternalParameterlessFactor,
+        factor: ContinuousFactor,
         marginalized_variable: DiscreteVariable,
         conditioning_dict=None,
     ):
@@ -31,8 +32,21 @@ class MarginalizationFactor(ContinuousInternalParameterlessFactor):
 
     def call_after_validation(self, assignment_dict, assignment_values):
         prob = 0.0
-        for val in self.marginalized_variable.assignments:
+        assignment_dict = self.total_conditioning_dict(assignment_dict)
+        for val in self.marginalized_variable.assignments():
             full_assignment_dict = {**assignment_dict, self.marginalized_variable: val}
-            full_assignment_dict = self.total_conditioning_dict(full_assignment_dict)
             prob += self.raw_factor(full_assignment_dict)
         return prob
+
+    def mul_by_non_identity(self, other: Factor):
+        if self.marginalized_variable in other.variables:
+            raise ValueError(
+                f"{other} contains a variable that has been marginalized out."
+            )
+
+        prod_factor = self.raw_factor * other
+        return MarginalizationFactor(
+            prod_factor,
+            self.marginalized_variable,
+            self.total_conditioning_dict(self.conditioning_dict),
+        )
