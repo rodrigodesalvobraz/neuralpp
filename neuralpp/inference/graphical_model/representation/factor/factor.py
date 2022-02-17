@@ -89,6 +89,7 @@ class Factor:
         return current
 
     def sum_out_variable(self, variable):
+        # Add check of variable being in factor
         self._not_implemented("sum_out_variable")
 
     def argmax(self):
