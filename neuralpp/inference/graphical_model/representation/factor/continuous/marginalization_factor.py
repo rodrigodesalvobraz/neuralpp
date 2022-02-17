@@ -21,9 +21,10 @@ class MarginalizationFactor(Factor):
 
     def call_after_validation(self, assignment_dict, assignment_values):
         prob = 0.0
+        assignment_dict_copy = {**assignment_dict}
         for val in self.marginalized_variable.assignments():
-            full_assignment_dict = {**assignment_dict, self.marginalized_variable: val}
-            prob += self.raw_factor(full_assignment_dict)
+            assignment_dict_copy[self.marginalized_variable] = val
+            prob += self.raw_factor(assignment_dict_copy)
         return prob
 
     def mul_by_non_identity(self, other: Factor):
@@ -37,6 +38,6 @@ class MarginalizationFactor(Factor):
 
     def sum_out_variable(self, variable):
         if variable == self.marginalized_variable:
-            return
+            return self
         reduced = self.raw_factor.sum_out_variable(variable)
         return MarginalizationFactor(reduced, self.marginalized_variable)
