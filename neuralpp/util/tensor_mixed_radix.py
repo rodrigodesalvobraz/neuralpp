@@ -42,7 +42,6 @@ class TensorMixedRadix:
             # i in len(radices) - 2, ..., 0
             strides[i] = radices[i + 1] * strides[i + 1]
         max_value = radices[0] * strides[0] - 1
-        print(f"strides: {strides}")
         return strides, max_value
 
 

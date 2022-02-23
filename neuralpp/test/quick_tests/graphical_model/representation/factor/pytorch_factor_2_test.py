@@ -418,14 +418,14 @@ def test_argmax(x, y, z, log_space, batch_size):
 def test_sample(x, y, z, log_space, batch_size):
 
     for number_of_variables in range(1, 3):
-        variables = [x, y, z][0:number_of_variables]
-
-        cardinalities = [v.cardinality for v in variables]
+        variables = [x, y, z][:number_of_variables]
 
         number_of_assignments = math.prod(v.cardinality for v in variables)
-        potentials = list(range(number_of_assignments))
+        potentials = range(number_of_assignments)
         probabilities = torch.tensor(potentials, dtype=torch.float) / sum(potentials)
 
+        # Create a factor in which each assignment's probability is proportional to its position
+        # in the list of assignments (it's *index*).
         if batch_size is None:
 
             def f(*assignment):
@@ -440,56 +440,74 @@ def test_sample(x, y, z, log_space, batch_size):
         factor = PyTorchTableFactor.from_function(
             variables, f, log_space=log_space, batch_size=batch_size
         ).normalize()
-        # TODO: we should be able to sample from neuralpp.unnormalized factors
+        # TODO: normalized() is used for later sampling; modify Factor implementations to
+        #  allow sampling without normalization
 
-        n = 10000
+        number_of_samples = 10_000
 
-        batch_samples = [factor.sample() for i in range(n)]
-        effective_batch_size = batch_size if batch_size is not None else 1
+        # We compute the maximum standard error over all values by iterating over all p_i.
+        # However, for number_of_assignments >= 4 the last probability will always have the largest standard error.
+        # This follows from the fact that the std error function is monotonically increasing for p <= 0.5
+        # (it's an inverted parabola centered on 0.5) and, for number_of_assignments >= 4,
+        # all p_i are in [0, 0.5]. Since they are always monotonically increasing,
+        # the std error of the last one is the largest.
+        if number_of_assignments < 4:
+            max_std_err = max(std_err(p, number_of_samples) for p in probabilities)
+            print(f"Searched for max std err and found {max_std_err:.3}")
+        else:
+            max_std_err = std_err(probabilities[-1], number_of_samples)
+            print(f"Took last std err for max std err and found {max_std_err:.3}")
+
+        number_of_standard_errors = (
+            4  # a sample with fall out of this range once every 55 years on average if we ran this once a day)
+               # (1 out of 20K runs) * 365 = 55
+        )
+        absolute_tolerance = number_of_standard_errors * max_std_err
+        print(f"Absolute tolerance is {number_of_standard_errors} * max error = {absolute_tolerance:.3}")
+
+        batch_samples = [factor.sample() for i in
+                         range(number_of_samples)]  # TODO: modify sample to provide batch of requested size
+        # batch_samples is number_of_samples x factor_batch_size; each sample from factor has factor_batch_size rows.
+        effective_factor_batch_size = batch_size if batch_size is not None else 1
         samples_per_factor_batch_row = [
-            [tuple(batch_samples[j][i].tolist()) for j in range(n)]
-            for i in range(effective_batch_size)
+            [get_assignment(batch_samples, sample_index, batch_index) for sample_index in range(number_of_samples)]
+            for batch_index in range(effective_factor_batch_size)
         ]
-        for batch_row in range(effective_batch_size):
-            samples_for_row = samples_per_factor_batch_row[batch_row]
-            count = Counter(samples_for_row)
-            counts_in_order_of_assignment_index = [
-                count[a] for a in factor.assignments()
-            ]
-            z = sum(counts_in_order_of_assignment_index)
-            empirical_probabilities = (
-                torch.tensor(counts_in_order_of_assignment_index, dtype=torch.float) / z
-            )
 
-            # Let X_i be the random indicator that the batch_row-th assignment is sampled.
-            # The mean of X_i is the probability p_i that the batch_row-th assignment is sampled.
+        for samples_for_row in samples_per_factor_batch_row:
+            assignments_histogram = Counter(samples_for_row)
+            assignment_indices_histogram = [assignments_histogram[a] for a in factor.assignments()]
+            normalization_constant = sum(assignment_indices_histogram)
+            empirical_probabilities = \
+                torch.tensor(assignment_indices_histogram, dtype=torch.float) / normalization_constant
+
+            # Let X_i be the random indicator that the i-th assignment is sampled.
+            # X_i is Bernoulli-distributed with the probability p_i that the i-th assignment is sampled.
             # The standard deviation of X_i is std_i = sqrt(p_i * (1 - p_i)).
-            # The empirical probability e_i of X_i is the mean of n samples_for_row of X_i.
-            # It has, by the CLT, distribution N(p_i, std_i/sqrt(n)).
-            # std_i/sqrt(n) is the standard error std_err_i.
+            # The empirical probability e_i of X_i is the mean of number_of_samples samples of X_i.
+            # It has, by the CLT, distribution N(p_i, std_i/sqrt(number_of_samples)).
+            # std_i/sqrt(number_of_samples) is the standard error std_err_i.
             # The probability that e_i is within p_i +- 3.5 std_err_i is practically one.
             # Therefore the probability that e_i is within p_i +- max_i(std_err_i) is also practically one.
 
-            # We compute the maximum standard error by iteration over all p_i.
-            # However, for number_of_assignments >=4 the last probability will always have the largest standard error
-            # because all p_i <= 5 and they are monotonically increasing and if you plot the std_dev_o(p) graph,
-            # it is a parabola with vertex at p = 0.5.
-            if number_of_assignments < 4:
-                max_std_err = max(std_err(p, n) for p in probabilities)
-            else:
-                max_std_err = std_err(probabilities[-1], n)
+            print(f"Theoretical Probabilities: {probabilities}")
+            print(f"Empirical   Probabilities: {empirical_probabilities}")
+            print(f"Difference: {[probabilities[i] - empirical_probabilities[i] for i in range(len(probabilities))]}")
+            print(f"Std errors: {[std_err(p, number_of_samples) for p in probabilities]}")
+            print(f"Tolerance: {absolute_tolerance:.3}")
 
-            number_of_standard_errors = (
-                10  # TODO: should be 3.5; waiting to figuring that out
-            )
-            absolute_tolerance = number_of_standard_errors * max_std_err
             assert torch.allclose(
                 probabilities, empirical_probabilities, atol=absolute_tolerance
-            ), "Samples deviated from neuralpp.expected distribution; this is possible but should be an extremely rare event."
+            ), "Samples deviated from neuralpp.expected distribution; " \
+               "this is possible but should be an extremely rare event."
+
+
+def get_assignment(batch_samples, sample_index, batch_index):
+    return tuple(batch_samples[sample_index][batch_index].tolist())
 
 
 def std_err(p, n):
-    return p * (1 - p) / math.sqrt(n)
+    return math.sqrt(p * (1 - p) / n)
 
 
 def test_torch_categorical_sampling():
