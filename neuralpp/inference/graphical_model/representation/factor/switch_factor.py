@@ -5,13 +5,14 @@ from neuralpp.util.util import join
 
 
 class SwitchFactor(AtomicFactor):
-
     def __init__(self, switch, components):
+        variables = set().union(*(component.variables for component in components))
+        super().__init__(variables | {switch})
         self.switch = switch
         self.components = components
 
     def call_after_validation(self, assignment_dict, assignment_values):
-        switch_value = assignment_values[0]
+        switch_value = assignment_dict[self.switch]
         return self.components[switch_value](assignment_dict)
 
     def _transform_components(self, function):
@@ -31,8 +32,8 @@ class SwitchFactor(AtomicFactor):
     def randomized_copy(self):
         return self._transform_components(lambda c: c.randomized_copy())
 
-    def multiply_by_non_identity(self, other):
-        return self._transform_components(lambda c: c.multiply_by_non_identity(other))
+    def mul_by_non_identity(self, other):
+        return self._transform_components(lambda c: c.mul_by_non_identity(other))
 
     def sum_out_variable(self, variable):
         if variable == self.switch:

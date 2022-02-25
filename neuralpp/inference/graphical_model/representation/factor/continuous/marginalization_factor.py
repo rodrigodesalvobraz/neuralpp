@@ -14,14 +14,16 @@ class MarginalizationFactor(Factor):
         self.marginalized_variable = marginalized_variable
 
     def condition_on_non_empty_dict(self, assignment_dict):
-        return MarginalizationFactor(self.marginalized_variable, self.raw_factor.condition(assignment_dict))
+        return MarginalizationFactor(
+            self.marginalized_variable, self.raw_factor.condition(assignment_dict)
+        )
 
     def call_after_validation(self, assignment_dict, assignment_values):
         prob = 0.0
-        assignment_dict_copy = {**assignment_dict}
+        assignment_dict = assignment_dict.copy()
         for val in self.marginalized_variable.assignments():
-            assignment_dict_copy[self.marginalized_variable] = val
-            prob += self.raw_factor(assignment_dict_copy)
+            assignment_dict[self.marginalized_variable] = val
+            prob += self.raw_factor(assignment_dict)
         return prob
 
     def mul_by_non_identity(self, other: Factor):
