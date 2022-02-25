@@ -28,9 +28,8 @@ class IntegerVariable(DiscreteVariable):
         return len(value)
 
     def __eq__(self, other):
-        assert isinstance(
-            other, IntegerVariable
-        ), "IntegerVariable being compared to non-IntegerVariable"
+        if not isinstance(other, IntegerVariable):
+            return False
         result = self.name == other.name
         if result and self.cardinality != other.cardinality:
             print(

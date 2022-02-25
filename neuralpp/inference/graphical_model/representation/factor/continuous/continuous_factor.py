@@ -34,7 +34,7 @@ class ContinuousFactor(AtomicFactor):
         raise error
 
     def mul_by_non_identity(self, other):
-        return ProductFactor(self, other)
+        return ProductFactor([self, other])
 
     def sum_out_variable(self, variable):
         self._not_implemented("sum_out_variable")
