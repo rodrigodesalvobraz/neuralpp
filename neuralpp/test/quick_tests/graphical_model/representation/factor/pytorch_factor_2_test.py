@@ -3,6 +3,7 @@ from collections import Counter
 
 import pytest
 import torch
+
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
 from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
     PyTorchLogTable,
@@ -460,19 +461,25 @@ def test_sample(x, y, z, log_space, batch_size):
 
         z_score = (
             5  # a sample with fall out of this range extremely rarely; a Z-score of 4
-               # would lead to a failure about once around every 28 years on average if we ran this once a day.
-               # (A Z-score of 4 means a probability of (1 out of 10K runs) * 365 ~= 28).
+            # would lead to a failure about once around every 28 years on average if we ran this once a day.
+            # (A Z-score of 4 means a probability of (1 out of 10K runs) * 365 ~= 28).
         )
         absolute_tolerance = z_score * max_std_err
         print(f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}")
 
-        batch_samples = [factor.sample() for i in
-                         range(number_of_samples)]  # TODO: modify sample to provide batch of requested size
-        # batch_samples is number_of_samples x factor_batch_size; each sample from factor has factor_batch_size rows.
-        effective_factor_batch_size = batch_size if batch_size is not None else 1
+        samples = [factor.sample() for i in
+                   range(number_of_samples)]  # TODO: modify sample to provide batch of requested size
+        if batch_size is None:
+            batch_samples = [[sample] for sample in samples]  # TODO: vectorize if tensor (add second dimension)
+            effective_batch_size = 1
+        else:
+            batch_samples = samples
+            effective_batch_size = batch_size
+
+        # batch_samples is number_of_samples x batch_size; each sample from factor has batch_size rows.
         samples_per_factor_batch_row = [
             [get_assignment(batch_samples, sample_index, batch_index) for sample_index in range(number_of_samples)]
-            for batch_index in range(effective_factor_batch_size)
+            for batch_index in range(effective_batch_size)
         ]
 
         for samples_for_row in samples_per_factor_batch_row:

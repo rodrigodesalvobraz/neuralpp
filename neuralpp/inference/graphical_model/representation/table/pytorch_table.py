@@ -289,7 +289,9 @@ class PyTorchTable(Table):
         self, non_batch_assignment_indices
     ):
         """Takes a 1D tensor of non-batch assignment indices and returns the corresponding assignments"""
-        return self.non_batch_radices.representation(non_batch_assignment_indices)
+        batched_assignments = self.non_batch_radices.representation(non_batch_assignment_indices)
+        result = batched_assignments if self.batch else batched_assignments[0]
+        return result
 
     @property
     def non_batch_radices(self):
