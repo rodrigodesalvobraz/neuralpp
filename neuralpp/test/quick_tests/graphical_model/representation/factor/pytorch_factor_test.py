@@ -1,6 +1,8 @@
 import random
 
 import pytest
+import torch
+
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
@@ -61,35 +63,15 @@ def normalized_product_factor(factor1, factor2):
 
 def test_sample(normalized_product_factor):
 
-    random.seed(1)
+    random.seed(2)
+    torch.manual_seed(2)
 
     print("Samples from neuralpp.normalized product:")
-    actual = [normalized_product_factor.single_sample() for i in range(20)]
-    expected = [
-        (0, 0),
-        (1, 1),
-        (1, 0),
-        (0, 0),
-        (0, 0),
-        (0, 0),
-        (0, 0),
-        (1, 0),
-        (0, 0),
-        (0, 0),
-        (1, 1),
-        (0, 0),
-        (1, 0),
-        (0, 0),
-        (0, 0),
-        (1, 0),
-        (0, 0),
-        (1, 1),
-        (1, 1),
-        (0, 0),
-    ]
+    actual = [normalized_product_factor.sample() for i in range(20)]  # TODO: use batch sampling when available
+    expected = [torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 2], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([1, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32)]
     print(f"Expected: {expected}")
     print(f"Actual  : {actual}")
-    assert actual == expected
+    assert all((torch.equal(a, e) for a, e in zip(actual, expected)))
 
 
 def test_normalization(x, y, factor1, factor2):

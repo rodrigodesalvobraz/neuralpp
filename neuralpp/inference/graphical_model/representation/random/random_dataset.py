@@ -99,7 +99,7 @@ def generate_dataset_given_observation_dict_and_query_variables(
     )
     observation_dataset = repeat(
         datapoints_per_observation,
-        lambda: (observation_dict, query_distribution.single_sample_assignment_dict()),
+        lambda: (observation_dict, query_distribution.sample_assignment_dict()),
     )
     # print(f"observation_dict: {observation_dict}")
     # print(f"conditioned_model: {conditioned_model}")

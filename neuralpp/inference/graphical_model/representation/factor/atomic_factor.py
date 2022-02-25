@@ -12,13 +12,7 @@ class AtomicFactor(Factor):
     def sample(self):
         self._not_implemented("sample")
 
-    def single_sample(self):
-        """TODO: deprecated; remove"""
-        self._not_implemented("single_sample")
-
     # Convenience methods
 
-    def single_sample_assignment_dict(self):
-        """TODO: deprecated; remove"""
-        sampled_assignment = self.single_sample()
-        return self.from_assignment_to_assignment_dict(sampled_assignment)
+    def sample_assignment_dict(self):
+        return self.from_assignment_to_assignment_dict(self.sample())
