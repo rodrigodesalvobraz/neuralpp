@@ -458,12 +458,13 @@ def test_sample(x, y, z, log_space, batch_size):
             max_std_err = std_err(probabilities[-1], number_of_samples)
             print(f"Took last std err for max std err and found {max_std_err:.3}")
 
-        number_of_standard_errors = (
-            4  # a sample with fall out of this range once every 55 years on average if we ran this once a day)
-               # (1 out of 20K runs) * 365 = 55
+        z_score = (
+            5  # a sample with fall out of this range extremely rarely; a Z-score of 4
+               # would lead to a failure about once around every 28 years on average if we ran this once a day.
+               # (A Z-score of 4 means a probability of (1 out of 10K runs) * 365 ~= 28).
         )
-        absolute_tolerance = number_of_standard_errors * max_std_err
-        print(f"Absolute tolerance is {number_of_standard_errors} * max error = {absolute_tolerance:.3}")
+        absolute_tolerance = z_score * max_std_err
+        print(f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}")
 
         batch_samples = [factor.sample() for i in
                          range(number_of_samples)]  # TODO: modify sample to provide batch of requested size
