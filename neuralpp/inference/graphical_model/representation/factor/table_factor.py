@@ -147,8 +147,8 @@ class TableFactor(AtomicFactor):
     def randomized_copy(self):
         return self.new_instance(self.variables, self.table.randomized_copy())
 
-    def sample(self):
-        return self.table.sample()
+    def sample(self, n=1):
+        return self.table.sample(n)
 
     def single_sample(self):
         if len(self.table) == 0:

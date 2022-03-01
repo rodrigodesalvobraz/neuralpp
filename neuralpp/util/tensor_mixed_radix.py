@@ -11,26 +11,25 @@ class TensorMixedRadix:
 
     def representation(self, values: torch.Tensor):
         """
-        Given a 1-dimensional tensor of values, returns a 2-dimensional tensor
-        where each row i is a tensor with the digits of the representation of values[i]
-        in a mixed radix representation with given radices.
+        Given a tensor of integral values in the last dimension, returns
+        a tensor where each integral value is replaced by a 1-dimensional tensor
+        containing its mixed radix representation with given radices.
+        As a consequence, the shape of the result will be (*values.shape, len(self.strides))
         """
+        shape_of_empty_representation = (*values.shape, 0)
 
-        number_of_values = values.shape[0]
-
-        if number_of_values == 0:
-            return torch.zeros(0, len(self.strides))
+        if len(values) == 0:
+            return torch.zeros(shape_of_empty_representation, dtype=torch.int)
 
         if (m := max(values)) > self.max_value:
             raise MaxValueException(m, self.max_value)
 
-        representation = torch.zeros((number_of_values, 0), dtype=torch.int)
-        for i in range(len(self.strides)):
-            i_th_digits = torch.tensor(values // self.strides[i], dtype=torch.int)
-            representation = torch.cat(
-                (representation, i_th_digits.reshape(number_of_values, 1)), dim=1
-            )
-            values -= i_th_digits * self.strides[i]
+        representation = torch.zeros(shape_of_empty_representation, dtype=torch.int)
+        for i, stride in enumerate(self.strides):
+            i_th_digits = (values // stride).int()
+            i_th_digits_as_vector = torch.unsqueeze(i_th_digits, dim=-1)
+            representation = torch.cat((representation, i_th_digits_as_vector), dim=-1)
+            values -= i_th_digits * stride
         return representation
 
     @staticmethod

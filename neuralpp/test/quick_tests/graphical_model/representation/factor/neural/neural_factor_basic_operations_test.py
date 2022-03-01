@@ -32,7 +32,7 @@ class XorNeuralNet(torch.nn.Module):
         return x
 
     def randomize(self):
-        # TODO
+        # Not needed for this test's purposes
         pass
 
     def randomized_copy(self):

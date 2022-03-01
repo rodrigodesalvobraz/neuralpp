@@ -75,8 +75,15 @@ class Table:
     def normalize(self):
         self._not_implemented("normalize")
 
-    def sample(self):
-        self._not_implemented("single_sample")
+    def sample(self, n=1):
+        """
+        Interprets the table value as potentials (unnormalized probabilities) and
+        returns a sampled tensor (or batch thereof) of indices according to those probabilities.
+        The batch dimensions will correspond to the table.batch and number of samples if different from 1.
+        For example, the resulting tensor will have three dimensions if the table is batched and n > 1,
+        but only two if either the table is batched and n = 1, or the table is not batched and n > 1.
+        """
+        self._not_implemented("sample")
 
     def slice(self, non_batch_slice_coordinates):
         """

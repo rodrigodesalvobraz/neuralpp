@@ -271,26 +271,24 @@ class PyTorchTable(Table):
             normalized_potential_tensor = self.raw_tensor / self.sum()
             return self.from_array(normalized_potential_tensor)
 
-    def sample(self):
+    def sample(self, n=1):
         batch_size = self.number_of_batch_rows() if self.batch else 1
-        non_batch_size = math.prod(self.non_batch_shape)
-        batch_of_potentials_in_rows = self.potentials_tensor().reshape(
-            batch_size, non_batch_size
+        non_batch_size = math.prod(self.non_batch_shape)  # TODO: turn into cached property
+        sample_dimension_initially_equal_to_1 = 1
+        batch_size_x_1_x_potentials = self.potentials_tensor().reshape(
+            batch_size, sample_dimension_initially_equal_to_1, non_batch_size
         )
-        sampled_non_batch_assignment_indices = Categorical(
-            batch_of_potentials_in_rows
-        ).sample()
-        assignments = self.from_tensor_of_non_batch_assignment_indices_to_tensor_of_non_batch_assignments(
-            sampled_non_batch_assignment_indices
-        )
-        return assignments
+        batch_size_x_n_x_potentials = batch_size_x_1_x_potentials.repeat([1, n, 1])
+        batch_size_x_n_x_assignment_indices = Categorical(batch_size_x_n_x_potentials).sample()
+        batch_size_x_n_x_assignments = self.non_batch_radices.representation(batch_size_x_n_x_assignment_indices)
 
-    def from_tensor_of_non_batch_assignment_indices_to_tensor_of_non_batch_assignments(
-        self, non_batch_assignment_indices
-    ):
-        """Takes a 1D tensor of non-batch assignment indices and returns the corresponding assignments"""
-        batched_assignments = self.non_batch_radices.representation(non_batch_assignment_indices)
-        result = batched_assignments if self.batch else batched_assignments[0]
+        slice_for_unsqueezing_batch_and_n = [
+            slice(batch_size) if self.batch else 0,
+            slice(n) if n != 1 else 0,
+            slice(non_batch_size)
+        ]
+        result = batch_size_x_n_x_assignments[slice_for_unsqueezing_batch_and_n]
+
         return result
 
     @property

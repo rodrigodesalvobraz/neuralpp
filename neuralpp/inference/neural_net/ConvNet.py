@@ -44,7 +44,7 @@ class ConvNet(nn.Module):
         return output
 
     def randomize(self):
-        # TODO
+        # TODO - implement randomize for ConvNet
         pass
 
     @staticmethod

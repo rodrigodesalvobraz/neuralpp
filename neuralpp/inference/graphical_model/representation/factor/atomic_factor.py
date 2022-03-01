@@ -9,10 +9,10 @@ class AtomicFactor(Factor):
     def atomic_factor(self):
         return self
 
-    def sample(self):
+    def sample(self, n=1):
         self._not_implemented("sample")
 
     # Convenience methods
 
-    def sample_assignment_dict(self):
-        return self.from_assignment_to_assignment_dict(self.sample())
+    def sample_assignment_dict(self, n=1):
+        return self.from_assignment_to_assignment_dict(self.sample(n))

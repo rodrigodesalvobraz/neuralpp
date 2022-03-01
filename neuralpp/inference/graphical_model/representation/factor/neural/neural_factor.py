@@ -232,8 +232,8 @@ class NeuralFactor(AtomicFactor):
         else:
             return self.table_factor.normalize()
 
-    def sample(self):
-        return self.table_factor.sample()
+    def sample(self, n=1):
+        return self.table_factor.sample(n)
 
     def single_sample(self):
         return self.table_factor.single_sample()
