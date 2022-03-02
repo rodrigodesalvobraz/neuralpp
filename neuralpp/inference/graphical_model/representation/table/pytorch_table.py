@@ -282,7 +282,7 @@ class PyTorchTable(Table):
         batch_size_x_n_x_assignment_indices = Categorical(batch_size_x_n_x_potentials).sample()
         batch_size_x_n_x_assignments = self.non_batch_radices.representation(batch_size_x_n_x_assignment_indices)
 
-        need_to_squeeze = not self.batch or n == 1
+        need_to_squeeze = batch_size == 1 or n == 1
 
         if need_to_squeeze:
             slices_for_squeezing_batch_and_n_if_needed = [
