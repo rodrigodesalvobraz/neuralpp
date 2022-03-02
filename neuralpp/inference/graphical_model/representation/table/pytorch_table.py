@@ -2,6 +2,8 @@ import itertools
 import math
 
 import torch
+from torch.distributions import Categorical
+
 from neuralpp.inference.graphical_model.representation.representation import (
     contains_multivalue_coordinate,
     is_multivalue_coordinate,
@@ -16,7 +18,6 @@ from neuralpp.util.batch_argmax import batch_argmax
 from neuralpp.util.first import first
 from neuralpp.util.tensor_mixed_radix import TensorMixedRadix
 from neuralpp.util.util import all_dims_but_first, is_iterable, map_of_nested_list
-from torch.distributions import Categorical
 
 
 class PyTorchTable(Table):
@@ -34,6 +35,7 @@ class PyTorchTable(Table):
             self.non_batch_shape = self.raw_tensor.shape
 
         self._non_batch_radices = None
+        self._number_of_non_batch_dimensions = None
 
     def new_table_from_raw_entries(self, raw_entries, batch=False):
         return type(self)(raw_entries, batch)
@@ -272,35 +274,36 @@ class PyTorchTable(Table):
             return self.from_array(normalized_potential_tensor)
 
     def sample(self, n=1):
-        batch_size = self.number_of_batch_rows() if self.batch else 1
-        non_batch_size = math.prod(self.non_batch_shape)  # TODO: turn into cached property
-        sample_dimension_initially_equal_to_1 = 1
-        batch_size_x_1_x_potentials = self.potentials_tensor().reshape(
-            batch_size, sample_dimension_initially_equal_to_1, non_batch_size
-        )
-        batch_size_x_n_x_potentials = batch_size_x_1_x_potentials.repeat([1, n, 1])
-        batch_size_x_n_x_assignment_indices = Categorical(batch_size_x_n_x_potentials).sample()
-        batch_size_x_n_x_assignments = self.non_batch_radices.representation(batch_size_x_n_x_assignment_indices)
-
-        need_to_squeeze = batch_size == 1 or n == 1
-
-        if need_to_squeeze:
-            slices_for_squeezing_batch_and_n_if_needed = [
-                slice(batch_size) if self.batch else 0,
-                slice(n) if n != 1 else 0,
-                slice(non_batch_size)
-            ]
-            result = batch_size_x_n_x_assignments[slices_for_squeezing_batch_and_n_if_needed]
+        if n != 1:
+            potentials = self.potentials_tensor_with_sample_dimension(n)
         else:
-            result = batch_size_x_n_x_assignments
+            potentials = self.potentials_tensor()
+        potentials_of_assignment_indices = self.linearlize_potentials(potentials)
+        assignment_indices = Categorical(potentials_of_assignment_indices).sample()
+        assignments = self.non_batch_radices.representation(assignment_indices)
+        return assignments
 
-        return result
+    def potentials_tensor_with_sample_dimension(self, n):
+        non_batch_potentials_initial_dimension = 1 if self.batch else 0
+        potentials = \
+            util.unsqueeze_and_expand(
+                self.potentials_tensor(), n, dim=non_batch_potentials_initial_dimension)
+        return potentials
+
+    def linearlize_potentials(self, potentials):
+        return util.fuse_k_last_dimensions_of_tensor(potentials, self.number_of_non_batch_dimensions)
 
     @property
     def non_batch_radices(self):
         if self._non_batch_radices is None:
             self._non_batch_radices = TensorMixedRadix(self.non_batch_shape)
         return self._non_batch_radices
+
+    @property
+    def number_of_non_batch_dimensions(self):
+        if self._number_of_non_batch_dimensions is None:
+            self._number_of_non_batch_dimensions = len(self.non_batch_shape)
+        return self._number_of_non_batch_dimensions
 
     def randomize(self):
         self.raw_tensor = torch.rand(self.raw_tensor.shape, requires_grad=True)

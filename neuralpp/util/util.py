@@ -431,3 +431,37 @@ def not_implemented(self, name):
 
 def subtract(container, to_be_subtracted):
     return [e for e in container if e not in container]
+
+
+def all_ones_but(length, n, dim):
+    if dim < 0:
+        dim = length + dim
+    return tuple(n if d == dim else 1 for d in range(length))
+
+
+def all_minus_ones_but(length, n, dim):
+    if dim < 0:
+        dim = length + dim
+    return tuple(n if d == dim else -1 for d in range(length))
+
+
+def expand_single_dim(tensor, n, dim=0):
+    return tensor.expand(all_minus_ones_but(tensor.ndim, n, dim))
+
+
+def unsqueeze_and_expand(tensor, n, dim=0):
+    return expand_single_dim(tensor.unsqueeze(dim), n, dim)
+
+
+def fuse_k_last_dimensions_of_shape(shape, k):
+    """
+    Returns *shape[:-k], math.prod(shape[-k:])
+    """
+    return *shape[:-k], math.prod(shape[-k:])
+
+
+def fuse_k_last_dimensions_of_tensor(tensor, k):
+    """
+    Returns tensor.reshape(fuse_k_last_dimensions_of_shape(tensor.shape, k))
+    """
+    return tensor.reshape(fuse_k_last_dimensions_of_shape(tensor.shape, k))

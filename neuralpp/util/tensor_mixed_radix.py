@@ -19,7 +19,7 @@ class TensorMixedRadix:
         if values.numel() == 0:
             return torch.zeros((*values.shape, len(self.strides)), dtype=torch.int)
 
-        if (m := max(values)) > self.max_value:
+        if (m := values.max()) > self.max_value:
             raise MaxValueException(m, self.max_value)
 
         digits = []

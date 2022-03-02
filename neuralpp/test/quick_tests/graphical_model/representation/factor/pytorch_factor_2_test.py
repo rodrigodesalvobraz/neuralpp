@@ -467,18 +467,18 @@ def test_sample(x, y, z, log_space, batch_size):
         absolute_tolerance = z_score * max_std_err
         print(f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}")
 
-        samples = [factor.sample() for i in
-                   range(number_of_samples)]  # TODO: modify sample to provide batch of requested size
+        samples = factor.sample(number_of_samples)
         if batch_size is None:
-            batch_samples = [[sample] for sample in samples]  # TODO: vectorize if tensor (add second dimension)
+            batch_samples = samples.unsqueeze(dim=0)
             effective_batch_size = 1
         else:
             batch_samples = samples
             effective_batch_size = batch_size
 
+        # TODO vectorize the following
         # batch_samples is number_of_samples x batch_size; each sample from factor has batch_size rows.
         samples_per_factor_batch_row = [
-            [get_assignment(batch_samples, sample_index, batch_index) for sample_index in range(number_of_samples)]
+            [get_assignment(batch_samples, batch_index, sample_index) for sample_index in range(number_of_samples)]
             for batch_index in range(effective_batch_size)
         ]
 
@@ -510,8 +510,8 @@ def test_sample(x, y, z, log_space, batch_size):
                "this is possible but should be an extremely rare event."
 
 
-def get_assignment(batch_samples, sample_index, batch_index):
-    return tuple(batch_samples[sample_index][batch_index].tolist())
+def get_assignment(batch_samples, batch_index, sample_index):
+    return tuple(batch_samples[batch_index][sample_index].tolist())
 
 
 def std_err(p, n):
