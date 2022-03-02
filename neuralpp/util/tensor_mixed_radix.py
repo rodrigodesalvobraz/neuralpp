@@ -16,20 +16,21 @@ class TensorMixedRadix:
         containing its mixed radix representation with given radices.
         As a consequence, the shape of the result will be (*values.shape, len(self.strides))
         """
-        shape_of_empty_representation = (*values.shape, 0)
-
-        if len(values) == 0:
-            return torch.zeros(shape_of_empty_representation, dtype=torch.int)
+        if values.numel() == 0:
+            return torch.zeros((*values.shape, len(self.strides)), dtype=torch.int)
 
         if (m := max(values)) > self.max_value:
             raise MaxValueException(m, self.max_value)
 
-        representation = torch.zeros(shape_of_empty_representation, dtype=torch.int)
+        digits = []
         for i, stride in enumerate(self.strides):
             i_th_digits = (values // stride).int()
-            i_th_digits_as_vector = torch.unsqueeze(i_th_digits, dim=-1)
-            representation = torch.cat((representation, i_th_digits_as_vector), dim=-1)
             values -= i_th_digits * stride
+            digits.append(i_th_digits)
+
+        digits_as_vectors = [torch.unsqueeze(i_th_digits, dim=-1) for i_th_digits in digits]
+        representation = torch.cat(digits_as_vectors, dim=-1)
+
         return representation
 
     @staticmethod
