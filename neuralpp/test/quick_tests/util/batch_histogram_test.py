@@ -51,7 +51,6 @@ def run_test(data, expected, num_classes=-1, exception=None):
     if exception is None:
         expected_tensor = torch.tensor(expected, dtype=torch.long)
         actual = batch_histogram(data_tensor, num_classes)
-        print(f"Actual: {actual}")
         assert torch.equal(actual, expected_tensor)
     else:
         with pytest.raises(exception):
