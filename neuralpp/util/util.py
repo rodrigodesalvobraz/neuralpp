@@ -465,3 +465,9 @@ def fuse_k_last_dimensions_of_tensor(tensor, k):
     Returns tensor.reshape(fuse_k_last_dimensions_of_shape(tensor.shape, k))
     """
     return tensor.reshape(fuse_k_last_dimensions_of_shape(tensor.shape, k))
+
+
+def normalize_tensor(tensor):
+    normalization_constant = sum(tensor)
+    empirical_probabilities = torch.tensor(tensor) / normalization_constant
+    return empirical_probabilities

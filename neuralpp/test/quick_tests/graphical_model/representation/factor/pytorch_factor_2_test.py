@@ -14,6 +14,7 @@ from neuralpp.inference.graphical_model.representation.table.pytorch_table impor
 )
 from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.util import util
 from neuralpp.util.discrete_sampling import discrete_sample
 
 
@@ -468,15 +469,15 @@ def test_sample(x, y, z, log_space, batch_size):
         print(f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}")
 
         samples = factor.sample(number_of_samples)
+
         if batch_size is None:
             batch_samples = samples.unsqueeze(dim=0)
-            effective_batch_size = 1
         else:
             batch_samples = samples
-            effective_batch_size = batch_size
+        effective_batch_size = len(batch_samples)
 
-        # TODO vectorize the following
-        # batch_samples is number_of_samples x batch_size; each sample from factor has batch_size rows.
+        # Need to convert tensor to list of list of tensors because apparently
+        # there is no way to compute histograms over batches.
         samples_per_factor_batch_row = [
             [get_assignment(batch_samples, batch_index, sample_index) for sample_index in range(number_of_samples)]
             for batch_index in range(effective_batch_size)
@@ -485,9 +486,7 @@ def test_sample(x, y, z, log_space, batch_size):
         for samples_for_row in samples_per_factor_batch_row:
             assignments_histogram = Counter(samples_for_row)
             assignment_indices_histogram = [assignments_histogram[a] for a in factor.assignments()]
-            normalization_constant = sum(assignment_indices_histogram)
-            empirical_probabilities = \
-                torch.tensor(assignment_indices_histogram, dtype=torch.float) / normalization_constant
+            empirical_probabilities = util.normalize_tensor(assignment_indices_histogram)
 
             # Let X_i be the random indicator that the i-th assignment is sampled.
             # X_i is Bernoulli-distributed with the probability p_i that the i-th assignment is sampled.
