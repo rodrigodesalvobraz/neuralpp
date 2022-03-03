@@ -217,10 +217,10 @@ def set_default_tensor_type_and_return_device(try_cuda, print=print):
 
 
 def run_noisy_test(
-    noisy_test,
-    prob_spurious_failure=0.1,
-    target_prob_of_unfair_rejection=0.01,
-    print=print,
+        noisy_test,
+        prob_spurious_failure=0.1,
+        target_prob_of_unfair_rejection=0.01,
+        print=print,
 ):
     """
     A utility for testing routines that may fail, even if correct, with a small probability (a spurious failure).
@@ -398,8 +398,8 @@ def repeat_first_dimension_with_expand(tensor, n):
     original_first_dimension_length = tensor.shape[0]
     final_first_dimension_length = n * original_first_dimension_length
     final_shape = (final_first_dimension_length,) + tensor.shape[1:]
-    one_d = tensor.reshape(1, tensor.numel(),)
-    expanded = one_d.expand(n, *((-1,)*(one_d.dim() - 1)))
+    one_d = tensor.reshape(1, tensor.numel(), )
+    expanded = one_d.expand(n, *((-1,) * (one_d.dim() - 1)))
     result = expanded.reshape(final_shape)
     return result
 
@@ -471,3 +471,18 @@ def normalize_tensor(tensor):
     normalization_constant = sum(tensor)
     empirical_probabilities = torch.tensor(tensor) / normalization_constant
     return empirical_probabilities
+
+
+def batch_histogram(data_tensor, num_classes=-1):
+    """
+    Computes histograms of integral values, even if in batches (as opposed to torch.histc and torch.histogram).
+    Arguments:
+        data_tensor: a D1 x ... x D_n torch.LongTensor
+        num_classes (optional): the number of classes present in data.
+                                If not provided, tensor.max() + 1 is used (an error is thrown is tensor is empty).
+    Returns:
+        A D1 x ... x D_{n-1} x num_classes 'result' torch.LongTensor,
+        containing histograms of the last dimension D_n of tensor,
+        that is, result[d_1,...,d_{n-1}, c] = number of times c appears in tensor[d_1,...,d_{n-1}].
+    """
+    return torch.nn.functional.one_hot(data_tensor, num_classes).sum(dim=-2)
