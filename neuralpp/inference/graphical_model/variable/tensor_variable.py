@@ -9,7 +9,7 @@ FlexibleShape = Union[torch.Size, Tuple[int, ...]]
 
 
 class TensorVariable(Variable):
-    def __init__(self, name, non_batch_dim: int):
+    def __init__(self, name, non_batch_dim: Optional[int] = None):
         """
         Constructs a tensor variable with given name and optional non-batch shape.
 

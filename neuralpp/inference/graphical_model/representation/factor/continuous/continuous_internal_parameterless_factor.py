@@ -29,5 +29,5 @@ class ContinuousInternalParameterlessFactor(ContinuousFactor):
         return str(self)
 
     def __str__(self):
-        return f"{type(self)}(" + join(self.variables) + ")" + \
-               (" given " + self.conditioning_dict if self.conditioning_dict else "")
+        return f"{type(self).__name__}(" + join(self.variables) + ")" + \
+               (" given " + str(self.conditioning_dict) if self.conditioning_dict else "")

@@ -1,5 +1,6 @@
 import math
 import os
+import random
 from itertools import tee
 from typing import List
 
@@ -486,3 +487,30 @@ def batch_histogram(data_tensor, num_classes=-1):
         that is, result[d_1,...,d_{n-1}, c] = number of times c appears in tensor[d_1,...,d_{n-1}].
     """
     return torch.nn.functional.one_hot(data_tensor, num_classes).sum(dim=-2)
+
+
+def empty(collection):
+    return len(collection) == 0
+
+
+def choose_elements_without_replacement(candidates_provider_function, conditions):
+    """
+    For each condition in conditions, selects an element from the iterable provided by
+    candidates_provider_function that satisfies the condition and is not one of the previously
+    selected elements.
+    Note that candidates_provider_function is invoked before each selection and is allowed to return
+    different iterables.
+    Returns a list with selected elements (some of which may be None).
+    """
+    selected_elements = []
+    for condition in conditions:
+        candidates = [c for c in candidates_provider_function() if condition(c)]
+        non_repeated_candidates = [c for c in candidates if c not in selected_elements]
+        selected_element = None if empty(non_repeated_candidates) else random.choice(non_repeated_candidates)
+        selected_elements.append(selected_element)
+    return selected_elements
+
+
+def print_dict_in_lines(dict):
+    for key, value in dict.items():
+        print(f"{key}: {value}")
