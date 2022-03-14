@@ -1,6 +1,6 @@
 import math
 from collections import deque
-from typing import Dict, Type, Callable, List, Iterable, Optional, Set
+from typing import Dict, Type, Callable, List, Iterable, Set
 
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.inference.graphical_model.variable.variable import Variable
@@ -49,7 +49,7 @@ class MultiTypeRandomModel:
                  from_type_to_number_of_seed_variables: Dict[Type, int],
                  variable_maker: Callable[[Type, str], Variable],
                  factor_makers: List[FactorMaker],
-                 loop_coefficient: int = 0.5,
+                 loop_coefficient: float = 0.5,
                  ):
         """
         Generates a random model based on given specifications.
@@ -102,8 +102,8 @@ class MultiTypeRandomModel:
         # Attribute initialization
         self.from_variable_to_distribution: Dict[Variable, Factor] = {}
         self._queue_of_variables_without_distribution = deque()
-        self._from_variable_to_descendants: Dict[Variable, Set[Variable]] = {}
-        self.there_is_a_child_being_processed = False  # See number_of_variables_generated_so_far for explanation
+        self._from_variable_to_children: Dict[Variable, Set[Variable]] = {}
+        self.child_being_processed = None
 
         # Model generation
         self.make_seed_variables()
@@ -111,22 +111,25 @@ class MultiTypeRandomModel:
 
     def make_seed_variables(self):
         for type, number_of_variables_of_type in self.from_type_to_number_of_seed_variables.items():
-            util.repeat(number_of_variables_of_type, lambda: self.make_new_variable(type, child=None))
+            util.repeat(number_of_variables_of_type, lambda: self.make_new_variable(type))
+        for variable in self.variables_generated_so_far:
+            self._from_variable_to_children[variable] = set()
 
     def complete_model_generation(self):
         while not empty(self._queue_of_variables_without_distribution):
             next_variable_to_get_a_distribution = self.get_next_variable_without_distribution_to_process()
+
+            self.child_being_processed = next_variable_to_get_a_distribution
             self.register_distribution_for(next_variable_to_get_a_distribution)
+            self.child_being_processed = None
 
     def get_next_variable_without_distribution_to_process(self):
         next_variable_to_get_a_distribution = self._queue_of_variables_without_distribution.popleft()
-        self.there_is_a_child_being_processed = True
         return next_variable_to_get_a_distribution
 
     def register_distribution_for(self, variable: Variable):
         distribution = self.make_distribution_for(variable)
         self.from_variable_to_distribution[variable] = distribution
-        self.there_is_a_child_being_processed = False
 
     def make_distribution_for(self, variable: Variable) -> Factor:
         if self.number_of_variables_generated_so_far >= self.threshold_number_of_variables_to_generate:
@@ -148,20 +151,22 @@ class MultiTypeRandomModel:
         # we would always use new variables and never get cycles).
         # If no old variable of the right type exist, a new variable is made and used instead.
 
-        new_variable_parents = self.get_new_variable_parents(child, types_of_parents)
+        new_variable_parents = self.get_new_variable_parents(types_of_parents)
 
         index_of_first_remaining_parent = len(new_variable_parents)
         types_of_remaining_parents = types_of_parents[index_of_first_remaining_parent:]
         remaining_parents = self.get_remaining_parents(child, types_of_remaining_parents)
 
         parents = [*new_variable_parents, *remaining_parents]
+        for parent in parents:
+            self._from_variable_to_children[parent] = self._from_variable_to_children.get(parent, set()).union({child})
         return parents
 
-    def get_new_variable_parents(self, child: Variable, types_of_parents) -> List[Variable]:
+    def get_new_variable_parents(self, types_of_parents) -> List[Variable]:
         number_of_new_variable_parents = \
             min(self.number_of_variables_that_still_need_to_be_generated,
                 self.get_max_number_of_new_variable_parents(types_of_parents))
-        new_variable_parents = [self.make_new_variable(parent_type, child)
+        new_variable_parents = [self.make_new_variable(parent_type)
                                 for parent_type in types_of_parents[:number_of_new_variable_parents]]
         return new_variable_parents
 
@@ -173,21 +178,22 @@ class MultiTypeRandomModel:
     def get_remaining_parents(self, child: Variable, types_for_old_variable_parents: List[Type]):
         attempted_old_variable_parents = \
             self.get_attempted_old_variable_parents(child, types_for_old_variable_parents)
-        remaining_parents = [self.use_parent_or_make_new_one_if_none(attempted, parent_type, child)
+        remaining_parents = [self.use_parent_or_make_new_one_if_none(attempted, parent_type)
                              for attempted, parent_type in
                              zip(attempted_old_variable_parents, types_for_old_variable_parents)]
         return remaining_parents
 
-    def use_parent_or_make_new_one_if_none(self, parent: Variable, type: Type, child: Variable) -> Variable:
-        return parent if parent is not None else self.make_new_variable(type, child)
+    def use_parent_or_make_new_one_if_none(self, parent: Variable, type: Type) -> Variable:
+        return parent if parent is not None else self.make_new_variable(type)
 
     def get_attempted_old_variable_parents(
-            self, 
-            child: Variable, 
-            types_for_attempted_old_variable_parents: List[Type])\
+            self,
+            child: Variable,
+            types_for_attempted_old_variable_parents: List[Type]) \
             -> List[Variable]:
         old_variable_parent_candidates_provider = \
-            lambda: [v for v in self.variables_generated_so_far if self.is_not_descendant_of(v, child)]
+            lambda: [v for v in self.variables_generated_so_far
+                     if v is not child and self.first_is_not_descendant_of_second(v, child)]
         conditions_for_old_variable_parents = [
             lambda v: type(v) == parent_type
             for parent_type in types_for_attempted_old_variable_parents
@@ -232,30 +238,32 @@ class MultiTypeRandomModel:
 
     # Basic methods and properties
 
-    def make_new_variable(self, type: Type, child: Optional[Variable]) -> Variable:
+    def make_new_variable(self, type: Type) -> Variable:
         variable_name = f"x{self.number_of_variables_generated_so_far + 1}"
         new_variable = self.variable_maker(type, variable_name)
         self._queue_of_variables_without_distribution.append(new_variable)
-        if child is None:
-            descendants = {}
-        else:
-            descendants = {child}.union(self._from_variable_to_descendants[child])
-        self._from_variable_to_descendants[new_variable] = descendants
         return new_variable
 
-    def is_not_descendant_of(self, variable1: Variable, variable2: Variable) -> bool:
-        return variable1 not in self._from_variable_to_descendants[variable2]
+    def first_is_not_descendant_of_second(self, variable1: Variable, variable2: Variable) -> bool:
+        return \
+            variable1 not in self._from_variable_to_children[variable2] \
+            and \
+            all(self.first_is_not_descendant_of_second(variable1, child_of_variable2)
+                for child_of_variable2 in self._from_variable_to_children[variable2])
 
     @property
     def variables_generated_so_far(self) -> Iterable[Variable]:
-        return self.from_variable_to_distribution.keys()
+        return \
+            list(self.from_variable_to_distribution.keys()) + \
+            list(self._queue_of_variables_without_distribution) + \
+            ([self.child_being_processed] if self.child_being_processed is not None else [])
 
     @property
     def number_of_variables_generated_so_far(self) -> int:
         return \
             len(self.from_variable_to_distribution) + \
             len(self._queue_of_variables_without_distribution) + \
-            (1 if self.there_is_a_child_being_processed else 0)
+            (1 if self.child_being_processed is not None else 0)
 
     @property
     def number_of_variables_that_still_need_to_be_generated(self) -> int:
