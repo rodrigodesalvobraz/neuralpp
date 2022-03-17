@@ -4,6 +4,7 @@ from neuralpp.inference.graphical_model.representation.factor.continuous.normal_
     NormalFactor,
 )
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
@@ -13,10 +14,44 @@ from neuralpp.inference.graphical_model.representation.factor.product_factor imp
 from neuralpp.inference.graphical_model.representation.factor.switch_factor import (
     SwitchFactor,
 )
-from neuralpp.experiments.normal_normal_conjugate import FactorWorld
+from neuralpp.experiments.bm_integration.factor_world import FactorWorld
 import beanmachine.ppl as bm
+from beanmachine.ppl.inference.base_inference import BaseInference
 from tqdm.auto import tqdm
 import torch
+import random
+from typing import Dict, Tuple, Union
+
+
+# It's hard to get BM's native CompositionalInference to work with factor
+# representations, but we can implement our own "compositional inference for
+# neuralpp"
+
+
+class FactorCompositionalInference(BaseInference):
+    def __init__(
+        self, var_to_inference: Dict[Tuple[Variable, ...], BaseInference]
+    ) -> None:
+        self._config = var_to_inference
+
+    def get_proposers(self, world, target_rvs, num_adaptive_sample):
+        proposers = []
+        covered_vars = set()
+        for variables, inference_method in self._config.items():
+            variables = set(var for var in variables if var in target_rvs)
+            covered_vars |= variables
+            proposers.extend(
+                inference_method.get_proposers(world, variables, num_adaptive_sample)
+            )
+
+        remaining_vars = target_rvs - covered_vars
+        # use ancestral MH for variables not specified
+        proposers.extend(
+            bm.SingleSiteAncestralMetropolisHastings().get_proposers(
+                world, remaining_vars, num_adaptive_sample
+            )
+        )
+        return proposers
 
 
 if __name__ == "__main__":
@@ -56,11 +91,9 @@ if __name__ == "__main__":
             components.append(NormalFactor([obs[n], mu_out[k], std]))
         obs_factors.append(SwitchFactor(assignments[n], components))
 
-    # collect all factors
-    factors = [*mu_factors, *assignment_factors, *obs_factors]
-    marginalized_factor = ProductFactor(factors) ^ assignments
-    print(marginalized_factor)
 
+    num_samples = 200
+    num_adaptive_samples = num_samples // 2
     observations = {
         std: std_data,
         mu_loc: mu_loc_data,
@@ -68,11 +101,18 @@ if __name__ == "__main__":
         **{obs[n]: data[n] for n in range(len(data))},
     }
 
+    ######################################
+    # Marginalization
+    ######################################
+    # collect all factors
+    factors = [*mu_factors, *assignment_factors, *obs_factors]
+    marginalized_factor = ProductFactor(factors) ^ assignments
+    print(marginalized_factor)
+
     # begin building the World
     initial_world = FactorWorld([marginalized_factor], observations)
 
-    num_samples = 200
-    num_adaptive_samples = num_samples // 2
+
 
     # we usually don't manually construct the sampler object, but let's just try to see
     # if it's possible to get it working here...
@@ -91,4 +131,30 @@ if __name__ == "__main__":
             mu_samples[mu].append(world[mu])
     mu_samples_mean = {key: torch.stack(val).mean() for key, val in mu_samples.items()}
 
-    print(mu_samples_mean)
+    print("Result for marginalization:", mu_samples_mean)
+
+    ######################################
+    # Compositional Inference
+    ######################################
+    compositional_world = FactorWorld(factors, observations)
+    compositional_sampler = bm.inference.sampler.Sampler(
+        kernel=FactorCompositionalInference(
+            {
+                tuple(mu_out): bm.GlobalNoUTurnSampler(),
+                # rest of variables fall back to default MH sampler
+            }
+        ),
+        initial_world=compositional_world,
+        num_samples=num_samples,
+        num_adaptive_samples=num_adaptive_samples,
+    )
+
+    # begin inference
+    mu_samples = {mu: [] for mu in mu_out}
+    for world in tqdm(compositional_sampler, total=num_samples + num_adaptive_samples):
+        # collect the value of mu (the centroid of each component)
+        for mu in mu_out:
+            mu_samples[mu].append(world[mu])
+    mu_samples_mean = {key: torch.stack(val).mean() for key, val in mu_samples.items()}
+
+    print("Result for Compositional Inference:", mu_samples_mean)

@@ -3,66 +3,13 @@ import torch.distributions as dist
 import beanmachine.ppl as bm
 import copy
 from tqdm.auto import tqdm
+from typing import NamedTuple
 
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
-
-
-class FactorWorld(bm.world.World):
-    """a "World" that explains factor graph to BM inference methods"""
-
-    def __init__(self, factors, fixed_assignment_dict):
-        self._factors = factors
-        # for variables whose values are fixed during an inference
-        self.observations = fixed_assignment_dict.copy()
-
-        # collect variables that need to be inferred
-        variables = set()
-        for factor in factors:
-            variables = variables.union(factor.variables)
-
-        # initialize values (this will be updated by inference algorithms)
-        self._variables = dict()
-        for var in variables:
-            if var in self.observations:
-                self._variables[var] = self.observations[var]
-            else:
-                # some dummy initialization to get this script running. This does not work
-                # in general for distribution with limited support
-                self._variables[var] = dist.Uniform(-2, 2).sample()
-
-    def __getitem__(self, variable):
-        return self._variables[variable]
-
-    def replace(self, assignment_dict):
-        # return a new world with updated values
-        new_world = copy.copy(self)
-        new_world._variables = {**self._variables, **assignment_dict}
-        return new_world
-
-    def log_prob(self, factors=None):
-        # return the log prob of the factors conditioned on the current value
-        log_prob = 0.0
-
-        # return log prob of entire graph if not provided
-        if factors is None:
-            factors = self._factors
-
-        for factor in factors:
-            # evaluate each factor on the assignments
-            log_prob += factor(self._variables).log()
-        return log_prob
-
-    def get_variable(self, variable):
-        # dummy function to bypass HMC's check on distributions' support
-        # https://github.com/facebookresearch/beanmachine/blob/main/src/beanmachine/ppl/inference/proposer/hmc_utils.py#L257
-        class DummyVar:
-            distribution = dist.Normal(0.0, 1.0)
-
-        return DummyVar()
-
+from neuralpp.experiments.bm_integration.factor_world import FactorWorld
 
 if __name__ == "__main__":
     # Define Normal Normal in neuralpp
