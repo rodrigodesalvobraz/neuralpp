@@ -46,9 +46,8 @@ class TensorVariable(Variable):
                             f"{self.non_batch_dim} or {self.non_batch_dim + 1} (if batch)")
 
     def __eq__(self, other):
-        assert isinstance(
-            other, TensorVariable
-        ), "TensorVariable being compared to non-TensorVariable"
+        if not isinstance(other, TensorVariable):
+            return False
         result = self.name == other.name
         return result
 

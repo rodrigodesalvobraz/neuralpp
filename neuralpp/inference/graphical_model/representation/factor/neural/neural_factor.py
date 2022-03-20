@@ -2,6 +2,7 @@ import functools
 from math import prod
 
 import torch
+
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
     AtomicFactor,
 )
@@ -9,8 +10,7 @@ from neuralpp.inference.graphical_model.representation.factor.pytorch_table_fact
     PyTorchTableFactor,
 )
 from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
-    generalized_len_of_dict_frame, featurize_dict_frame, expand_univalues_in_dict_frame,
-    concatenate_non_empty_dict_frame_into_single_2d_tensor, repeat_dict_frame, repeat_interleave_dict_frame,
+    featurize_dict_frame, expand_univalues_in_dict_frame,
     cartesian_product_of_tensor_dict_frames, concatenate_into_single_tensor, make_cartesian_features_dict_frame,
     compute_set_of_multivalue_lengths,
 )
@@ -19,7 +19,7 @@ from neuralpp.inference.graphical_model.variable.discrete_variable import (
 )
 from neuralpp.util import util
 from neuralpp.util.util import find, join, is_iterable, expand_into_batch, cartesian_prod_2d, \
-    cartesian_product_of_two_tensors, dict_slice
+    dict_slice
 
 
 class NeuralFactor(AtomicFactor):

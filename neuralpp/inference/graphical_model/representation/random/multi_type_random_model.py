@@ -1,4 +1,5 @@
 import math
+import random
 from collections import deque
 from typing import Dict, Type, Callable, List, Iterable, Set
 
@@ -45,12 +46,11 @@ class MultiTypeRandomModel:
     """
 
     def __init__(self,
-                 threshold_number_of_variables_to_generate: int,
+                 threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary: int,
                  from_type_to_number_of_seed_variables: Dict[Type, int],
-                 variable_maker: Callable[[Type, str], Variable],
                  factor_makers: List[FactorMaker],
-                 loop_coefficient: float = 0.5,
-                 ):
+                 from_type_to_variable_maker: Dict[Type, Callable[[str], Variable]] = {},
+                 loop_coefficient: float = 0.5):
         """
         Generates a random model based on given specifications.
         
@@ -77,25 +77,33 @@ class MultiTypeRandomModel:
         This causes the model generation to be completed.
         
         Parameters:
-            threshold_number_of_variables_to_generate.
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary: the number of variables
+            after which we only create new variables if absolutely necessary (that is, we need parents of a type
+            and all available variables of that type are descendants of the child).
 
             from_type_to_number_of_seed_variables: a dict mapping a type to the number of required seed variables
             of that type in the model. Seed variables are the leaves of the graphical model and have no descendants.
 
-            variable_maker: a callable making a new variable of a given type and name (string).
+            from_type_to_variable_maker: a dict from types to callables making a new variable of a given name (string).
+            When we need to make a new variable of a given type, we use this dict. If there is no entry for the type,
+            the type's constructor is used as a default.
+            Default is {} (use type constructors).
 
             factor_makers: a list of FactorMakers to be used when adding factors to the model.
 
             loop_coefficient: a number from 0 to 1 reflecting how hard we should try to create loops.
+            This corresponds to the probability of choosing an existing variable instead of a new variable
+            to be a parent of a distribution being formed.
+            Default is 0.5.
 
         The generated model is available at self.from_variable_to_distribution after initialization.
         This is a dict mapping each variable to its corresponding distribution (a Factor).
         """
 
         # Attributes initialized by parameter
-        self.threshold_number_of_variables_to_generate = threshold_number_of_variables_to_generate
+        self.threshold_number_of_variables_to_generate = threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary
         self.from_type_to_number_of_seed_variables = from_type_to_number_of_seed_variables
-        self.variable_maker = variable_maker
+        self.from_type_to_variable_maker = from_type_to_variable_maker
         self.factor_makers = factor_makers
         self.loop_coefficient = loop_coefficient
 
@@ -136,6 +144,20 @@ class MultiTypeRandomModel:
             return self.make_terminal_distribution_for(variable)
         else:
             return self.make_non_terminal_distribution_for(variable)
+
+    def make_terminal_distribution_for(self, variable: Variable) -> Factor:
+        factor_maker = self.get_factor_maker_with_no_parents_for(variable)
+        factor = factor_maker.make([variable])
+        return factor
+
+    def get_factor_maker_with_no_parents_for(self, child: Variable) -> FactorMaker:
+        factor_maker = \
+            self.get_factor_maker_for_child_and_condition(
+                child,
+                lambda fm: len(fm.variable_types) == 1)
+        if factor_maker is None:
+            raise RuntimeError(f"Cannot find maker for factor with child of type {type(child).__name__} and no parents")
+        return factor_maker
 
     def make_non_terminal_distribution_for(self, child: Variable) -> Factor:
         factor_maker = self.get_factor_maker_with_at_least_one_parent_for_child(child)
@@ -194,19 +216,21 @@ class MultiTypeRandomModel:
         old_variable_parent_candidates_provider = \
             lambda: [v for v in self.variables_generated_so_far
                      if v is not child and self.first_is_not_descendant_of_second(v, child)]
+
         conditions_for_old_variable_parents = [
-            lambda v: type(v) == parent_type
+            lambda v, parent_type=parent_type: type(v) == parent_type
             for parent_type in types_for_attempted_old_variable_parents
+            # the need for the odd repetition of 'parent_type' above is that
+            # otherwise the same 'parent_type' variable will be shared by all lambdas
+            # and only the last value will be used.
+            # However using parameter 'parent_type' means each lambda will capture a different variable and value
+            # https://stackoverflow.com/questions/2295290/what-do-lambda-function-closures-capture
         ]
+
         attempted_old_variable_parents = \
             util.choose_elements_without_replacement(old_variable_parent_candidates_provider,
                                                      conditions_for_old_variable_parents)
         return attempted_old_variable_parents
-
-    def make_terminal_distribution_for(self, variable: Variable) -> Factor:
-        factor_maker = self.get_factor_maker_with_no_parents_for(variable)
-        factor = factor_maker.make([variable])
-        return factor
 
     def get_factor_maker_with_at_least_one_parent_for_child(self, child: Variable) -> FactorMaker:
         factor_maker = \
@@ -214,33 +238,24 @@ class MultiTypeRandomModel:
                 child,
                 lambda fm: len(fm.variable_types) > 1)
         if factor_maker is None:
-            raise RuntimeError(f"Cannot find maker for factor with child of type {type(child)} and at least one parent")
-        return factor_maker
-
-    def get_factor_maker_with_no_parents_for(self, child: Variable) -> FactorMaker:
-        factor_maker = \
-            self.get_factor_maker_for_child_and_condition(
-                child,
-                lambda fm: len(fm.variable_types) == 1)
-        if factor_maker is None:
-            raise RuntimeError(f"Cannot find maker for factor with child of type {type(child)} and no parents")
+            raise RuntimeError(f"Cannot find maker for factor with child of type {type(child).__name__} "
+                               f"and at least one parent")
         return factor_maker
 
     def get_factor_maker_for_child_and_condition(
             self,
             child: Variable,
             condition: Callable[[FactorMaker], bool]) -> FactorMaker:
-        factor_maker = \
-            util.find(
-                self.factor_makers,
-                lambda fm: fm.child_type == type(child) and condition(fm))
+        appropriate_factor_makers = [fm for fm in self.factor_makers if fm.child_type == type(child) and condition(fm)]
+        factor_maker = random.choice(appropriate_factor_makers) if appropriate_factor_makers else None
         return factor_maker
 
     # Basic methods and properties
 
     def make_new_variable(self, type: Type) -> Variable:
         variable_name = f"x{self.number_of_variables_generated_so_far + 1}"
-        new_variable = self.variable_maker(type, variable_name)
+        variable_maker = self.from_type_to_variable_maker.get(type, type)  # type's constructor is used as default
+        new_variable = variable_maker(variable_name)
         self._queue_of_variables_without_distribution.append(new_variable)
         return new_variable
 

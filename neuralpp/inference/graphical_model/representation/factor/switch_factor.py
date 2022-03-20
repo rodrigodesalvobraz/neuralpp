@@ -41,5 +41,16 @@ class SwitchFactor(AtomicFactor):
         else:
             return self._transform_components(lambda c: c.sum_out_variable(variable))
 
+    def __eq__(self, other):
+        if not isinstance(other, SwitchFactor):
+            return False
+        return self.switch == other.switch and self.components == other.components
+
+    def __hash__(self):
+        return hash(self.switch) + hash(self.components)
+
+    def __repr__(self):
+        return f"Switch({repr(self.switch)}, {repr(self.components)})"
+
     def __str__(self):
         return f"Switch factor based on {self.switch} with components {join(self.components)}"
