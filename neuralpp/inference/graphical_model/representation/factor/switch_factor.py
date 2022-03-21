@@ -1,8 +1,8 @@
 from typing import List
 
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
-from neuralpp.inference.graphical_model.representation.factor.continuous.marginalization_factor import \
-    MarginalizationFactor
+from neuralpp.inference.graphical_model.representation.factor.continuous.mixture_factor import \
+    MixtureFactor
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 from neuralpp.util.util import join
@@ -43,7 +43,7 @@ class SwitchFactor(AtomicFactor):
 
     def sum_out_variable(self, variable):
         if variable == self.switch:
-            return MarginalizationFactor(self.switch, self)
+            return MixtureFactor(self.switch, self)
         else:
             return self._transform_components(lambda c: c.sum_out_variable(variable))
 

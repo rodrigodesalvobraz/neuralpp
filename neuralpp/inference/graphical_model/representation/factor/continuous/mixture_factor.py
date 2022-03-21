@@ -4,7 +4,7 @@ from neuralpp.inference.graphical_model.variable.integer_variable import (
 )
 
 
-class MarginalizationFactor(Factor):  # TODO: rename to MixtureFactor
+class MixtureFactor(Factor):
     def __init__(self, marginalized_variable: DiscreteVariable, factor: Factor):
         if not isinstance(marginalized_variable, DiscreteVariable):
             raise ValueError("Only discrete variables can be marginalized.")
@@ -14,7 +14,7 @@ class MarginalizationFactor(Factor):  # TODO: rename to MixtureFactor
         self.marginalized_variable = marginalized_variable
 
     def condition_on_non_empty_dict(self, assignment_dict):
-        return MarginalizationFactor(
+        return MixtureFactor(
             self.marginalized_variable, self.raw_factor.condition(assignment_dict)
         )
 
@@ -33,10 +33,10 @@ class MarginalizationFactor(Factor):  # TODO: rename to MixtureFactor
             )
 
         product = self.raw_factor * other
-        return MarginalizationFactor(self.marginalized_variable, product)
+        return MixtureFactor(self.marginalized_variable, product)
 
     def sum_out_variable(self, variable):
         if variable == self.marginalized_variable:
             return self
         reduced = self.raw_factor.sum_out_variable(variable)
-        return MarginalizationFactor(self.marginalized_variable, reduced)
+        return MixtureFactor(self.marginalized_variable, reduced)
