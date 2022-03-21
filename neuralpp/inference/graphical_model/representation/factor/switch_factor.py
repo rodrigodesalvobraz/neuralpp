@@ -1,13 +1,19 @@
+from typing import List
+
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
 from neuralpp.inference.graphical_model.representation.factor.continuous.marginalization_factor import \
     MarginalizationFactor
+from neuralpp.inference.graphical_model.variable.variable import Variable
+from neuralpp.util import util
 from neuralpp.util.util import join
 
 
 class SwitchFactor(AtomicFactor):
     def __init__(self, switch, components):
-        variables = set().union(*(component.variables for component in components))
-        super().__init__(variables | {switch})
+        variables: List[Variable] = util.ordered_union_list(component.variables for component in components)
+        variables.append(switch)
+        variables = list(variables)
+        super().__init__(variables)
         self.switch = switch
         self.components = components
 

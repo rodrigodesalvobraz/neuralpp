@@ -2,9 +2,12 @@ import math
 import os
 import random
 from itertools import tee
-from typing import List
+from typing import List, Iterable, Any, Set, TypeVar
 
 import torch
+
+
+T = TypeVar("T")
 
 
 def split(xs, predicate):
@@ -76,10 +79,19 @@ def repeat(n, f):
     return [f() for i in range(n)]
 
 
-def union(sets):
-    result = {}
-    for s in sets:
-        result.update(s)
+def union(iterables: Iterable[Iterable[T]]) -> Set[T]:
+    result = set()
+    for iterable in iterables:
+        result.update(iterable)
+    return result
+
+
+def ordered_union_list(iterables: Iterable[Iterable[T]]) -> List[T]:
+    result = []
+    for iterable in iterables:
+        for value in iterable:
+            if value not in result:
+                result.append(value)
     return result
 
 

@@ -1,5 +1,6 @@
 import random
 
+import pytest
 import torch
 
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import NormalFactor
@@ -38,12 +39,14 @@ def make_switch_of_gaussians_with_mean(*args):
 
 def test_single_seed_variable():
     random_model = \
-        MultiTypeRandomModel(threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=1, from_type_to_number_of_seed_variables={
-            TensorVariable: 1,
-        }, factor_makers=[
-            FactorMaker([TensorVariable],
-                        make_standard_gaussian)
-        ], from_type_to_variable_maker={})
+        MultiTypeRandomModel(
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=1,
+            from_type_to_number_of_seed_variables={
+                TensorVariable: 1,
+            }, factor_makers=[
+                FactorMaker([TensorVariable],
+                            make_standard_gaussian)
+            ], from_type_to_variable_maker={})
 
     x1 = TensorVariable("x1")
     expected = {x1: make_standard_gaussian(x1)}
@@ -59,12 +62,14 @@ def test_single_seed_variable():
 
 def test_multiple_seed_variables():
     random_model = \
-        MultiTypeRandomModel(threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=1, from_type_to_number_of_seed_variables={
-            TensorVariable: 3,
-        }, factor_makers=[
-            FactorMaker([TensorVariable],
-                        make_standard_gaussian)
-        ], from_type_to_variable_maker={})
+        MultiTypeRandomModel(
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=1,
+            from_type_to_number_of_seed_variables={
+                TensorVariable: 3,
+            }, factor_makers=[
+                FactorMaker([TensorVariable],
+                            make_standard_gaussian)
+            ], from_type_to_variable_maker={})
 
     x1 = TensorVariable("x1")
     x2 = TensorVariable("x2")
@@ -86,12 +91,14 @@ def test_multiple_seed_variables():
 
 def test_zero_seed_variables():
     random_model = \
-        MultiTypeRandomModel(threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=1, from_type_to_number_of_seed_variables={
-            TensorVariable: 0,  # ZERO seed variables
-        }, factor_makers=[
-            FactorMaker([TensorVariable],
-                        make_standard_gaussian)
-        ], from_type_to_variable_maker={})
+        MultiTypeRandomModel(
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=1,
+            from_type_to_number_of_seed_variables={
+                TensorVariable: 0,  # ZERO seed variables
+            }, factor_makers=[
+                FactorMaker([TensorVariable],
+                            make_standard_gaussian)
+            ], from_type_to_variable_maker={})
 
     expected = {}
 
@@ -106,14 +113,18 @@ def test_zero_seed_variables():
 
 def test_depth_two_tree():
     random_model = \
-        MultiTypeRandomModel(threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=6, from_type_to_number_of_seed_variables={
-            TensorVariable: 3,
-        }, factor_makers=[
-            FactorMaker([TensorVariable],
-                        make_standard_gaussian),
-            FactorMaker([TensorVariable, TensorVariable],
-                        make_gaussian_with_mean),
-        ], loop_coefficient=0.0)
+        MultiTypeRandomModel(
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=6,
+            from_type_to_number_of_seed_variables={
+                TensorVariable: 3,
+            },
+            factor_makers=[
+                FactorMaker([TensorVariable],
+                            make_standard_gaussian),
+                FactorMaker([TensorVariable, TensorVariable],
+                            make_gaussian_with_mean),
+            ],
+            loop_coefficient=0.0)
 
     # Graph is formed in a breadth-first way, so x1, x2, x3 are the seed values,
     # and have mean parents (haha, see what I did there?) x4, x5, x6 respectively.
@@ -138,14 +149,18 @@ def test_depth_two_tree():
 
 def test_depth_two_attempted_loops():
     random_model = \
-        MultiTypeRandomModel(threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=6, from_type_to_number_of_seed_variables={
-            TensorVariable: 3,
-        }, factor_makers=[
-            FactorMaker([TensorVariable],
-                        make_standard_gaussian),
-            FactorMaker([TensorVariable, TensorVariable],
-                        make_gaussian_with_mean),
-        ], loop_coefficient=1.0)
+        MultiTypeRandomModel(
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=6,
+            from_type_to_number_of_seed_variables={
+                TensorVariable: 3,
+            },
+            factor_makers=[
+                FactorMaker([TensorVariable],
+                            make_standard_gaussian),
+                FactorMaker([TensorVariable, TensorVariable],
+                            make_gaussian_with_mean),
+            ],
+            loop_coefficient=1.0)
 
     x1 = TensorVariable("x1")
     x2 = TensorVariable("x2")
@@ -221,7 +236,7 @@ def test_multi_type():
                 FactorMaker([IntegerVariable],
                             lambda variables: PyTorchTableFactor(variables, [0.4, 0.6])),
                 FactorMaker([IntegerVariable, IntegerVariable],
-                            lambda variables: PyTorchTableFactor(variables, [[0.4, 0.3],[0.6, 0.7],])),
+                            lambda variables: PyTorchTableFactor(variables, [[0.4, 0.3], [0.6, 0.7]])),
             ],
             from_type_to_variable_maker={IntegerVariable: lambda name: IntegerVariable(name, 2)},
             loop_coefficient=1.0)
@@ -253,3 +268,43 @@ def test_multi_type():
     print_dict_in_lines(random_model.from_variable_to_distribution)
 
     assert random_model.from_variable_to_distribution == expected
+
+
+@pytest.fixture(params=[1.0, 0.5])
+def loop_coefficient(request):
+    return request.param
+
+
+def test_multi_type_large_scale(loop_coefficient):
+    random.seed(0)
+
+    multiplier = 100  # multiplier == 1000, loop_coefficient == 1.0 took around 24 s on a MacPro as of March 2022.
+
+    random_model = \
+        MultiTypeRandomModel(
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=6 * multiplier,
+            from_type_to_number_of_seed_variables={
+                IntegerVariable: 1 * multiplier,
+                TensorVariable: 3 * multiplier,
+            },
+            factor_makers=[
+                FactorMaker([TensorVariable],
+                            make_standard_gaussian),
+                FactorMaker([TensorVariable, TensorVariable],
+                            make_gaussian_with_mean),
+                FactorMaker([TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                            make_switch_of_gaussians_with_mean),
+                FactorMaker([IntegerVariable],
+                            lambda variables: PyTorchTableFactor(variables, [0.4, 0.6])),
+                FactorMaker([IntegerVariable, IntegerVariable],
+                            lambda variables: PyTorchTableFactor(variables, [[0.4, 0.3], [0.6, 0.7], ])),
+            ],
+            from_type_to_variable_maker={IntegerVariable: lambda name: IntegerVariable(name, 2)},
+            loop_coefficient=loop_coefficient,
+        )
+
+    number_of_variables = len(random_model.from_variable_to_distribution)
+    print("Number of variables:", number_of_variables)
+    print_dict_in_lines(random_model.from_variable_to_distribution)
+
+    assert 6 * multiplier <= number_of_variables <= 8 * multiplier

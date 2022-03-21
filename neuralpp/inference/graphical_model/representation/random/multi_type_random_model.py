@@ -45,12 +45,19 @@ class MultiTypeRandomModel:
     A random model involving multiple customizable types of variables and factors.
     """
 
+    # OPTIMIZATION: this may take a while when the number of variables is large (around hundreds),
+    # possibly because checking the descendants becomes more and more expensive.
+    # This can be avoided by keeping the descendants of each variable in memory.
+    # This requires not only updating the descendants of a variable when it is used as a parent,
+    # but also
+
     def __init__(self,
                  threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary: int,
                  from_type_to_number_of_seed_variables: Dict[Type, int],
                  factor_makers: List[FactorMaker],
-                 from_type_to_variable_maker: Dict[Type, Callable[[str], Variable]] = {},
-                 loop_coefficient: float = 0.5):
+                 from_type_to_variable_maker=None,
+                 loop_coefficient: float = 0.5,
+                 debug=False):
         """
         Generates a random model based on given specifications.
         
@@ -96,21 +103,26 @@ class MultiTypeRandomModel:
             to be a parent of a distribution being formed.
             Default is 0.5.
 
+            debug: prints number of variables information as algorithm progresses.
+
         The generated model is available at self.from_variable_to_distribution after initialization.
         This is a dict mapping each variable to its corresponding distribution (a Factor).
         """
 
         # Attributes initialized by parameter
+        if from_type_to_variable_maker is None:
+            from_type_to_variable_maker = {}
         self.threshold_number_of_variables_to_generate = threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary
         self.from_type_to_number_of_seed_variables = from_type_to_number_of_seed_variables
-        self.from_type_to_variable_maker = from_type_to_variable_maker
+        self.from_type_to_variable_maker = {} if from_type_to_variable_maker is None else from_type_to_variable_maker
         self.factor_makers = factor_makers
         self.loop_coefficient = loop_coefficient
+        self.debug = debug
 
         # Attribute initialization
         self.from_variable_to_distribution: Dict[Variable, Factor] = {}
         self._queue_of_variables_without_distribution = deque()
-        self._from_variable_to_children: Dict[Variable, Set[Variable]] = {}
+        self._from_variable_to_descendants: Dict[Variable, Set[Variable]] = {}
         self.child_being_processed = None
 
         # Model generation
@@ -120,11 +132,13 @@ class MultiTypeRandomModel:
     def make_seed_variables(self):
         for type, number_of_variables_of_type in self.from_type_to_number_of_seed_variables.items():
             util.repeat(number_of_variables_of_type, lambda: self.make_new_variable(type))
-        for variable in self.variables_generated_so_far:
-            self._from_variable_to_children[variable] = set()
 
     def complete_model_generation(self):
         while not empty(self._queue_of_variables_without_distribution):
+            if self.debug:
+                print(f"Variables generated so far: {self.number_of_variables_generated_so_far}")
+                print(f"Variables without distributions: {len(self._queue_of_variables_without_distribution)}")
+
             next_variable_to_get_a_distribution = self.get_next_variable_without_distribution_to_process()
 
             self.child_being_processed = next_variable_to_get_a_distribution
@@ -166,6 +180,24 @@ class MultiTypeRandomModel:
         factor = factor_maker(variables)
         return factor
 
+    def get_factor_maker_with_at_least_one_parent_for_child(self, child: Variable) -> FactorMaker:
+        factor_maker = \
+            self.get_factor_maker_for_child_and_condition(
+                child,
+                lambda fm: len(fm.variable_types) > 1)
+        if factor_maker is None:
+            raise RuntimeError(f"Cannot find maker for factor with child of type {type(child).__name__} "
+                               f"and at least one parent")
+        return factor_maker
+
+    def get_factor_maker_for_child_and_condition(
+            self,
+            child: Variable,
+            condition: Callable[[FactorMaker], bool]) -> FactorMaker:
+        appropriate_factor_makers = [fm for fm in self.factor_makers if fm.child_type == type(child) and condition(fm)]
+        factor_maker = random.choice(appropriate_factor_makers) if appropriate_factor_makers else None
+        return factor_maker
+
     def get_parents_for(self, child: Variable, types_of_parents: List[Type]) -> List[Variable]:
         # When obtaining parents for child, we dedicate a number of the initial ones to new variables
         # (so the model keeps growing if needed)
@@ -181,7 +213,7 @@ class MultiTypeRandomModel:
 
         parents = [*new_variable_parents, *remaining_parents]
         for parent in parents:
-            self._from_variable_to_children[parent] = self._from_variable_to_children.get(parent, set()).union({child})
+            self.update_descendants_dict_when_parent_gets_new_child(parent, child)
         return parents
 
     def get_new_variable_parents(self, types_of_parents) -> List[Variable]:
@@ -213,9 +245,10 @@ class MultiTypeRandomModel:
             child: Variable,
             types_for_attempted_old_variable_parents: List[Type]) \
             -> List[Variable]:
-        old_variable_parent_candidates_provider = \
-            lambda: [v for v in self.variables_generated_so_far
-                     if v is not child and self.first_is_not_descendant_of_second(v, child)]
+        old_variable_parent_candidates = \
+            [v for v in self.variables_generated_so_far
+             if v is not child and v not in self._from_variable_to_descendants[child]]
+        old_variable_parent_candidates_provider = lambda: old_variable_parent_candidates
 
         conditions_for_old_variable_parents = [
             lambda v, parent_type=parent_type: type(v) == parent_type
@@ -232,23 +265,24 @@ class MultiTypeRandomModel:
                                                      conditions_for_old_variable_parents)
         return attempted_old_variable_parents
 
-    def get_factor_maker_with_at_least_one_parent_for_child(self, child: Variable) -> FactorMaker:
-        factor_maker = \
-            self.get_factor_maker_for_child_and_condition(
-                child,
-                lambda fm: len(fm.variable_types) > 1)
-        if factor_maker is None:
-            raise RuntimeError(f"Cannot find maker for factor with child of type {type(child).__name__} "
-                               f"and at least one parent")
-        return factor_maker
+    def update_descendants_dict_when_parent_gets_new_child(self, parent: Variable, child: Variable):
+        previous_descendants_of_parent = set(self._from_variable_to_descendants[parent])
 
-    def get_factor_maker_for_child_and_condition(
-            self,
-            child: Variable,
-            condition: Callable[[FactorMaker], bool]) -> FactorMaker:
-        appropriate_factor_makers = [fm for fm in self.factor_makers if fm.child_type == type(child) and condition(fm)]
-        factor_maker = random.choice(appropriate_factor_makers) if appropriate_factor_makers else None
-        return factor_maker
+        self._from_variable_to_descendants[parent].add(child)
+        self._from_variable_to_descendants[parent].update(self._from_variable_to_descendants[child])
+
+        new_descendants_of_parent = self._from_variable_to_descendants[parent] - previous_descendants_of_parent
+
+        self.propagate_new_descendants_to_ancestors(variable=parent, new_descendants=new_descendants_of_parent)
+
+    def propagate_new_descendants_to_ancestors(self, variable: Variable, new_descendants: Set[Variable]):
+        if not empty(new_descendants) and variable in self.from_variable_to_distribution:
+            distribution = self.from_variable_to_distribution[variable]
+            parents = distribution.variables[1:]
+            for parent in parents:
+                new_descendants_of_parent = new_descendants - self._from_variable_to_descendants[parent]
+                self._from_variable_to_descendants[parent].update(new_descendants_of_parent)
+                self.propagate_new_descendants_to_ancestors(parent, new_descendants_of_parent)
 
     # Basic methods and properties
 
@@ -257,14 +291,8 @@ class MultiTypeRandomModel:
         variable_maker = self.from_type_to_variable_maker.get(type, type)  # type's constructor is used as default
         new_variable = variable_maker(variable_name)
         self._queue_of_variables_without_distribution.append(new_variable)
+        self._from_variable_to_descendants[new_variable] = set()
         return new_variable
-
-    def first_is_not_descendant_of_second(self, variable1: Variable, variable2: Variable) -> bool:
-        return \
-            variable1 not in self._from_variable_to_children[variable2] \
-            and \
-            all(self.first_is_not_descendant_of_second(variable1, child_of_variable2)
-                for child_of_variable2 in self._from_variable_to_children[variable2])
 
     @property
     def variables_generated_so_far(self) -> Iterable[Variable]:
