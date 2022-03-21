@@ -270,7 +270,7 @@ def test_multi_type():
     assert random_model.from_variable_to_distribution == expected
 
 
-@pytest.fixture(params=[1.0, 0.5])
+@pytest.fixture(params=[1.0, 0.5, 0.0])
 def loop_coefficient(request):
     return request.param
 
