@@ -16,6 +16,9 @@ from neuralpp.inference.graphical_model.representation.factor.switch_factor impo
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
+from neuralpp.inference.graphical_model.representation.factor.table_factor import (
+    TableFactor,
+)
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from typing import Dict, List, Union
@@ -30,7 +33,7 @@ class TableFactorDist(dist.Distribution):
         self.factor = table_factor
 
     def sample(self):
-        return int(self.factor.sample())
+        return self.factor.sample().squeeze()
 
     def log_prob(self, value):
         return self.factor({self.variable: value}).log()
@@ -41,19 +44,20 @@ class TableFactorDist(dist.Distribution):
 
 
 class GenericFactorDist(dist.Distribution):
-    def __init__(self, variable: Variable, factors: List[Factor]):
+    def __init__(self, variable: Variable, factor: Factor):
         self.variable = variable
-        self.factors = factors
+        self.factor = factor
 
     # Since NUTS does not invoke dist.log_prob or dist.sample, for the purpose of
     # running GMM example with NUTS/Compositional inference, it should be fine to
     # leave these two methods unimplemented.
     # we can figure out how to deal with them later
     def sample(self):
-        raise NotImplemented
+        # some dummy sampling to get pass initialization
+        return dist.Uniform(-2, 2).sample()
 
     def log_prob(self, value):
-        raise NotImplemented
+        return self.factor({self.variable: value}).log()
 
     @property
     def support(self):
@@ -73,3 +77,10 @@ def get_distribution(
         return TableFactorDist(variable, reduced)
     else:
         return GenericFactorDist(variable, factors)
+
+
+def get_distribution_v2(variable: Variable, factor: Factor):
+    if isinstance(factor, TableFactor):
+        return TableFactorDist(variable, factor)
+    else:
+        return GenericFactorDist(variable, factor)

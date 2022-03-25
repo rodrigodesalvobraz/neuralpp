@@ -15,10 +15,13 @@ class PyTorchDistributionFactor(ContinuousInternalParameterlessFactor):
         and the remaining ones must be the distribution parameters in the same
         order used by the distribution maker function.
         """
-        super().__init__([v for v in variables if v not in conditioning_dict], conditioning_dict)
+        conditioning_dict = conditioning_dict or {}
+        super().__init__(
+            [v for v in variables if v not in conditioning_dict], conditioning_dict
+        )
         self.pytorch_distribution_maker = pytorch_distribution_maker
         self.value_variable = self.variables[0]
-        self.distribution_parameter_variables = self.variables[1:]
+        self.distribution_parameter_variables = variables[1:]
 
     def condition_on_non_empty_dict(self, assignment_dict):
         return type(self)(self.variables, self.total_conditioning_dict(assignment_dict))

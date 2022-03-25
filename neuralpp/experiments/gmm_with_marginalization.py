@@ -15,6 +15,11 @@ from neuralpp.inference.graphical_model.representation.factor.switch_factor impo
     SwitchFactor,
 )
 from neuralpp.experiments.bm_integration.factor_world import FactorWorld
+from neuralpp.experiments.bm_integration.factor_to_rv import (
+    make_random_variable,
+    rv_functions,
+    make_functional,
+)
 import beanmachine.ppl as bm
 from beanmachine.ppl.inference.base_inference import BaseInference
 from tqdm.auto import tqdm
@@ -91,7 +96,6 @@ if __name__ == "__main__":
             components.append(NormalFactor([obs[n], mu_out[k], std]))
         obs_factors.append(SwitchFactor(assignments[n], components))
 
-
     num_samples = 200
     num_adaptive_samples = num_samples // 2
     observations = {
@@ -100,19 +104,17 @@ if __name__ == "__main__":
         mu_std: mu_std_data,
         **{obs[n]: data[n] for n in range(len(data))},
     }
+    factors = [*mu_factors, *assignment_factors, *obs_factors]
 
     ######################################
     # Marginalization
     ######################################
     # collect all factors
-    factors = [*mu_factors, *assignment_factors, *obs_factors]
     marginalized_factor = ProductFactor(factors) ^ assignments
     print(marginalized_factor)
 
     # begin building the World
     initial_world = FactorWorld([marginalized_factor], observations)
-
-
 
     # we usually don't manually construct the sampler object, but let's just try to see
     # if it's possible to get it working here...
@@ -158,3 +160,42 @@ if __name__ == "__main__":
     mu_samples_mean = {key: torch.stack(val).mean() for key, val in mu_samples.items()}
 
     print("Result for Compositional Inference:", mu_samples_mean)
+
+    ######################################
+    # Random Variable wrapper (Compositional Inference)
+    ######################################
+    # rv_functions = {id(factor): }
+
+    # create rv functions for factors
+    for factor in factors:
+        make_random_variable(factor)
+
+    # for fixed priors
+    make_functional(std, std_data)
+    make_functional(mu_loc, mu_loc_data)
+    make_functional(mu_std, mu_std_data)
+
+    # print(rv_functions)
+
+    queries = [rv_functions[mu]() for mu in mu_out]
+    observations = {rv_functions[obs[n]](): data[n] for n in range(len(obs))}
+    samples = bm.CompositionalInference(
+        {
+            **{
+                rv_functions[assignment]: bm.SingleSiteAncestralMetropolisHastings()
+                for assignment in assignments
+            },
+            ...: bm.GlobalNoUTurnSampler(),
+        }
+    ).infer(
+        queries=queries,
+        observations=observations,
+        num_samples=num_samples,
+        num_adaptive_samples=num_adaptive_samples,
+        num_chains=1,
+    )
+
+    print(
+        "Result from implementing the wrapper:",
+        {query: samples[query].mean() for query in queries},
+    )
