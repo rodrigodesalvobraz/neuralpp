@@ -7,13 +7,21 @@ from typing import List
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.util import util
 from neuralpp.util.group import Group
+import itertools
 from neuralpp.util.util import join, split
 
 
 class ProductFactor(Factor):
     def __init__(self, factors: List[Factor]):
-        super().__init__(set.union(*(set(f.variables) for f in factors)))
-        self._factors = util.flatten_one_level(factors, util.isinstance_predicate(ProductFactor), ProductFactor.factors)
+        # collect all variables
+        variables = itertools.chain.from_iterable(f.variables for f in factors)
+        # getting unique variables while keeping the order (dict maintain insertion
+        # order by default)
+        variables = dict.fromkeys(variables).keys()
+        super().__init__(list(variables))
+        self._factors = util.flatten_one_level(
+            factors, util.isinstance_predicate(ProductFactor), ProductFactor.factors
+        )
 
     def call_after_validation(self, assignment_dict, assignment_values):
         return math.prod(f(assignment_dict) for f in self._factors)
