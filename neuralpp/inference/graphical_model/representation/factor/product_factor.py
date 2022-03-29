@@ -19,14 +19,14 @@ class ProductFactor(Factor):
         return math.prod(f(assignment_dict) for f in self._factors)
 
     def condition_on_non_empty_dict(self, assignment_dict):
-        return ProductFactor(f.condition(assignment_dict) for f in self._factors)
+        return ProductFactor(list(f.condition(assignment_dict) for f in self._factors))
 
     def randomize(self):
         for f in self._factors:
             f.randomize()
 
     def randomized_copy(self):
-        return ProductFactor(f.randomized_copy() for f in self._factors)
+        return ProductFactor(list(f.randomized_copy() for f in self._factors))
 
     def __mul__(self, other):
         if isinstance(other, ProductFactor):
