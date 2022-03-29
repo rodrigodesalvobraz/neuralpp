@@ -6,5 +6,5 @@ from neuralpp.inference.graphical_model.representation.factor.continuous.pytorch
 
 class NormalFactor(PyTorchDistributionFactor):
 
-    def __init__(self, variables, conditioning_dict=None):
-        super().__init__(torch.distributions.Normal, variables, conditioning_dict)
+    def __init__(self, all_variables_including_conditioned_ones, conditioning_dict=None):
+        super().__init__(torch.distributions.Normal, all_variables_including_conditioned_ones, conditioning_dict)

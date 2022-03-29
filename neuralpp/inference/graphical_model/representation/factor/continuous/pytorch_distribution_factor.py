@@ -6,25 +6,34 @@ from neuralpp.inference.graphical_model.representation.factor.continuous.continu
 class PyTorchDistributionFactor(ContinuousInternalParameterlessFactor):
     """
     A specialization of ContinuousInternalParameterlessFactor based on a PyTorch distribution.
+    Note that even though PyTorch distributions do have parameters,
+    here they are not internal, but rather provided by *external* random variables in the model.
     """
 
-    def __init__(self, pytorch_distribution_maker, variables, conditioning_dict=None):
+    def __init__(self, pytorch_distribution_maker, all_variables_including_conditioned_ones, conditioning_dict=None):
         """
         Makes a PyTorchDistributionFactor based on given PyTorch distribution.
-        The first element of 'variables' must be the value following the distribution,
+
+        pytorch_distribution_maker receives an assignment to the parameters to a PyTorch distribution
+        and returns a PyTorch distribution.
+
+        The first element of 'all_variables_including_conditioned_ones' must be the value following the distribution,
         and the remaining ones must be the distribution parameters in the same
         order used by the distribution maker function.
+
+        Note that self.variables will contain only the non-conditioned variables.
         """
         conditioning_dict = conditioning_dict or {}
         super().__init__(
-            [v for v in variables if v not in conditioning_dict], conditioning_dict
+            [v for v in all_variables_including_conditioned_ones if v not in conditioning_dict], conditioning_dict
         )
         self.pytorch_distribution_maker = pytorch_distribution_maker
-        self.value_variable = self.variables[0]
-        self.distribution_parameter_variables = variables[1:]
+        self.all_variables_including_conditioned_ones = all_variables_including_conditioned_ones
+        self.value_variable = all_variables_including_conditioned_ones[0]
+        self.distribution_parameter_variables = all_variables_including_conditioned_ones[1:]
 
     def condition_on_non_empty_dict(self, assignment_dict):
-        return type(self)(self.variables, self.total_conditioning_dict(assignment_dict))
+        return type(self)(self.all_variables_including_conditioned_ones, self.total_conditioning_dict(assignment_dict))
 
     def call_after_validation(self, assignment_dict, assignment_values):
         assignment_and_conditioning_dict = self.total_conditioning_dict(assignment_dict)
