@@ -82,39 +82,39 @@ if __name__ == "__main__":
         mu_out.append(TensorVariable(f"mu_out_{k}", 0))
         mu_factors.append(NormalFactor([mu_out[k], mu_loc, mu_std]))
 
-    assignments = []
-    assignment_factors = []
+    zs = []
+    z_factors = []
     obs = []
     obs_factors = []
     for n in range(len(data)):
-        assignments.append(IntegerVariable(f"assignment_{n}", K))
-        assignment_factors.append(PyTorchTableFactor([assignments[n]], cluster_weight))
+        zs.append(IntegerVariable(f"z_{n}", K))
+        z_factors.append(PyTorchTableFactor([zs[n]], cluster_weight))
 
         obs.append(TensorVariable(f"obs_{n}", 0))
         components = []
         for k in range(K):
             components.append(NormalFactor([obs[n], mu_out[k], std]))
-        obs_factors.append(SwitchFactor(assignments[n], components))
+        obs_factors.append(SwitchFactor(zs[n], components))
 
     num_samples = 200
     num_adaptive_samples = num_samples // 2
-    observations = {
+    variable_assignments = {
         std: std_data,
         mu_loc: mu_loc_data,
         mu_std: mu_std_data,
         **{obs[n]: data[n] for n in range(len(data))},
     }
-    factors = [*mu_factors, *assignment_factors, *obs_factors]
+    factors = [*mu_factors, *z_factors, *obs_factors]
 
     ######################################
     # Marginalization
     ######################################
     # collect all factors
-    marginalized_factor = ProductFactor(factors) ^ assignments
-    print(marginalized_factor)
+    marginalized_factor = ProductFactor(factors) ^ zs
+    print("marginalized_factor:", marginalized_factor)
 
     # begin building the World
-    initial_world = FactorWorld([marginalized_factor], observations)
+    initial_world = FactorWorld([marginalized_factor], variable_assignments)
 
     # we usually don't manually construct the sampler object, but let's just try to see
     # if it's possible to get it working here...
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     ######################################
     # Compositional Inference
     ######################################
-    compositional_world = FactorWorld(factors, observations)
+    compositional_world = FactorWorld(factors, variable_assignments)
     compositional_sampler = bm.inference.sampler.Sampler(
         kernel=FactorCompositionalInference(
             {
@@ -181,10 +181,7 @@ if __name__ == "__main__":
     observations = {rv_functions[obs[n]](): data[n] for n in range(len(obs))}
     samples = bm.CompositionalInference(
         {
-            **{
-                rv_functions[assignment]: bm.SingleSiteAncestralMetropolisHastings()
-                for assignment in assignments
-            },
+            **{rv_functions[z]: bm.SingleSiteAncestralMetropolisHastings() for z in zs},
             ...: bm.GlobalNoUTurnSampler(),
         }
     ).infer(
@@ -195,6 +192,29 @@ if __name__ == "__main__":
         num_chains=1,
     )
 
+    print(
+        "Result from implementing the wrapper:",
+        {query: samples[query].mean() for query in queries},
+    )
+
+    ######################################
+    # Random Variable wrapper (Marginalization)
+    ######################################
+    make_random_variable(marginalized_factor)
+    # for fixed priors
+    make_functional(std, std_data)
+    make_functional(mu_loc, mu_loc_data)
+    make_functional(mu_std, mu_std_data)
+
+    queries = [rv_functions[mu]() for mu in mu_out]
+    observations = {rv_functions[obs[n]](): data[n] for n in range(len(obs))}
+    samples = bm.GlobalNoUTurnSampler().infer(
+        queries=queries,
+        observations=observations,
+        num_samples=num_samples,
+        num_adaptive_samples=num_adaptive_samples,
+        num_chains=1,
+    )
     print(
         "Result from implementing the wrapper:",
         {query: samples[query].mean() for query in queries},
