@@ -1,15 +1,13 @@
 import torch
 import torch.distributions as dist
 import beanmachine.ppl as bm
-import copy
 from tqdm.auto import tqdm
-from typing import NamedTuple
 
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
-from neuralpp.experiments.bm_integration.factor_world import FactorWorld
+from neuralpp.experiments.bm_integration.converter import BeanMachineConverter
 
 if __name__ == "__main__":
     # Define Normal Normal in neuralpp
@@ -43,26 +41,21 @@ if __name__ == "__main__":
         normal_2_val: normal_2_obs,
     }
 
-    initial_world = FactorWorld(factors, fixed_assignments)
+    converter = BeanMachineConverter(factors, fixed_assignments)
 
-    num_samples = 200
+    num_samples = 300
     num_adaptive_samples = num_samples // 2
 
-    # we usually don't manually construct the sampler object, but let's just try to see
-    # if it's possible to get it working here...
-    sampler = bm.inference.sampler.Sampler(
-        kernel=bm.GlobalNoUTurnSampler(),
-        initial_world=initial_world,
+    normal_1_id = converter.invoke(normal_1_out)
+    samples = bm.GlobalNoUTurnSampler().infer(
+        [normal_1_id],
+        converter.observations,
         num_samples=num_samples,
         num_adaptive_samples=num_adaptive_samples,
+        num_chains=1,
     )
 
-    # begin inference
-    normal_1_samples = []
-    for world in tqdm(sampler, total=num_samples + num_adaptive_samples):
-        normal_1_samples.append(world[normal_1_out])
-
-    print(torch.stack(normal_1_samples).mean())
+    print(samples[normal_1_id].mean())
 
     # An equivalent BM model for reference
     class NormalNormalModel:

@@ -1,20 +1,8 @@
 import torch.distributions as dist
 from torch.distributions import constraints
 from torch.distributions import normal
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
-    PyTorchTableFactor,
-)
-from neuralpp.inference.graphical_model.representation.factor.product_factor import (
-    ProductFactor,
-)
 from neuralpp.inference.graphical_model.representation.factor.factor import (
     Factor,
-)
-from neuralpp.inference.graphical_model.representation.factor.switch_factor import (
-    SwitchFactor,
-)
-from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
-    NormalFactor,
 )
 from neuralpp.inference.graphical_model.representation.factor.table_factor import (
     TableFactor,
@@ -28,7 +16,7 @@ import operator
 
 
 class TableFactorDist(dist.Distribution):
-    def __init__(self, variable: IntegerVariable, table_factor: PyTorchTableFactor):
+    def __init__(self, variable: IntegerVariable, table_factor: TableFactor):
         self.variable = variable
         self.factor = table_factor
 
@@ -65,22 +53,9 @@ class GenericFactorDist(dist.Distribution):
         return constraints.real
 
 
-def get_distribution(
-    variable: Variable,
-    factors: List[Factor],
-    assignments: Dict[Variable, Union[torch.Tensor, int]],
-):
-    if isinstance(variable, IntegerVariable):
-        table_factors = filter(lambda x: isinstance(x, PyTorchTableFactor), factors)
-        # combine weights for multiple table factors (if needed)
-        reduced = reduce(operator.mul, table_factors)
-        return TableFactorDist(variable, reduced)
-    else:
-        return GenericFactorDist(variable, factors)
-
-
-def get_distribution_v2(variable: Variable, factor: Factor):
+def get_distribution(variable: Variable, factor: Factor):
     if isinstance(factor, TableFactor):
+        assert isinstance(variable, IntegerVariable)
         return TableFactorDist(variable, factor)
     else:
         return GenericFactorDist(variable, factor)
