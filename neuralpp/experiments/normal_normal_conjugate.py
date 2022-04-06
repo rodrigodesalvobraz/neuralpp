@@ -46,7 +46,7 @@ if __name__ == "__main__":
     num_samples = 300
     num_adaptive_samples = num_samples // 2
 
-    normal_1_id = converter.invoke(normal_1_out)
+    normal_1_id = converter.invoke_rv_function_of(normal_1_out)
     samples = bm.GlobalNoUTurnSampler().infer(
         [normal_1_id],
         converter.observations,

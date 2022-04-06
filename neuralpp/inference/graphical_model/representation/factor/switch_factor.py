@@ -56,7 +56,7 @@ class SwitchFactor(AtomicFactor):
         return hash(self.switch) + hash(self.components)
 
     def __repr__(self):
-        return f"Switch({repr(self.switch)}, {repr(self.components)})"
+        return f"SwitchFactor({repr(self.switch)}, {repr(self.components)})"
 
     def __str__(self):
         return f"Switch factor based on {self.switch} with components {join(self.components)}"

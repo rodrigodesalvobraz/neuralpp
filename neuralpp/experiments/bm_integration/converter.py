@@ -31,11 +31,11 @@ class BeanMachineConverter:
         assignment_dict: Optional[Mapping[V, torch.Tensor]] = None,
     ):
         # a mapping from variable to the corresponding @random_variable function
-        self._rv_functions: Dict[Variable, Callable] = {}
+        self._from_variable_to_rv_function: Dict[Variable, Callable] = {}
         self._observations: Dict[bm.RVIdentifier, torch.Tensor] = {}
 
         if factors is not None:
-            self.register_factors(factors)
+            self._register_factors(factors)
         if assignment_dict is not None:
             self.register_observations(assignment_dict)
 
@@ -43,58 +43,65 @@ class BeanMachineConverter:
     def observations(self) -> Dict[bm.RVIdentifier, torch.Tensor]:
         return self._observations
 
-    def register_factors(self, factors: Collection[Factor]) -> None:
-        """Convert each of the fector to a @random_variable and add register it in
-        self"""
+    def _register_factors(self, factors: Collection[Factor]) -> None:
+        """
+        Convert each of the factors to a @random_variable and register it in self.
+        """
         for f in factors:
-            self._make_random_variable(f)
+            self._register_factor(f)
 
     def register_observations(
         self, assignment_dict: Mapping[V, torch.Tensor]
     ) -> Dict[bm.RVIdentifier, torch.Tensor]:
-        """Convert an assignment_dict into an RVIdentifier to torch.Tensor mapping that
+        """
+        Convert an assignment_dict into an RVIdentifier to torch.Tensor mapping that
         can be pass to Bean Machine's infer method. This method should be invoked
-        after all factors have been registered."""
-        for variable, obs_value in assignment_dict.items():
-            if variable in self._rv_functions:
-                rvid = self.invoke(variable)
-                self._observations[rvid] = obs_value
+        after all factors have been registered.
+        """
+        for variable, value in assignment_dict.items():
+            if variable in self._from_variable_to_rv_function:
+                rv_id = self.invoke_rv_function_of(variable)
+                self._observations[rv_id] = value
             else:
-                self._make_functional(variable, obs_value)
+                self._register_functional(variable, value)
         return self.observations
 
-    def invoke(self, variable: Variable):
-        """Invoke the @random_variable function corresponds to the given variable.
+    def invoke_rv_function_of(self, variable: Variable):
+        """
+        Invoke the @random_variable function corresponds to the given variable.
         During inference, this will return the value of a random variable. If the
         method is called outside of an inference scope, this will return an
-        RVIdentifier instead."""
-        return self._rv_functions[variable]()
+        RVIdentifier instead.
+        """
+        return self._from_variable_to_rv_function[variable]()
 
-    def _make_random_variable(self, factor: Factor) -> None:
+    def _register_factor(self, factor: Factor) -> None:
         """Convert a given factor to a @random_variable and register it to self"""
         if isinstance(factor, ProductFactor):
-            return self.register_factors(ProductFactor.factors(factor))
+            return self._register_factors(ProductFactor.factors(factor))
 
-        parent_vars = factor.variables[1:]
-        child_var = factor.variables[0]
+        parent_variables = factor.variables[1:]
+        child_variable = factor.variables[0]
 
         @bm.random_variable
-        def rvfunction():
-            parent_values = {p: self.invoke(p) for p in parent_vars}
+        def rv_function():
+            parent_values = {p: self.invoke_rv_function_of(p) for p in parent_variables}
             factor_on_child = factor.condition(parent_values)
-            return get_distribution(child_var, factor_on_child)
+            return get_distribution(child_variable, factor_on_child)
 
         # assign local function a name to distinguish them
-        rvfunction.__wrapped__.__name__ = child_var.name
-        self._rv_functions[child_var] = rvfunction
+        rv_function.__wrapped__.__name__ = child_variable.name
+        self._from_variable_to_rv_function[child_variable] = rv_function
 
-    def _make_functional(self, variable: Variable, value: torch.Tensor):
-        """Convert a variable without a prior distribution to a deterministic
-        @functional"""
+    def _register_functional(self, variable: Variable, value: torch.Tensor):
+        """
+        Convert a variable without a prior distribution to a deterministic
+        @functional
+        """
 
         @bm.functional
-        def rvfunction():
+        def rv_function():
             return value
 
-        rvfunction.__wrapped__.__name__ = variable.name
-        self._rv_functions[variable] = rvfunction
+        rv_function.__wrapped__.__name__ = variable.name
+        self._from_variable_to_rv_function[variable] = rv_function

@@ -75,7 +75,7 @@ if __name__ == "__main__":
     converter = BeanMachineConverter([marginalized_factor], variable_assignments)
 
     # begin inference
-    queries = [converter.invoke(mu) for mu in mu_out]
+    queries = [converter.invoke_rv_function_of(mu) for mu in mu_out]
     # samples = bm.GlobalNoUTurnSampler().infer(
     #     queries=queries,
     #     observations=converter.observations,
@@ -105,13 +105,13 @@ if __name__ == "__main__":
     compositional = bm.CompositionalInference(
         {
             **{
-                converter.invoke(z).wrapper: bm.SingleSiteAncestralMetropolisHastings()
+                converter.invoke_rv_function_of(z).wrapper: bm.SingleSiteAncestralMetropolisHastings()
                 for z in zs
             },
             ...: bm.GlobalNoUTurnSampler(),
         }
     )
-    queries = [converter.invoke(mu) for mu in mu_out]
+    queries = [converter.invoke_rv_function_of(mu) for mu in mu_out]
     # samples = compositional.infer(
     #     queries=queries,
     #     observations=converter.observations,

@@ -40,3 +40,9 @@ class MixtureFactor(Factor):
             return self
         reduced = self.raw_factor.sum_out_variable(variable)
         return MixtureFactor(self.marginalized_variable, reduced)
+
+    def __repr__(self):
+        return f"MixtureFactor({repr(self.marginalized_variable)}, {repr(self.factor)})"
+
+    def __str__(self):
+        return f"Mixture factor based on {self.marginalized_variable} and {self.raw_factor}"
