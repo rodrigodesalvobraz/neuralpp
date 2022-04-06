@@ -84,6 +84,8 @@ class BeanMachineConverter:
             factor_on_child = factor.condition(parent_values)
             return get_distribution(child_var, factor_on_child)
 
+        # assign local function a name to distinguish them
+        rvfunction.__wrapped__.__name__ = child_var.name
         self._rv_functions[child_var] = rvfunction
 
     def _make_functional(self, variable: Variable, value: torch.Tensor):
@@ -94,4 +96,5 @@ class BeanMachineConverter:
         def rvfunction():
             return value
 
+        rvfunction.__wrapped__.__name__ = variable.name
         self._rv_functions[variable] = rvfunction

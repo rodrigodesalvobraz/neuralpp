@@ -1,10 +1,8 @@
-from torch.distributions.normal import Normal
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
@@ -15,12 +13,9 @@ from neuralpp.inference.graphical_model.representation.factor.switch_factor impo
     SwitchFactor,
 )
 from neuralpp.experiments.bm_integration.converter import BeanMachineConverter
+from neuralpp.experiments.bm_integration.benchmark import benchmark
 import beanmachine.ppl as bm
-from beanmachine.ppl.inference.base_inference import BaseInference
-from tqdm.auto import tqdm
 import torch
-from typing import Dict, Tuple
-
 
 if __name__ == "__main__":
     K = 2  # number of components
@@ -59,7 +54,7 @@ if __name__ == "__main__":
             components.append(NormalFactor([obs[n], mu_out[k], std]))
         obs_factors.append(SwitchFactor(zs[n], components))
 
-    num_samples = 400
+    num_samples = 3000
     num_adaptive_samples = num_samples // 2
     variable_assignments = {
         std: std_data,
@@ -81,18 +76,22 @@ if __name__ == "__main__":
 
     # begin inference
     queries = [converter.invoke(mu) for mu in mu_out]
-    samples = bm.GlobalNoUTurnSampler().infer(
+    # samples = bm.GlobalNoUTurnSampler().infer(
+    #     queries=queries,
+    #     observations=converter.observations,
+    #     num_samples=num_samples,
+    #     num_adaptive_samples=num_adaptive_samples,
+    #     num_chains=1,
+    # )
+
+    # Benchmark marginalization
+    marginalized_result = benchmark(
+        infer_class=bm.GlobalNoUTurnSampler(),
         queries=queries,
         observations=converter.observations,
         num_samples=num_samples,
-        num_adaptive_samples=num_adaptive_samples,
-        num_chains=1,
     )
-
-    print(
-        "Result for marginalization:",
-        {query: samples[query].mean() for query in queries},
-    )
+    print(marginalized_result)
 
     ######################################
     # Compositional Inference
@@ -113,15 +112,21 @@ if __name__ == "__main__":
         }
     )
     queries = [converter.invoke(mu) for mu in mu_out]
-    samples = compositional.infer(
+    # samples = compositional.infer(
+    #     queries=queries,
+    #     observations=converter.observations,
+    #     num_samples=num_samples,
+    #     num_adaptive_samples=num_adaptive_samples,
+    #     num_chains=1,
+    # )
+
+    # Benchmark compositional inference
+    marginalized_result = benchmark(
+        infer_class=compositional,
         queries=queries,
         observations=converter.observations,
         num_samples=num_samples,
-        num_adaptive_samples=num_adaptive_samples,
-        num_chains=1,
     )
+    print(marginalized_result)
 
-    print(
-        "Result for Compositional Inference:",
-        {query: samples[query].mean() for query in queries},
-    )
+    # TODO: plotting
