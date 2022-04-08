@@ -13,7 +13,7 @@ from neuralpp.inference.graphical_model.representation.factor.switch_factor impo
     SwitchFactor,
 )
 from neuralpp.experiments.bm_integration.converter import BeanMachineConverter
-from neuralpp.experiments.bm_integration.benchmark import benchmark
+from neuralpp.experiments.bm_integration.benchmark import benchmark, generate_plots
 import beanmachine.ppl as bm
 import torch
 
@@ -54,8 +54,7 @@ if __name__ == "__main__":
             components.append(NormalFactor([obs[n], mu_out[k], std]))
         obs_factors.append(SwitchFactor(zs[n], components))
 
-    num_samples = 3000
-    num_adaptive_samples = num_samples // 2
+    num_samples = 2000
     variable_assignments = {
         std: std_data,
         mu_loc: mu_loc_data,
@@ -74,24 +73,37 @@ if __name__ == "__main__":
     # converting to BM
     converter = BeanMachineConverter([marginalized_factor], variable_assignments)
 
+
+    # Turns out that since GMM is unsupervised, it's possible for the same mu_k to
+    # represents a different component in a different chain, resulting a low ess and
+    # rhat values. So the functional here is just to enforce that the k_th smallest
+    # component will be called component k. This can be slightly problematic when
+    # the distributions of components overlap, though this will affect both inference
+    # methods in the same way, so it should still provide us with the right qualitative
+    # comparison.
+    @bm.functional
+    def component(k):
+        component_vals = [converter.invoke_rv_function_of(mu) for mu in mu_out]
+        return sorted(component_vals)[k]
+
     # begin inference
-    queries = [converter.invoke_rv_function_of(mu) for mu in mu_out]
+    queries = [component(k) for k in range(K)]
     # samples = bm.GlobalNoUTurnSampler().infer(
     #     queries=queries,
     #     observations=converter.observations,
     #     num_samples=num_samples,
-    #     num_adaptive_samples=num_adaptive_samples,
-    #     num_chains=1,
+    #     num_adaptive_samples=num_samples // 2,
+    #     num_chains=2,
     # )
 
     # Benchmark marginalization
     marginalized_result = benchmark(
         infer_class=bm.GlobalNoUTurnSampler(),
-        queries=queries,
+        queries=[component(k) for k in range(K)],
         observations=converter.observations,
         num_samples=num_samples,
     )
-    print(marginalized_result)
+    # print(marginalized_result)
 
     ######################################
     # Compositional Inference
@@ -105,7 +117,9 @@ if __name__ == "__main__":
     compositional = bm.CompositionalInference(
         {
             **{
-                converter.invoke_rv_function_of(z).wrapper: bm.SingleSiteAncestralMetropolisHastings()
+                converter.invoke_rv_function_of(
+                    z
+                ).wrapper: bm.SingleSiteAncestralMetropolisHastings()
                 for z in zs
             },
             ...: bm.GlobalNoUTurnSampler(),
@@ -116,17 +130,22 @@ if __name__ == "__main__":
     #     queries=queries,
     #     observations=converter.observations,
     #     num_samples=num_samples,
-    #     num_adaptive_samples=num_adaptive_samples,
-    #     num_chains=1,
+    #     num_adaptive_samples=num_samples // 2,
+    #     num_chains=2,
     # )
 
     # Benchmark compositional inference
-    marginalized_result = benchmark(
+    compositional_result = benchmark(
         infer_class=compositional,
-        queries=queries,
+        queries=[component(k) for k in range(K)],
         observations=converter.observations,
         num_samples=num_samples,
     )
-    print(marginalized_result)
+    # print(compositional_result)
 
-    # TODO: plotting
+    ######################################
+    # Plotting
+    ######################################
+    generate_plots(
+        {"marginal": marginalized_result, "compositional": compositional_result}
+    )

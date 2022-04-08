@@ -6,6 +6,7 @@ import time
 import torch
 import numpy as np
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 class BenchmarkResult(NamedTuple):
@@ -53,7 +54,7 @@ def benchmark(
             )
         )
         chain_samples = {query: [] for query in queries}
-        sample_time = [0.0]
+        sample_time = []
         log_ll = []
 
         for n in batch_sizes:
@@ -61,16 +62,18 @@ def benchmark(
             begin_time = time.perf_counter()
             next_n_worlds = [next(sampler) for _ in range(n)]
             end_time = time.perf_counter()
-            sample_time.append(sample_time[-1] + end_time - begin_time)
+            sample_time.append(end_time - begin_time)
             # collect samples
             for world in next_n_worlds:
                 for query in queries:
                     chain_samples[query].append(world.call(query))
                 log_ll.append(world.log_prob().item())
 
-        all_samples.append({query: torch.stack(val) for query, val in chain_samples.items()})
-        # drop initial time (0.0) and adaptive iterations
-        all_sample_time.append(sample_time[2:])
+        all_samples.append(
+            {query: torch.stack(val) for query, val in chain_samples.items()}
+        )
+        # drop adaptive iterations
+        all_sample_time.append(np.cumsum(sample_time[1:]))
         log_likelihood.append(log_ll)
 
     mcs = bm.inference.monte_carlo_samples.MonteCarloSamples(
@@ -85,9 +88,9 @@ def benchmark(
     rhat = []
     for idx, n in enumerate(sample_sizes):
         first_n_samples = xr_dataset.isel(draw=slice(None, n))
-        ess.append(az.ess(first_n_samples))
+        ess.append(az.ess(first_n_samples).to_array())
         ess_per_second.append(ess[-1] / np.mean(all_sample_time[:, idx]))
-        rhat.append(az.rhat(first_n_samples))
+        rhat.append(az.rhat(first_n_samples).to_array())
 
     return BenchmarkResult(
         samples=mcs,
@@ -97,3 +100,29 @@ def benchmark(
         ess=xr.concat(ess, dim="draw"),
         rhat=xr.concat(rhat, dim="draw"),
     )
+
+
+def generate_plots(benchmark_results: Dict[str, BenchmarkResult]):
+    assert len(benchmark_results) > 0
+
+    sample_sizes = next(iter(benchmark_results.values())).sample_sizes
+    plt.figure()
+    # ess vs sample size
+    for infer_type, result in benchmark_results.items():
+        plt.plot(sample_sizes, result.ess, label=infer_type)
+    plt.xlabel("sample size")
+    plt.ylabel("effective sample size")
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    # rhat vs sample size
+    for infer_type, result in benchmark_results.items():
+        plt.plot(sample_sizes, result.rhat, label=infer_type)
+    plt.xlabel("sample size")
+    plt.ylabel("R_hat")
+    plt.legend()
+    plt.show()
+
+    # Not done yet, not done yet :P.
+    # TODO: finish this up
