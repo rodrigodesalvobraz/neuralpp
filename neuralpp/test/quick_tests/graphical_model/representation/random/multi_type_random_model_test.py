@@ -1,40 +1,16 @@
 import random
 
 import pytest
-import torch
 
-from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import NormalFactor
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
 from neuralpp.inference.graphical_model.representation.factor.switch_factor import SwitchFactor
 from neuralpp.inference.graphical_model.representation.random.multi_type_random_model import MultiTypeRandomModel, \
     FactorMaker
+from neuralpp.inference.graphical_model.representation.random.multi_type_random_model_util \
+    import make_standard_gaussian, make_gaussian_with_mean, make_switch_of_gaussians_with_mean
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
-from neuralpp.util.util import print_dict_in_lines, is_iterable
-
-
-def make_standard_gaussian(variables):
-    if is_iterable(variables):
-        variable = variables[0]
-    else:
-        variable = variables
-    mu = TensorVariable(f"mu_{{{variable}}}")
-    std_dev = TensorVariable(f"std_dev_{{{variable}}}")
-    return NormalFactor([variable, mu, std_dev], conditioning_dict={mu: torch.tensor(0.0), std_dev: torch.tensor(1.0)})
-
-
-def make_gaussian_with_mean(*args):
-    variable, mu = args[0] if len(args) == 1 else args
-    std_dev = TensorVariable(f"std_dev_{{{variable}}}")
-    return NormalFactor([variable, mu, std_dev], conditioning_dict={std_dev: torch.tensor(1.0)})
-
-
-def make_switch_of_gaussians_with_mean(*args):
-    variable, switch, mu1, mu2 = args[0] if len(args) == 1 else args
-    assert switch.cardinality == 2
-    return SwitchFactor(
-        switch,
-        [make_gaussian_with_mean([variable, mu1]), make_gaussian_with_mean([variable, mu2])])
+from neuralpp.util.util import print_dict_in_lines
 
 
 def test_single_seed_variable():

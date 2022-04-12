@@ -62,6 +62,10 @@ def find(iterable, predicate):
     return next((x for x in iterable if predicate(x)), None)
 
 
+def first(iterable):
+    return next(iter(iterable), None)
+
+
 def union_of_dicts(dict1, dict2):
     return {**dict1, **dict2}
 
