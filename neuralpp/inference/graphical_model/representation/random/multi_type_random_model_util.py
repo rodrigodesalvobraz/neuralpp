@@ -6,6 +6,21 @@ from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVa
 from neuralpp.util.util import is_iterable
 
 
+def make_randomly_shifted_standard_gaussian_given_range(variables, range):
+    mean_shift = torch.rand(tuple())*range
+    return make_shifted_standard_gaussian_given_shift(variables, mean_shift)
+
+
+def make_shifted_standard_gaussian_given_shift(variables, mean_shift):
+    if is_iterable(variables):
+        variable = variables[0]
+    else:
+        variable = variables
+    mu = TensorVariable(f"mu_{{{variable}}}")
+    std_dev = TensorVariable(f"std_dev_{{{variable}}}")
+    return NormalFactor([variable, mu, std_dev], conditioning_dict={mu: mean_shift, std_dev: torch.tensor(1.0)})
+
+
 def make_standard_gaussian(variables):
     if is_iterable(variables):
         variable = variables[0]

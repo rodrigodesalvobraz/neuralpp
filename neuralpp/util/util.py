@@ -446,8 +446,8 @@ def not_implemented(self, name):
     raise error
 
 
-def subtract(container, to_be_subtracted):
-    return [e for e in container if e not in container]
+def subtract(iterable, to_be_subtracted):
+    return [e for e in iterable if e not in to_be_subtracted]
 
 
 def all_ones_but(length, n, dim):
