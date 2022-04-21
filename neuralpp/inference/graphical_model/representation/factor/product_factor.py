@@ -36,7 +36,7 @@ class ProductFactor(Factor):
     def randomized_copy(self):
         return ProductFactor(list(f.randomized_copy() for f in self._factors))
 
-    def __mul__(self, other):
+    def mul_by_non_identity(self, other):
         if isinstance(other, ProductFactor):
             additional = other._factors
         else:
