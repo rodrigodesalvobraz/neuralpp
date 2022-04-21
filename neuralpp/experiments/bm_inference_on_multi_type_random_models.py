@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 
 import beanmachine.ppl as bm
+import torch
 
 from neuralpp.experiments.bm_integration.converter import BeanMachineConverter
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
@@ -9,8 +10,7 @@ from neuralpp.inference.graphical_model.representation.factor.pytorch_table_fact
 from neuralpp.inference.graphical_model.representation.random.multi_type_random_model import MultiTypeRandomModel, \
     FactorMaker
 from neuralpp.inference.graphical_model.representation.random.multi_type_random_model_util import \
-    make_gaussian_with_mean, make_switch_of_gaussians_with_mean, make_standard_gaussian, \
-    make_randomly_shifted_standard_gaussian_given_range
+    make_gaussian_with_mean, make_switch_of_gaussians_with_mean, make_randomly_shifted_standard_gaussian_given_range
 from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
@@ -20,23 +20,45 @@ from neuralpp.util.util import empty
 
 if __name__ == "__main__":
 
-    num_samples = 1_000
+    util.set_seed(None)
 
-    size_multiplier = 1
+    number_of_samples = 3_000
+    number_of_chains = 2
+    number_of_estimations = 100
+
+    model_size_multiplier = 5
     loop_coefficient = 0.5
+
+    from_type_to_number_of_seed_variables = {
+        IntegerVariable: 3 * model_size_multiplier,
+        TensorVariable: 3 * model_size_multiplier,
+    }
+
+    ratio_of_total_number_of_variables_and_number_of_seed_variables = 3
+
+    threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary = \
+        sum(from_type_to_number_of_seed_variables.values()) \
+        * ratio_of_total_number_of_variables_and_number_of_seed_variables
 
     neuralpp_model = \
         MultiTypeRandomModel(
-            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=6 * size_multiplier,
-            from_type_to_number_of_seed_variables={
-                IntegerVariable: 1 * size_multiplier,
-                TensorVariable: 3 * size_multiplier,
-            },
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary=
+            threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary,
+            from_type_to_number_of_seed_variables=from_type_to_number_of_seed_variables,
             factor_makers=[
                 FactorMaker([TensorVariable],
                             lambda variables: make_randomly_shifted_standard_gaussian_given_range(variables, range=10)),
                 FactorMaker([TensorVariable, TensorVariable],
                             make_gaussian_with_mean),
+                # repeating multiple times to increase change of using switches
+                FactorMaker([TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                            make_switch_of_gaussians_with_mean),
+                FactorMaker([TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                            make_switch_of_gaussians_with_mean),
+                FactorMaker([TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                            make_switch_of_gaussians_with_mean),
+                FactorMaker([TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                            make_switch_of_gaussians_with_mean),
                 FactorMaker([TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
                             make_switch_of_gaussians_with_mean),
                 FactorMaker([IntegerVariable],
@@ -73,11 +95,12 @@ if __name__ == "__main__":
         samples = compositional.infer(
             queries=queries,
             observations=converter.observations,
-            num_samples=num_samples,
-            num_adaptive_samples=num_samples,
-            num_chains=2,
+            num_samples=number_of_samples,
+            num_adaptive_samples=number_of_samples // number_of_chains,
+            num_chains=number_of_chains,
         )
         return samples
+
 
     variables = list(set(v for f in neuralpp_model for v in f.variables))
     discrete_variables = list(filter(lambda v: isinstance(v, DiscreteVariable), variables))
@@ -86,8 +109,8 @@ if __name__ == "__main__":
     query = util.first(continuous_variables)
     variable_assignments: Dict[Variable, Any] = {}
 
-    compositional1_samples = solve_with_bm(neuralpp_model, query, variable_assignments)
-    compositional2_samples = solve_with_bm(neuralpp_model, query, variable_assignments)
+    compositional_samples = [solve_with_bm(neuralpp_model, query, variable_assignments)
+                             for i in range(number_of_estimations)]
 
     marginalized_model = ProductFactor.factors(ProductFactor(neuralpp_model) ^ discrete_variables)
     marginalized_model = [f for f in marginalized_model if not empty(f.variables)]
@@ -95,10 +118,11 @@ if __name__ == "__main__":
     print(util.join(marginalized_model, sep="\n"))
     assert all(isinstance(v, TensorVariable) for f in marginalized_model for v in f.variables)
 
-    marginalized1_samples = solve_with_bm(marginalized_model, query, variable_assignments)
-    marginalized2_samples = solve_with_bm(marginalized_model, query, variable_assignments)
+    marginalized_samples = [solve_with_bm(marginalized_model, query, variable_assignments)
+                            for i in range(number_of_estimations)]
 
-    print(f"Mean for compositional1 query results: {next(iter(compositional1_samples.samples.values())).mean():.4}")
-    print(f"Mean for compositional2 query results: {next(iter(compositional2_samples.samples.values())).mean():.4}")
-    print(f"Mean for marginalized1  query results: {next(iter(marginalized1_samples.samples.values())).mean():.4}")
-    print(f"Mean for marginalized2  query results: {next(iter(marginalized2_samples.samples.values())).mean():.4}")
+    cs_variance = torch.tensor([next(iter(cs.samples.values())).mean() for cs in compositional_samples]).var()
+    print(f"Compositional variance: {cs_variance}")
+
+    ms_variance = torch.tensor([next(iter(ms.samples.values())).mean() for ms in marginalized_samples]).var()
+    print(f"Marginalized variance: {ms_variance}")

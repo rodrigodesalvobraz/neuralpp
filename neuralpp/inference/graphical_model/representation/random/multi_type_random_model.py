@@ -39,6 +39,9 @@ class FactorMaker:
     def parent_types(self) -> List[Type]:
         return self.variable_types[1:]
 
+    def __str__(self):
+        return f"FactorMaker for {[t.__name__ for t in self.variable_types]}"
+
 
 class MultiTypeRandomModel:
     """
