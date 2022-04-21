@@ -95,7 +95,7 @@ if __name__ == "__main__":
         )
         queries = [converter.invoke_rv_function_of(query)]
 
-        print(f"Starting inference on {len(variables)} ({len(discrete_variables)} discrete ones)")
+        print(f"Starting inference on {len(variables)} variables ({len(discrete_variables)} discrete ones)")
 
         samples = compositional.infer(
             queries=queries,
