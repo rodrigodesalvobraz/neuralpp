@@ -30,8 +30,8 @@ if __name__ == "__main__":
     loop_coefficient = 0.5
 
     from_type_to_number_of_seed_variables = {
-        IntegerVariable: 10,
-        TensorVariable: 3,
+        IntegerVariable: 0,
+        TensorVariable: 10,
     }
 
     ratio_of_total_number_of_variables_and_number_of_seed_variables = 3
