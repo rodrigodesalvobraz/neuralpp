@@ -30,11 +30,14 @@ if __name__ == "__main__":
     loop_coefficient = 0.5
 
     from_type_to_number_of_seed_variables = {
-        IntegerVariable: 3 * model_size_multiplier,
-        TensorVariable: 3 * model_size_multiplier,
+        IntegerVariable: 10,
+        TensorVariable: 3,
     }
 
     ratio_of_total_number_of_variables_and_number_of_seed_variables = 3
+
+    from_type_to_number_of_seed_variables = {type: size * model_size_multiplier
+                                             for type, size in from_type_to_number_of_seed_variables.items()}
 
     threshold_number_of_variables_to_avoid_new_variables_unless_absolutely_necessary = \
         sum(from_type_to_number_of_seed_variables.values()) \
@@ -91,6 +94,8 @@ if __name__ == "__main__":
             }
         )
         queries = [converter.invoke_rv_function_of(query)]
+
+        print(f"Starting inference on {len(variables)} ({len(discrete_variables)} discrete ones)")
 
         samples = compositional.infer(
             queries=queries,
