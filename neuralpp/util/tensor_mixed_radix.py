@@ -24,7 +24,7 @@ class TensorMixedRadix:
 
         digits = []
         for i, stride in enumerate(self.strides):
-            i_th_digits = (values // stride).int()
+            i_th_digits = torch.div(values, stride, rounding_mode='floor').int()
             values -= i_th_digits * stride
             digits.append(i_th_digits)
 
