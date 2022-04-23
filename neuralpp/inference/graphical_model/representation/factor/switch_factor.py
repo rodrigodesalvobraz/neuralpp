@@ -59,4 +59,4 @@ class SwitchFactor(AtomicFactor):
         return f"SwitchFactor({repr(self.switch)}, {repr(self.components)})"
 
     def __str__(self):
-        return f"Switch factor based on {self.switch} with components {join(self.components)}"
+        return f"{self.variables[0]} ~ switching on {self.switch} among components {join(self.components)}"

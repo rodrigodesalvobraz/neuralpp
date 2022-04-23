@@ -323,13 +323,14 @@ def check_path_like(path, caller=None):
 
 def set_seed(seed=None, print=print):
     """
-    Set PyTorch seed, using a pseudo-random one by default.
+    Set both Python and PyTorch seeds to the same value, using a pseudo-random one by default.
     Prints the seed at the end using given print function.
     """
     if seed is None:
         seed = torch.seed()
     else:
         torch.manual_seed(seed)
+    random.seed(seed)
     print(f"Seed: {seed}")
 
 
