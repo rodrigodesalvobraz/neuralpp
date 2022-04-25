@@ -531,3 +531,7 @@ def choose_elements_without_replacement(candidates_provider_function, conditions
 def print_dict_in_lines(dict):
     for key, value in dict.items():
         print(f"{key}: {value}")
+
+
+def tensor1d_cat_value(tensor1d, value):
+    return torch.cat([tensor1d, torch.tensor([value])])

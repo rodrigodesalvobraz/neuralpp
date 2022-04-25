@@ -22,11 +22,13 @@ from neuralpp.util.util import empty
 if __name__ == "__main__":
 
     print("Randomly generating model")
-    util.set_seed(14659329842319410481)
+    #util.set_seed()
+    util.set_seed(7665602960673477862)
 
     number_of_estimations = 50
-    number_of_samples_per_estimation = 500
+    number_of_samples_per_estimation = 200
     number_of_chains = 1
+    max_number_of_estimations_shown = 10
     assert number_of_estimations > 1, "We need at least 2 estimations for computing variance"
 
     model_size_multiplier = 10
@@ -145,9 +147,15 @@ if __name__ == "__main__":
         )
         return samples
 
+    def samples_mean(samples):
+        return next(iter(samples.samples.values())).mean()
 
-    def estimation_variance(estimation_samples: List[torch.Tensor]):
-        return torch.tensor([next(iter(cs.samples.values())).mean() for cs in estimation_samples]).var()
+    def estimation_tensor_mean_and_variance(samples: List[torch.Tensor]):
+        estimations = []
+        for sample in samples:
+            estimations.append(samples_mean(sample))
+        estimation_tensor = torch.tensor(estimations)
+        return estimation_tensor, estimation_tensor.mean(), estimation_tensor.var()
 
 
     models = [
@@ -155,20 +163,33 @@ if __name__ == "__main__":
         marginalized_model,
     ]
 
-    list_of_estimation_samples = [[] for m in models]
+    tensor_of_estimations = [torch.tensor([]) for m in models]
     list_of_estimation_times = [[] for m in models]
 
     for estimation in range(number_of_estimations):
+        print()
         print(f"Starting {estimation + 1}-th estimation")
 
         for model_index, model in enumerate(models):
             start = timer()
             estimation_samples = solve_with_bm(model, query, variable_assignments)
             end = timer()
-            list_of_estimation_samples[model_index].append(estimation_samples)
+            tensor_of_estimations[model_index] = \
+                util.tensor1d_cat_value(tensor_of_estimations[model_index], samples_mean(estimation_samples))
             list_of_estimation_times[model_index].append(end - start)
 
         if estimation > 0:
+            variances = []
             for model_index, model in enumerate(models):
-                variance = estimation_variance(list_of_estimation_samples[model_index])
-                print(f"{model.name:12} variance: {variance}")
+                print(f"{model.name:13}")
+                estimation_tensor = tensor_of_estimations[model_index]
+                mean, variance = estimation_tensor.mean(), estimation_tensor.var()
+                variances.append(variance)
+                estimation_str = util.join([f"{e:.3f}" for e in estimation_tensor[-max_number_of_estimations_shown:]])
+                estimations_description = "estimations" \
+                    if len(estimation_tensor) <= max_number_of_estimations_shown \
+                    else f"last {max_number_of_estimations_shown} estimations"
+                print(f"    {estimations_description}: {estimation_str}")
+                print(f"    mean {mean:.3f} +- {variance:.3f} variance")
+            if min(variances) > 0:
+                print(f"Max/min variance ratio: {max(variances)/min(variances):.3f}")
