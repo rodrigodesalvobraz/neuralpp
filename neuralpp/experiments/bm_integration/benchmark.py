@@ -24,7 +24,7 @@ def benchmark(
     queries: List[bm.RVIdentifier],
     observations: Dict[bm.RVIdentifier, torch.Tensor],
     num_samples: int,
-    num_chains: int = 2,
+    num_chains: int = 4,
     num_adaptive_samples: int = 500,
     interval: int = 100,
 ) -> BenchmarkResult:
@@ -114,45 +114,42 @@ def benchmark(
 
     )
 
+def plot_metric(metric: str, sample_sizes: np.ndarray, values: Dict[str, xr.Dataset]):
+
+    plt.figure()
+    for infer_type, val in values.items():
+        lines = plt.plot(sample_sizes, val.mean(dim="variable"), label=infer_type)
+        plt.fill_between(
+            sample_sizes,
+            val.min(dim="variable"),
+            val.max(dim="variable"),
+            color=lines[-1].get_color(),
+            interpolate=True,
+            alpha=0.3,
+        )
+    plt.xlabel("sample size")
+    plt.ylabel(metric)
+    plt.legend()
+    plt.show()
 
 def generate_plots(benchmark_results: Dict[str, BenchmarkResult]):
     assert len(benchmark_results) > 0
-
     sample_sizes = next(iter(benchmark_results.values())).sample_sizes
-    plt.figure()
-    # ess vs sample size
-    for infer_type, result in benchmark_results.items():
-        ess = result.ess
-        lines = plt.plot(sample_sizes, ess.mean(dim="variable"), label=infer_type)
-        plt.fill_between(
-            sample_sizes,
-            ess.min(dim="variable"),
-            ess.max(dim="variable"),
-            color=lines[-1].get_color(),
-            interpolate=True,
-            alpha=0.3,
-        )
-    plt.xlabel("sample size")
-    plt.ylabel("effective sample size")
-    plt.legend()
-    plt.show()
 
-    plt.figure()
+
+    # ess vs sample size
+    plot_metric(
+        "effective sample size",
+        sample_sizes,
+        {method_name: result.ess for method_name, result in benchmark_results.items()}
+    )
+
     # rhat vs sample size
-    for infer_type, result in benchmark_results.items():
-        rhat = result.rhat
-        lines = plt.plot(sample_sizes, rhat.mean(dim="variable"), label=infer_type)
-        plt.fill_between(
-            sample_sizes,
-            rhat.min(dim="variable"),
-            rhat.max(dim="variable"),
-            color=lines[-1].get_color(),
-            interpolate=True,
-            alpha=0.3,
-        )
-    plt.xlabel("sample size")
-    plt.ylabel("R_hat")
-    plt.legend()
-    plt.show()
+    plot_metric(
+        "R_hat",
+        sample_sizes,
+        {method_name: result.rhat for method_name, result in benchmark_results.items()}
+    )
+
 
   

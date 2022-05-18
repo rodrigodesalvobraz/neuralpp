@@ -54,7 +54,7 @@ if __name__ == "__main__":
             components.append(NormalFactor([obs[n], mu_out[k], std]))
         obs_factors.append(SwitchFactor(zs[n], components))
 
-    num_samples = 1000
+    num_samples = 2000
     variable_assignments = {
         std: std_data,
         mu_loc: mu_loc_data,
@@ -88,13 +88,6 @@ if __name__ == "__main__":
 
     # begin inference
     queries = [component(k) for k in range(K)]
-    # samples = bm.GlobalNoUTurnSampler().infer(
-    #     queries=queries,
-    #     observations=converter.observations,
-    #     num_samples=num_samples,
-    #     num_adaptive_samples=num_samples // 2,
-    #     num_chains=2,
-    # )
 
     # Benchmark marginalization
     marginalized_result = benchmark(
@@ -126,13 +119,6 @@ if __name__ == "__main__":
         }
     )
     queries = [converter.invoke_rv_function_of(mu) for mu in mu_out]
-    # samples = compositional.infer(
-    #     queries=queries,
-    #     observations=converter.observations,
-    #     num_samples=num_samples,
-    #     num_adaptive_samples=num_samples // 2,
-    #     num_chains=2,
-    # )
 
     # Benchmark compositional inference
     compositional_result = benchmark(
