@@ -54,7 +54,7 @@ if __name__ == "__main__":
             components.append(NormalFactor([obs[n], mu_out[k], std]))
         obs_factors.append(SwitchFactor(zs[n], components))
 
-    num_samples = 2000
+    num_samples = 1000
     variable_assignments = {
         std: std_data,
         mu_loc: mu_loc_data,
@@ -147,5 +147,5 @@ if __name__ == "__main__":
     # Plotting
     ######################################
     generate_plots(
-        {"marginal": marginalized_result, "compositional": compositional_result}
+        {"marginalize": marginalized_result, "compositional": compositional_result}
     )

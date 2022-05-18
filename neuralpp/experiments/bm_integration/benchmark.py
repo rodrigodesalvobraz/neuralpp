@@ -13,9 +13,10 @@ class BenchmarkResult(NamedTuple):
     samples: bm.inference.monte_carlo_samples.MonteCarloSamples
     sample_sizes: np.ndarray  # number of samples included in each measurement
     inference_time: np.ndarray  # amount of time spent on inference
-    log_likelihood: np.ndarray  # log likelihood (of the entire model)
+    log_likelihood: np.ndarray  # log likelihood (of the observations)
     ess: xr.Dataset  # effective sample size
     rhat: xr.Dataset  # rhat convergence measurement
+
 
 
 def benchmark(
@@ -23,7 +24,7 @@ def benchmark(
     queries: List[bm.RVIdentifier],
     observations: Dict[bm.RVIdentifier, torch.Tensor],
     num_samples: int,
-    num_chains: int = 4,
+    num_chains: int = 2,
     num_adaptive_samples: int = 500,
     interval: int = 100,
 ) -> BenchmarkResult:
@@ -45,29 +46,29 @@ def benchmark(
     # doing so here to measure the inference time against varying number of samples
     for _ in range(num_chains):
         # construct the sampler and wrap it around a progress bar
-        sampler = iter(
-            tqdm(
-                infer_class.sampler(
-                    queries, observations, num_samples, num_adaptive_samples
-                ),
-                total=num_samples + num_adaptive_samples,
-            )
+        sampler = infer_class.sampler(
+            queries, observations, num_samples, num_adaptive_samples
         )
+
         chain_samples = {query: [] for query in queries}
         sample_time = []
         log_ll = []
 
-        for n in batch_sizes:
-            # draw the next n samples and measure the run time
-            begin_time = time.perf_counter()
-            next_n_worlds = [next(sampler) for _ in range(n)]
-            end_time = time.perf_counter()
-            sample_time.append(end_time - begin_time)
-            # collect samples
-            for world in next_n_worlds:
-                for query in queries:
-                    chain_samples[query].append(world.call(query))
-                log_ll.append(world.log_prob().item())
+        with tqdm(total=num_samples + num_adaptive_samples) as pbar:
+            for n in batch_sizes:
+                # draw the next n samples and measure the run time
+                begin_time = time.perf_counter()
+                next_n_worlds = []
+                for _ in range(n):
+                    next_n_worlds.append(next(sampler))  # draw next sample
+                    pbar.update()  # update progress bar 
+                end_time = time.perf_counter()
+                sample_time.append(end_time - begin_time)
+                # collect samples
+                for world in next_n_worlds:
+                    for query in queries:
+                        chain_samples[query].append(world.call(query))
+                    log_ll.append(world.log_prob(observations).item())
 
         all_samples.append(
             {query: torch.stack(val) for query, val in chain_samples.items()}
@@ -81,16 +82,27 @@ def benchmark(
     )
     sample_sizes = np.cumsum(batch_sizes[1:])
     all_sample_time = np.array(all_sample_time)
+
+
     # convert to xarray dataset, which works better with ArviZ
     xr_dataset = mcs.to_xarray()
     ess = []
     ess_per_second = []
     rhat = []
+    # Note: ArviZ actually has a similar plot_ess function that displays the "evolution"
+    # of effective sample size, but it doesn't allow us to compare samples draw from
+    # two inferences
     for idx, n in enumerate(sample_sizes):
         first_n_samples = xr_dataset.isel(draw=slice(None, n))
         ess.append(az.ess(first_n_samples).to_array())
         ess_per_second.append(ess[-1] / np.mean(all_sample_time[:, idx]))
         rhat.append(az.rhat(first_n_samples).to_array())
+
+    mcs = bm.inference.monte_carlo_samples.MonteCarloSamples(
+        all_samples, num_adaptive_samples
+    )
+    sample_sizes = np.cumsum(batch_sizes[1:])
+    all_sample_time = np.array(all_sample_time)
 
     return BenchmarkResult(
         samples=mcs,
@@ -99,6 +111,7 @@ def benchmark(
         log_likelihood=np.array(log_likelihood),
         ess=xr.concat(ess, dim="draw"),
         rhat=xr.concat(rhat, dim="draw"),
+
     )
 
 
@@ -109,7 +122,16 @@ def generate_plots(benchmark_results: Dict[str, BenchmarkResult]):
     plt.figure()
     # ess vs sample size
     for infer_type, result in benchmark_results.items():
-        plt.plot(sample_sizes, result.ess, label=infer_type)
+        ess = result.ess
+        lines = plt.plot(sample_sizes, ess.mean(dim="variable"), label=infer_type)
+        plt.fill_between(
+            sample_sizes,
+            ess.min(dim="variable"),
+            ess.max(dim="variable"),
+            color=lines[-1].get_color(),
+            interpolate=True,
+            alpha=0.3,
+        )
     plt.xlabel("sample size")
     plt.ylabel("effective sample size")
     plt.legend()
@@ -118,11 +140,19 @@ def generate_plots(benchmark_results: Dict[str, BenchmarkResult]):
     plt.figure()
     # rhat vs sample size
     for infer_type, result in benchmark_results.items():
-        plt.plot(sample_sizes, result.rhat, label=infer_type)
+        rhat = result.rhat
+        lines = plt.plot(sample_sizes, rhat.mean(dim="variable"), label=infer_type)
+        plt.fill_between(
+            sample_sizes,
+            rhat.min(dim="variable"),
+            rhat.max(dim="variable"),
+            color=lines[-1].get_color(),
+            interpolate=True,
+            alpha=0.3,
+        )
     plt.xlabel("sample size")
     plt.ylabel("R_hat")
     plt.legend()
     plt.show()
 
-    # Not done yet, not done yet :P.
-    # TODO: finish this up
+  
