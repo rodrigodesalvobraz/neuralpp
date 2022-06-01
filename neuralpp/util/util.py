@@ -332,6 +332,7 @@ def set_seed(seed=None, print=print):
         torch.manual_seed(seed)
     random.seed(seed)
     print(f"Seed: {seed}")
+    return seed
 
 
 def go_up_until_we_have_subdirectory(subdir):
@@ -533,5 +534,82 @@ def print_dict_in_lines(dict):
         print(f"{key}: {value}")
 
 
-def tensor1d_cat_value(tensor1d, value):
+def tensor1d_append(tensor1d, value):
     return torch.cat([tensor1d, torch.tensor([value])])
+
+
+def list_for_each(
+        values,
+        function1=None,
+        function2=None,
+        filter_index=None,
+        filter_element=None,
+        post=None,
+        post_index_result=None,
+        pre=None,  # tags available if user wants to use them
+        body=None):
+    """
+    list_for_each(values, body)
+    list_for_each(values, pre, body)
+    list_for_each(values, body, filter_index=None, filter_element=None, post=None)
+
+    A function that provides an enhanced list comprehension functionality
+    by giving access to the list being formed during its processing,
+    as well as facilitating printing messages and other side effects.
+
+    It receives an iterable and a function 'body', and returns
+    a list of the results of applying 'body' to each element in the iterable.
+
+    Optionally, it can receive other functions that are used at different points:
+    - pre(index) is run before body if present.
+    - filter_index(index)
+    It is invoked before body is applied to index.
+    If present and returns a false value, this index value is skipped.
+    - filter_element(element) where element is body(index).
+    It is invoked after body(index) but before the element is included in the resulting list.
+    If present and returns a false value, the element is skipped (not included in the resulting list).
+    - post(result): if present, is ran after element is added to result.
+    - post_index_result(index, result): if present, is ran after element is added to result.
+    """
+    if function1 is None:
+        if function2 is None:
+            pass  # use pre and body named arguments if present
+        else:
+            raise Exception("list_for_each: first positional argument not specified but second one is")
+    elif function2 is None:
+        if body is None:
+            body = function1
+        else:  # since we have body, function1 must be pre, so try to use it:
+            if pre is None:
+                pre = function1
+            else:
+                raise Exception("list_for_each: pre function specified twice")
+    else:
+        if pre is None:
+            pre = function1
+        else:
+            raise Exception("list_for_each: pre function specified twice")
+        if body is None:
+            body = function2
+        else:
+            raise Exception("list_for_each: body function specified twice")
+
+    if body is None:
+        raise Exception("list_for_each: body function not specified")
+
+    result = []
+    for index in values:
+        if pre is not None:
+            pre(index)
+        approved = filter_index is None or filter_index(index)
+        if not approved:
+            continue
+        element = body(index)
+        approved = filter_element is None or filter_element(element)
+        if approved:
+            result.append(element)
+        if post is not None:
+            post(result)
+        if post_index_result is not None:
+            post_index_result(index, result)
+    return result

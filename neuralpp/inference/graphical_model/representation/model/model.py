@@ -8,7 +8,7 @@ from neuralpp.util.util import mean
 
 
 def cross_entropy_for_dataset(dataset, model, debug=False):
-    return mean(
+    return mean_of_mean_estimates(
         cross_entropy_for_datapoint(observation, query_assignment, model, debug)
         for (observation, query_assignment) in dataset
     )

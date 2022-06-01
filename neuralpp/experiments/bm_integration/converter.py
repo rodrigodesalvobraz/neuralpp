@@ -73,6 +73,7 @@ class BeanMachineConverter:
         method is called outside of an inference scope, this will return an
         RVIdentifier instead.
         """
+        assert variable in self._from_variable_to_rv_function, f"Could not find definition for variable '{variable}'"
         return self._from_variable_to_rv_function[variable]()
 
     def _register_factor(self, factor: Factor) -> None:
