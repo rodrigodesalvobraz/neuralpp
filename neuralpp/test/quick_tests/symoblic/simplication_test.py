@@ -2,7 +2,8 @@
 Tests of SymPy's simplication functions.
 https://docs.sympy.org/latest/tutorial/simplification.html
 """
-from sympy import *
+from sympy import symbols, expand, factor, sin, cos, simplify, exp, Integer, gamma, \
+    collect, trigsimp, expand_trig, powsimp, expand_log, log, logcombine, cancel
 
 
 def test_simplify() -> None:

@@ -6,7 +6,10 @@ https://docs.sympy.org/latest/tutorial/basic_operations.html
 """
 import math
 
-from sympy import *
+# cannot use from sympy import * because that would import all the "test_*" functions in sympy,
+# causing pytest to run them as well.
+from sympy import symbols, expand, factor, sin, cos, diff, integrate, exp, Integer, Xor, Rational, \
+    sqrt, Sum, lambdify, Indexed, factorial, oo
 
 
 def test_symbols_basic() -> None:
@@ -73,7 +76,7 @@ def test_gotchas_xor_and_divide() -> None:
     assert Rational(1, 3) == Integer(1)/Integer(3)
 
 
-def test_substitution():
+def test_substitution() -> None:
     """ Test variable substitution. """
     x, y, z = symbols("x y z")
     expr = cos(x) + 1
@@ -81,7 +84,7 @@ def test_substitution():
     assert expr.subs(x, x**y) == cos(x**y) + 1
 
 
-def test_eval():
+def test_eval() -> None:
     """ Test numerical evaluation, including a quantifier example. """
     x, i, k = symbols("x i k")
     assert sqrt(8) != math.sqrt(8)
