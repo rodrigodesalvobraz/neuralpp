@@ -83,11 +83,16 @@ def test_substitution():
 
 def test_eval():
     """ Test numerical evaluation, including a quantifier example. """
-    x, i = symbols("x i")
+    x, i, k = symbols("x i k")
     assert sqrt(8) != math.sqrt(8)
     assert sqrt(8).evalf() == math.sqrt(8)
     assert cos(2*x).evalf(subs={x: 2.4}) == math.cos(2*2.4)
 
     expr = Sum(Indexed('x', i), (i, 0, 3))  # expr is a quantified expression
-    expr_as_func = lambdify(x, expr)
+    expr_as_func = lambdify(x, expr)  # lambdify() turns the expression into a python function
     assert expr_as_func([1, 2, 3, 4, 5]) == 10
+
+    # doit() can also do computation/simplification, note the interval can be infinite
+    assert Sum(x**k/factorial(k), (k, 0, oo)).doit() == exp(x)
+    # Doc in Sum() defines the following behavior which is a little weird
+    assert Sum(k, (k, i, i - 100)).doit() == -Sum(k, (k, i - 99, i - 1)).doit()
