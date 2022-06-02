@@ -6,7 +6,7 @@ https://docs.sympy.org/latest/tutorial/basic_operations.html
 """
 import math
 
-# cannot use from sympy import * because that would import all the "test_*" functions in sympy,
+# cannot use `from sympy import *` because that would import all the "test_*" functions in sympy,
 # causing pytest to run them as well.
 from sympy import symbols, expand, factor, sin, cos, diff, integrate, exp, Integer, Xor, Rational, \
     sqrt, Sum, lambdify, Indexed, factorial, oo
