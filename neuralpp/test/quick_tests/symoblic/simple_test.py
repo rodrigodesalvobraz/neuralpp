@@ -2,7 +2,10 @@
 Tests of features covered in the following tutorials of SymPy.
 https://docs.sympy.org/latest/tutorial/intro.html
 https://docs.sympy.org/latest/tutorial/gotchas.html
+https://docs.sympy.org/latest/tutorial/basic_operations.html
 """
+import math
+
 from sympy import *
 
 
@@ -54,18 +57,37 @@ def test_change_after_create() -> None:
     assert expr == symbols('x') + 1
 
 
-def test_xor() -> None:
-    """ ^ in SymPy is reserved for xor (not exponentiation), as is in Python."""
+def test_gotchas_xor_and_divide() -> None:
+    """Some gotchas of the library: ^ is xor, / can be float division. """
+    # ^ in SymPy is reserved for xor (not exponentiation), as is in Python.
     x, y = symbols('x y')
     assert x ^ y == Xor(x, y)
     assert x ^ y != x ** y
 
-
-def test_divide() -> None:
-    """ / in Python3 is float division. So SymPy uses Rational() explicitly."""
+    # / in Python3 is float division. So SymPy uses Rational() explicitly.
     # the following tests would pass as the rational 1/2 equals the division result 1/2=0.5
     assert Rational(1, 2) == 1/2
     assert Rational(1, 2) == Integer(1)/Integer(2)
     # things are a little different when it comes to 1/3
     assert Rational(1, 3) != 1/3
     assert Rational(1, 3) == Integer(1)/Integer(3)
+
+
+def test_substitution():
+    """ Test variable substitution. """
+    x, y, z = symbols("x y z")
+    expr = cos(x) + 1
+    assert expr.subs(x, y) == cos(y) + 1
+    assert expr.subs(x, x**y) == cos(x**y) + 1
+
+
+def test_eval():
+    """ Test numerical evaluation, including a quantifier example. """
+    x, i = symbols("x i")
+    assert sqrt(8) != math.sqrt(8)
+    assert sqrt(8).evalf() == math.sqrt(8)
+    assert cos(2*x).evalf(subs={x: 2.4}) == math.cos(2*2.4)
+
+    expr = Sum(Indexed('x', i), (i, 0, 3))  # expr is a quantified expression
+    expr_as_func = lambdify(x, expr)
+    assert expr_as_func([1, 2, 3, 4, 5]) == 10
