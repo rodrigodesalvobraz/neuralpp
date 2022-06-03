@@ -18,7 +18,8 @@ TEST_REQUIRES = [
     "tqdm",
     "pytest",
     "pytest-cov",
-    "sympy"
+    "sympy",
+    "z3-solver"
 ]
 DEV_REQUIRES = TEST_REQUIRES + [
     "black",
