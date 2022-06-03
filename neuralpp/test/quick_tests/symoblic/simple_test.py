@@ -9,7 +9,7 @@ import math
 # cannot use `from sympy import *` because that would import all the "test_*" functions in sympy,
 # causing pytest to run them as well.
 from sympy import symbols, expand, factor, sin, cos, diff, integrate, exp, Integer, Xor, Rational, \
-    sqrt, Sum, lambdify, Indexed, factorial, oo
+    sqrt, Sum, lambdify, Indexed, factorial, oo, Integral
 
 
 def test_symbols_basic():
@@ -118,11 +118,13 @@ def test_sum():
 
     # `i` can also be used in the series. An alternative way to the above example is the following.
     expr = Sum(i, (i, 0, 100))  # expr is a quantified expression
-    # Here doit() does evaluation (e.g., it "does" the sum), note the interval can be infinite
+    # Here doit() does symbolic evaluation (e.g., it "does" the sum), note the interval can be infinite
     assert expr.doit() == 5050
 
     # Note doit() does *symbolic* evaluation. In the above example we get an integer only because there's no symbol.
     assert Sum(x**k/factorial(k), (k, 0, oo)).doit() == exp(x)
+    # You can also call doit() on integral. It makes sense because we can "do" integral.
+    assert (2 * Integral(x, x)).doit() == x**2
     # Doc in Sum() defines the following behavior which is a little weird.
     # If start > end in (i, start, end), it is defined to be the same as (i, end+1, start-1)
     # https://docs.sympy.org/latest/modules/concrete.html?highlight=sum#sympy.concrete.summations.Sum
