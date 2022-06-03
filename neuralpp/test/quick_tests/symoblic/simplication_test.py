@@ -6,9 +6,9 @@ from sympy import symbols, expand, factor, sin, cos, simplify, exp, Integer, gam
     collect, trigsimp, expand_trig, powsimp, expand_log, log, logcombine, cancel
 
 
-def test_simplify() -> None:
+def test_simplify():
     """
-    One can just use sympy.simplify(). It's push-button but has 2 caveats:
+    One can just use sympy.simplify(). It's general but has 2 caveats:
     1. "simplest" form is not well-defined. (showcased by last set of asserts)
     2. it can be unnecessarily slow due to generality.
     """
@@ -22,7 +22,7 @@ def test_simplify() -> None:
     assert factor(x**2 + 2*x + 1) == (x + 1)**2
 
 
-def test_polynomial_rational() -> None:
+def test_polynomial_and_rational_simplification():
     """Test simplification for polynomial/rational."""
     x, y, z = symbols('x y z')
     # expand() expands.
@@ -46,7 +46,7 @@ def test_polynomial_rational() -> None:
     assert factor((x**2 + 4*x + 4) / (x**2 + 2*x)) == (x + 2) / x
 
 
-def test_trigonometric() -> None:
+def test_trigonometric_simplification():
     """Test simplification for trigonometric functions."""
     x, y, z = symbols('x y z')
     assert trigsimp(sin(x)**2 + cos(x)**2) == 1
@@ -56,7 +56,7 @@ def test_trigonometric() -> None:
     assert expand_trig(sin(x + y)) == sin(x)*cos(y) + sin(y)*cos(x)
 
 
-def test_powers() -> None:
+def test_powers_simplification():
     """Test simplification for powers."""
     x, y = symbols('x y', positive=True)
     a, b = symbols('a b', real=True)
@@ -66,7 +66,7 @@ def test_powers() -> None:
     assert powsimp(xx**a*yy**a) != (xx*yy)**a
 
 
-def test_exp_and_log() -> None:
+def test_exp_and_log_simplification():
     """Test simplification for exponentials and logarithms."""
     x, y = symbols('x y', positive=True)
     n = symbols('n', real=True)

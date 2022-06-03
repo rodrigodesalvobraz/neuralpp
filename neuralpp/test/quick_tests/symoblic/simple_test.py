@@ -12,7 +12,7 @@ from sympy import symbols, expand, factor, sin, cos, diff, integrate, exp, Integ
     sqrt, Sum, lambdify, Indexed, factorial, oo
 
 
-def test_symbols_basic() -> None:
+def test_symbols_basic():
     """SymPy supports simple expression conversions. e.g., `x + 2 * y` is the same as `y + x + y`"""
     x, y = symbols('x y')
     expr = x + 2 * y
@@ -20,7 +20,7 @@ def test_symbols_basic() -> None:
     assert expr == y + x + y
 
 
-def test_expand_and_factor() -> None:
+def test_expand_and_factor():
     """
     The simplification SymPy automatically performs is very limited. For example,
     x(x+2y) is not "equal" in the sense of SymPy's symbolic representation as x^2+2xy.
@@ -35,7 +35,7 @@ def test_expand_and_factor() -> None:
     assert factor_form_expr == factor(expand_form_expr)
 
 
-def test_computation() -> None:
+def test_computation():
     """ Symbolic computation """
     x, t, z, nu = symbols('x t z nu')
     # for simple formulas integrate and diff are invertible
@@ -52,7 +52,7 @@ def test_computation() -> None:
     assert complex_formula != x + (x-1) * exp(x) + exp(x)
 
 
-def test_change_after_create() -> None:
+def test_change_after_create():
     """changing the binding of python variable does not affect expression already created """
     x = symbols('x')
     expr = x + 1
@@ -60,7 +60,7 @@ def test_change_after_create() -> None:
     assert expr == symbols('x') + 1
 
 
-def test_gotchas_xor_and_divide() -> None:
+def test_gotchas_xor_and_divide():
     """Some gotchas of the library: ^ is xor, / can be float division. """
     # ^ in SymPy is reserved for xor (not exponentiation), as is in Python.
     x, y = symbols('x y')
@@ -76,7 +76,7 @@ def test_gotchas_xor_and_divide() -> None:
     assert Rational(1, 3) == Integer(1)/Integer(3)
 
 
-def test_substitution() -> None:
+def test_substitution():
     """ Test variable substitution. """
     x, y, z = symbols("x y z")
     expr = cos(x) + 1
@@ -84,18 +84,46 @@ def test_substitution() -> None:
     assert expr.subs(x, x**y) == cos(x**y) + 1
 
 
-def test_eval() -> None:
+def test_eval():
     """ Test numerical evaluation, including a quantifier example. """
     x, i, k = symbols("x i k")
     assert sqrt(8) != math.sqrt(8)
     assert sqrt(8).evalf() == math.sqrt(8)
     assert cos(2*x).evalf(subs={x: 2.4}) == math.cos(2*2.4)
 
+    # lambdify() turns the expression into a python function. It can also be used to evaluate.
+    add_expr = x + k
+    add_func = lambdify((x, k), add_expr)
+    assert add_func(1, 2) == 3
+    assert add_func(3, 4) == 7
+    assert add_func(5, -1) == (lambda a, b: a + b)(5, -1)
+
     expr = Sum(Indexed('x', i), (i, 0, 3))  # expr is a quantified expression
-    expr_as_func = lambdify(x, expr)  # lambdify() turns the expression into a python function
+    expr_as_func = lambdify(x, expr)
     assert expr_as_func([1, 2, 3, 4, 5]) == 10
 
-    # doit() can also do computation/simplification, note the interval can be infinite
+
+def test_sum():
+    """ A more detailed test of the Sum quantifier.
+    In quote of Sum's doc, the first argument is "the general form of terms in the series" and
+    the second argument is "(dummy_variable, start, end), with dummy_variable taking all
+    integer values from start through end. In accordance with long-standing mathematical convention,
+    the end term is included in the summation."
+    """
+    x, i, k = symbols("x i k")
+    # In the following example, `i` is not used in the series but just to indicate the index of 'x'.
+    expr = Sum(Indexed('x', i), (i, 0, 100))
+    expr_as_func = lambdify(x, expr)
+    assert expr_as_func([j for j in range(101)]) == 5050
+
+    # `i` can also be used in the series. An alternative way to the above example is the following.
+    expr = Sum(i, (i, 0, 100))  # expr is a quantified expression
+    # Here doit() does evaluation (e.g., it "does" the sum), note the interval can be infinite
+    assert expr.doit() == 5050
+
+    # Note doit() does *symbolic* evaluation. In the above example we get an integer only because there's no symbol.
     assert Sum(x**k/factorial(k), (k, 0, oo)).doit() == exp(x)
-    # Doc in Sum() defines the following behavior which is a little weird
+    # Doc in Sum() defines the following behavior which is a little weird.
+    # If start > end in (i, start, end), it is defined to be the same as (i, end+1, start-1)
+    # https://docs.sympy.org/latest/modules/concrete.html?highlight=sum#sympy.concrete.summations.Sum
     assert Sum(k, (k, i, i - 100)).doit() == -Sum(k, (k, i - 99, i - 1)).doit()
