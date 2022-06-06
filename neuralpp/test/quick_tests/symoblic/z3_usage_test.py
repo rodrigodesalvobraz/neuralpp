@@ -1,15 +1,14 @@
 """
-Test of Z3Py.
+Test of Z3Py. Most parts are covered in `https://ericpony.github.io/z3py-tutorial/guide-examples.htm`.
 """
 from z3 import *
-from typing import Optional
 
 
 def is_valid(predicate: ExprRef) -> bool:
     """
-    If we want to ask an SMT solver to check if a predicate PRED is valid (i.e., always true), we need to
+    If we want to ask Z3 to check if a predicate PRED is valid (i.e., always true), we need to
     ask in a not very intuitive way: "is `not PRED` unsatisfiable?"
-    If `not PRED` is not unsat, then PRED is NOT always true, since there must exist a counter-example that satisfies
+    If `not PRED` is sat, then PRED is NOT always true, since there must exist a counter-example that satisfies
     `not PRED`, which we can get by calling s.model().
     If `not PRED` is unsat, then PRED is always true.
     """
@@ -53,13 +52,47 @@ def test_z3_solve_nonlinear_polynomial() -> None:
     s = Solver()
     s.add(x ** 2 + y ** 2 > 3, x ** 3 + y < 5)
     assert s.check() == sat
-    # call s.model() to get a solution
+    # one can call always s.model() to get a solution if check() == sat
 
 
-# def test_bitvec() -> None:
-#
-#
-# def test_function() -> None:
-#
-#
-# def test_quantifier() -> None:
+def test_bitvec() -> None:
+    """ BitVec is Z3's term for bit-vector. For example, 16-bit integer is a bit-vector. """
+    a = BitVecVal(-1, 16)
+    b = BitVecVal(65535, 16)
+    assert is_valid(a == b)  # -1 (signed) is 65535 (unsigned) in 16-bit representation.
+    a = BitVecVal(-1, 32)
+    b = BitVecVal(65535, 32)
+    assert is_valid(a != b)  # -1 is not 65535 in 32-bit representation.
+
+
+def test_function() -> None:
+    """ In Z3, functions are uninterpreted and total. Uninterpreted means it's just a name, we cannot give it
+    any definition or interpretation; total means it has no side effects, like functions in functional language.
+    """
+    x = Int('x')
+    f = Function('f', IntSort(), IntSort())
+    assert is_valid(Implies(f(x) == x, f(f(f(x))) == x))
+
+
+def test_quantifier() -> None:
+    """ Z3 also supports quantifiers, such as `forall`, `exists`. """
+    x, y = Ints('x y')
+    f = Function('f', IntSort(), IntSort(), IntSort())
+    assert is_valid(Implies(ForAll([x, y], f(x, y) >= x), f(0, 5) >= 0))  # if forall x y, f(x,y)>=x, then f(0,5)>=0
+    assert is_valid(Implies(Exists([x], f(x, y) == x), Not(ForAll([x], f(x, y) != x))))  # exists
+
+
+def test_sum() -> None:
+    """
+    `Sum` is not a quantifier in Z3, it's just a Python function.
+    """
+    # simple usage of Sum()
+    x, i = Ints('x i')
+    assert is_valid(Sum([1, 2, x]) == x + 3)
+    # Now, say we want to check the theorem of Gauss Summation: 1 + 2 + ... n = (1 + n) * n / 2,
+    # we can only do this when n is static to Z3.
+    # We cannot state something like "forall n, 1 + 2 + ... n = (1 + n) * n / 2"
+    N = 1000
+    assert (is_valid(Sum([j for j in range(N+1)]) == (1 + N)*N/2))
+    assert (is_valid(Sum([x for _ in range(N+1)]) == (1 + N)*x))
+    assert (is_valid(Sum([x + j for j in range(N+1)]) == (1 + N)*x + (1 + N)*N/2))
