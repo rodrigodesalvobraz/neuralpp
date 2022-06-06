@@ -39,8 +39,8 @@ def test_z3_simplification() -> None:
     cond2 = x == 3
     # However, Z3 cannot simplify 2 < x < 4 into x == 3
     assert repr(simplify(cond1)) == "And(Not(x <= 2), Not(4 <= x))"
-    # But we can always ask z3 to solve the problem "does 2 < x < 4 imply x == 3?"
-    assert is_valid(Implies(cond1, cond2))
+    # But we can always ask z3 to solve the problem "is 2 < x < 4 equivalent to x == 3?"
+    assert is_valid(cond1 == cond2)
 
 
 def test_z3_solve_nonlinear_polynomial() -> None:
