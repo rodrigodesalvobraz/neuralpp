@@ -85,7 +85,7 @@ def test_substitution():
 
 
 def test_eval():
-    """ Test numerical evaluation, including a quantifier example. """
+    """ Test numerical evaluation. """
     x, i, k = symbols("x i k")
     assert sqrt(8) != math.sqrt(8)
     assert sqrt(8).evalf() == math.sqrt(8)
@@ -98,10 +98,6 @@ def test_eval():
     assert add_func(3, 4) == 7
     assert add_func(5, -1) == (lambda a, b: a + b)(5, -1)
 
-    expr = Sum(Indexed('x', i), (i, 0, 3))  # expr is a quantified expression
-    expr_as_func = lambdify(x, expr)
-    assert expr_as_func([1, 2, 3, 4, 5]) == 10
-
 
 def test_sum():
     """ A more detailed test of the Sum quantifier.
@@ -111,17 +107,22 @@ def test_sum():
     the end term is included in the summation."
     """
     x, i, k = symbols("x i k")
-    # In the following example, `i` is not used in the series but just to indicate the index of 'x'.
+
+    # We can use quantified `i` in the series.
+    expr = Sum(2 * i, (i, 0, 100))  # expr is a quantified expression
+    # Here doit() does symbolic evaluation (e.g., it "does" the sum).
+    assert expr.doit() == 10100
+
+    # In the following examples, `i` is just used to indicate the index of 'x'.
+    expr = Sum(Indexed('x', i), (i, 0, 3))
+    expr_as_func = lambdify(x, expr)
+    assert expr_as_func([1, 2, 3, 4, 5]) == 10  # note x[4] is not added to the sum since the sum is of x[0:3]
     expr = Sum(Indexed('x', i), (i, 0, 100))
     expr_as_func = lambdify(x, expr)
     assert expr_as_func([j for j in range(101)]) == 5050
 
-    # `i` can also be used in the series. An alternative way to the above example is the following.
-    expr = Sum(i, (i, 0, 100))  # expr is a quantified expression
-    # Here doit() does symbolic evaluation (e.g., it "does" the sum), note the interval can be infinite
-    assert expr.doit() == 5050
-
     # Note doit() does *symbolic* evaluation. In the above example we get an integer only because there's no symbol.
+    # Also, the interval can be infinite.
     assert Sum(x**k/factorial(k), (k, 0, oo)).doit() == exp(x)
     # You can also call doit() on integral. It makes sense because we can "do" integral.
     assert (2 * Integral(x, x)).doit() == x**2
