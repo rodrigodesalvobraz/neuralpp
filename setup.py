@@ -17,7 +17,8 @@ TEST_REQUIRES = [
     "matplotlib",
     "tqdm",
     "pytest",
-    "pytest-cov"
+    "pytest-cov",
+    "sympy"
 ]
 DEV_REQUIRES = TEST_REQUIRES + [
     "black",
