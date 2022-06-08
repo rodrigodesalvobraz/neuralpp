@@ -1,7 +1,8 @@
 """
 Test of Z3Py. Most parts are covered in `https://ericpony.github.io/z3py-tutorial/guide-examples.htm`.
 """
-from z3 import *
+from z3 import Solver, Not, sat, unsat, Int, Implies, Or, simplify, Ints, And, Reals, BitVecVal, Function, IntSort, \
+    ForAll, Exists, ExprRef, Sum
 
 
 def is_valid(predicate: ExprRef) -> bool:
@@ -17,7 +18,7 @@ def is_valid(predicate: ExprRef) -> bool:
     return s.check() == unsat
 
 
-def test_is_valid() -> None:
+def test_is_valid():
     """ Test that is_valid() is implemented correctly. """
     x = Int('x')
     assert is_valid(Or(x > 0, x <= 0))
@@ -26,7 +27,7 @@ def test_is_valid() -> None:
     assert not is_valid(Implies(x > 0, x > 1))
 
 
-def test_z3_simplification() -> None:
+def test_z3_simplification():
     """ Test of z3's simplify() function. """
     x, y = Ints('x y')
 
@@ -43,9 +44,9 @@ def test_z3_simplification() -> None:
     assert is_valid(cond1 == cond2)
 
 
-def test_z3_solve_nonlinear_polynomial() -> None:
+def test_z3_solve_nonlinear_polynomial():
     """
-    Z3 can solve nonlinear polynomial constraints. In terms of expression power, it is a subset SymPy which
+    Z3 can solve nonlinear polynomial constraints,although to a lesser extent than SymPy which
     also supports powers, exp/log and trigonometric.
     """
     x, y = Reals('x y')
@@ -55,7 +56,7 @@ def test_z3_solve_nonlinear_polynomial() -> None:
     # one can call always s.model() to get a solution if check() == sat
 
 
-def test_bitvec() -> None:
+def test_bitvec():
     """ BitVec is Z3's term for bit-vector. For example, 16-bit integer is a bit-vector. """
     a = BitVecVal(-1, 16)
     b = BitVecVal(65535, 16)
@@ -65,7 +66,7 @@ def test_bitvec() -> None:
     assert is_valid(a != b)  # -1 is not 65535 in 32-bit representation.
 
 
-def test_function() -> None:
+def test_function():
     """ In Z3, functions are uninterpreted and total. Uninterpreted means it's just a name, we cannot give it
     any definition or interpretation; total means it has no side effects, like functions in functional language.
     """
@@ -74,7 +75,7 @@ def test_function() -> None:
     assert is_valid(Implies(f(x) == x, f(f(f(x))) == x))
 
 
-def test_quantifier() -> None:
+def test_quantifier():
     """ Z3 also supports quantifiers, such as `forall`, `exists`. """
     x, y = Ints('x y')
     f = Function('f', IntSort(), IntSort(), IntSort())
@@ -82,9 +83,9 @@ def test_quantifier() -> None:
     assert is_valid(Implies(Exists([x], f(x, y) == x), Not(ForAll([x], f(x, y) != x))))  # exists
 
 
-def test_sum() -> None:
+def test_sum():
     """
-    `Sum` is not a quantifier in Z3, it's just a Python function.
+    `Sum` is not a quantifier in Z3, it's just an interpreted function.
     """
     # simple usage of Sum()
     x, i = Ints('x i')
