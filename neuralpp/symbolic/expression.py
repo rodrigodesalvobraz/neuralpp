@@ -1,23 +1,23 @@
+from __future__ import annotations  # to support forward reference for recursive type reference
 from typing import Any, List
 from abc import ABC, abstractmethod
 
 
 class Expression(ABC):
     @abstractmethod
-    # 'Expression': forward reference for recursive type reference https://peps.python.org/pep-0484/#forward-references
-    def subexpression(self) -> List['Expression']:
+    def subexpressions(self) -> List[Expression]:
         """
-        Returns a list of subexpression.
+        Returns a list of subexpressions.
         E.g.,
-        subexpression(f(x,y)) = [f,x,y]
-        subexpression(add(a,1)) = [add,a,1]
+        subexpressions(f(x,y)) = [f,x,y]
+        subexpressions(add(a,1)) = [add,a,1]
         """
         pass
 
     @abstractmethod
-    def set(self, i: int, new_expression: 'Expression') -> 'Expression':
+    def set(self, i: int, new_expression: Expression) -> Expression:
         """
-        Set i-th subexpression to new_expression. Count from 0.
+        Set i-th subexpressions to new_expression. Count from 0.
         E.g.,
         f(x,y).set(1,z) = [f,z,y].
         If it's out of the scope, return error.
@@ -25,7 +25,7 @@ class Expression(ABC):
         pass
 
     @abstractmethod
-    def replace(self, from_expression: 'Expression', to_expression: 'Expression') -> 'Expression':
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         """
         Every expression is immutable so replace() returns either self or a new Expression.
         No in-place modification should be made.
@@ -33,75 +33,92 @@ class Expression(ABC):
         """
         pass
 
-    def contains(self, target: 'Expression') -> bool:
+    def contains(self, target: Expression) -> bool:
         """
-        Checks if `target` is contained in `self`. The check is deep. E.g.,
+        Checks if `target` is contained in `self`. The check is deep. An expression contains itself. E.g.,
         f(x,f(a,b)).contains(a) == True
+        a.contains(a) == True
         """
-        for sub_expr in self.subexpression():
-            if sub_expr == target or sub_expr.contains(target):
+        if self == target:
+            return True
+
+        for sub_expr in self.subexpressions():
+            if sub_expr.contains(target):
                 return True
+
         return False
 
     @abstractmethod
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         pass
 
 
-class Variable(Expression):
+class AtomicExpression(Expression):
+    def __init__(self, atom: Any):
+        self._atom = atom
+
+    @property
+    @abstractmethod
+    def base_type(self) -> str:
+        pass
+
+    @property
+    def atom(self) -> str:
+        return self._atom
+
+    def subexpressions(self) -> List[Expression]:
+        return []
+
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+        if from_expression == self:
+            return to_expression
+        else:
+            return self
+
+    def set(self, i: int, new_expression: Expression) -> Expression:
+        raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
+
+    def __eq__(self, other) -> bool:
+        match other:
+            case AtomicExpression(base_type=other_base_type, atom=other_atom):
+                return other_base_type == self.base_type and self.atom == other.atom
+            case _:
+                return False
+
+    def contains(self, target: Expression) -> bool:
+        return self == target
+
+
+class Variable(AtomicExpression):
     def __init__(self, name: str):
-        self._name = name
+        super().__init__(name)
+
+    @property
+    def base_type(self) -> str:
+        return "Variable"
 
     @property
     def name(self) -> str:
-        return self._name
-
-    def subexpression(self) -> List[Expression]:
-        return []
-
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
-        return self
-
-    def set(self, i: int, new_expression: Expression) -> Expression:
-        raise IndexError("Variable has no subexpression, so you cannot set().")
-
-    def __eq__(self, other):
-        match other:
-            case Variable(name=other_name):
-                return self._name == other_name
-            case _:
-                return False
+        return super().atom
 
 
-class Constant(Expression):
+class Constant(AtomicExpression):
     def __init__(self, value: Any):
-        self._value = value
+        super().__init__(value)
+
+    @property
+    def base_type(self) -> str:
+        return "Constant"
 
     @property
     def value(self) -> Any:
-        return self._value
-
-    def subexpression(self) -> List[Expression]:
-        return []
-
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
-        return self
-
-    def set(self, i: int, new_expression: Expression) -> Expression:
-        raise IndexError("Constant has no subexpression, so you cannot set().")
-
-    def __eq__(self, other):
-        match other:
-            case Constant(value=other_value):
-                return self._value == other_value
-            case _:
-                return False
+        return super().atom
 
 
 class FunctionApplication(Expression):
     __match_args__ = ("function", "arguments")
 
-    def __init__(self, func: Expression, args: List[Expression]):
+    def __init__(self, function: Expression, arguments: List[Expression]):
         """`func` is an expression. Legal options are:
         1. a Python Callable. E.g.,
             BasicFunctionApplication(BasicConstant(lambda x, y: x + y), [..])
@@ -112,23 +129,23 @@ class FunctionApplication(Expression):
         3. a Variable. In this case the function is uninterpreted. E.g.,
         BasicFunctionApplication(BasicConstant(BasicVariable("f")), [..])
         """
-        self._subexpression = [func] + args
+        self._subexpressions = [function] + arguments
 
     @property
     def function(self) -> Expression:
-        return self._subexpression[0]
+        return self._subexpressions[0]
 
     @property
     def arguments(self) -> List[Expression]:
-        return self._subexpression[1:]
+        return self._subexpressions[1:]
 
-    def subexpression(self) -> List[Expression]:
-        return self._subexpression
+    def subexpressions(self) -> List[Expression]:
+        return self._subexpressions
 
     def __eq__(self, other):
         match other:
-            case FunctionApplication(function=func, arguments=args):
-                return self.subexpression() == [func] + args
+            case FunctionApplication(function=function, arguments=arguments):
+                return self.subexpressions() == [function] + arguments
             case _:
                 return False
 
@@ -145,7 +162,8 @@ class FunctionApplication(Expression):
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         # recursively do the replacement
-        new_subexpressions = list(map(
-            lambda e: to_expression if e == from_expression else e.replace(from_expression, to_expression),
-            self.subexpression()))
+        new_subexpressions = [
+            to_expression if e == from_expression else e.replace(from_expression, to_expression)
+            for e in self.subexpressions()
+        ]
         return FunctionApplication(new_subexpressions[0], new_subexpressions[1:])

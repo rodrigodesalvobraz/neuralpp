@@ -10,12 +10,12 @@ def test_basic_constant():
     constant_abc = BasicConstant("abc")
     assert constant_one != constant_abc
     assert constant_one == BasicConstant(2-1)
-    assert constant_one.subexpression() == []
+    assert constant_one.subexpressions() == []
     assert not constant_one.contains(constant_abc)
-    assert not constant_one.contains(constant_one)  # A constant does not contains() itself
-    assert constant_one.replace(constant_one, constant_abc) == constant_one  # Any replace() has no effect on constant
+    assert constant_one.contains(constant_one)  # A constant contains() itself
+    assert constant_one.replace(constant_one, constant_abc) == constant_abc
     with pytest.raises(IndexError):
-        constant_one.set(1, constant_abc)  # Any replace() has no effect on constant
+        constant_one.set(1, constant_abc)
 
 
 def test_basic_variable():
@@ -24,12 +24,12 @@ def test_basic_variable():
     variable_y = BasicVariable("y")
     assert variable_x != variable_y
     assert variable_x == BasicVariable("x")
-    assert variable_x.subexpression() == []
+    assert variable_x.subexpressions() == []
     assert not variable_x.contains(variable_y)
-    assert not variable_x.contains(variable_x)  # A variable does not contains() itself
-    assert variable_x.replace(variable_x, variable_y) == variable_x  # Any replace() has no effect on variable
+    assert variable_x.contains(variable_x)  # A variable contains() itself
+    assert variable_x.replace(variable_x, variable_y) == variable_y
     with pytest.raises(IndexError):
-        variable_x.set(1, variable_y)  # Any replace() has no effect on variable
+        variable_x.set(1, variable_y)
 
 
 def test_basic_function_application():
@@ -53,10 +53,10 @@ def test_basic_function_application():
     func3 = BasicConstant(BasicVariable("add"))
     fa3 = BasicFunctionApplication(func3, [constant_one, fa2])  # use fa1 here, expression can be recursive
 
-    assert fa2.subexpression() == [func2, constant_one, constant_two]
+    assert fa2.subexpressions() == [func2, constant_one, constant_two]
     assert fa2 == fa2
     # python cannot check __eq__ of two lambdas, so we have the following inequality
-    assert fa1.subexpression() != [lambda x, y: x + y, constant_one, constant_two]
+    assert fa1.subexpressions() != [lambda x, y: x + y, constant_one, constant_two]
     # but if the two lambdas are the same object then they are equal.
     assert fa1 == fa1
 
@@ -74,11 +74,11 @@ def test_basic_function_application():
     assert fa4 == BasicFunctionApplication(func3, [constant_one,
                                                    BasicFunctionApplication(func2, [constant_one, constant_one])])
 
-    # set() is also not changing the object that's called on
-    fa5 = fa2.set(0, BasicVariable("f"))  # Any replace() has no effect on variable
+    # set() is also not changing the object that it is called on
+    fa5 = fa2.set(0, BasicVariable("f"))
     assert fa5 == BasicFunctionApplication(BasicVariable("f"), [constant_one, constant_two])
     assert fa2 == BasicFunctionApplication(func2, [constant_one, constant_two])
-    fa6 = fa2.set(1, BasicVariable("a"))  # Any replace() has no effect on variable
+    fa6 = fa2.set(1, BasicVariable("a"))
     assert fa6 == BasicFunctionApplication(func2, [BasicVariable("a"), constant_two])
     with pytest.raises(IndexError):
-        fa4.set(3, constant_one)  # Any replace() has no effect on variable
+        fa4.set(3, constant_one)

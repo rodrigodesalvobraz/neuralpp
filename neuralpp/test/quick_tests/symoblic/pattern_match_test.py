@@ -2,6 +2,10 @@
 
 
 # this example is from https://peps.python.org/pep-0636/
+import builtins
+import operator
+
+
 class Click:
     __match_args__ = ("position", "button")
 
@@ -99,3 +103,31 @@ def test_pattern_matching_no_init():
             assert False  # not reachable
         case Click4(position=(x, y), button="left"):  # property is also accepted as __match_args__
             assert x == 1 and y == 1
+
+
+# See if pattern matching recognize python operator
+class OperatorTestClass:
+    __match_args__ = ("op")
+
+    def __init__(self, op):
+        self._operator = operator
+
+    @property
+    def op(self):
+        return self._operator
+
+
+def test_operator_matching():
+    e = OperatorTestClass(operator.add)
+    e2 = OperatorTestClass(operator.add)
+    assert operator.add == operator.add
+    assert e.op != operator.add  # a bit counterintuitive here
+    assert e.op == e.op
+    assert e.op == e2.op
+
+    match e:
+        case OperatorTestClass(op=operator.add):
+            assert False  # not reachable
+        case OperatorTestClass(op=op):  # property is also accepted as __match_args__
+            assert op != operator.add
+            assert op == e2.op
