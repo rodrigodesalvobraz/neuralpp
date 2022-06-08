@@ -104,6 +104,32 @@ def test_pattern_matching_no_init():
             assert x == 1 and y == 1
 
 
+# Click5 tests recursive pattern matching
+class Click5:
+    __match_args__ = ("button", "position")
+
+    def __init__(self, pos, btn):
+        self._inner_position = pos
+        self._inner_button = btn
+
+    @property
+    def position(self):
+        return self._inner_position
+
+    @property
+    def button(self):
+        return self._inner_button
+
+
+def test_pattern_matching_recursive_pattern_matching():
+    e = Click5(Click2((1, 2), "left"), "right")
+    match e:
+        case Click5(position=Click2(position=(x, y), button=btn1), button=btn2):
+            assert x == 1 and y == 2  # not reachable
+        case _:
+            assert False
+
+
 # See if pattern matching recognize python operator
 class OperatorTestClass:
     __match_args__ = ("op",)
