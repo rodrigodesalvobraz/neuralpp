@@ -1,6 +1,6 @@
 import pytest
+import operator
 
-from neuralpp.symbolic.function import Add
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable
     
 
@@ -39,25 +39,23 @@ def test_basic_variable():
 def test_basic_function_application():
     # function application has the interface FunctionApplication(func: Expression, args: List[Expression]).
     # Note that the first argument `func` is of Expression type.
-    # There are 3 possible choices of `func` (for a meaningful FunctionApplication):
+    # There are 2 possible choices of `func` for a meaningful BasicFunctionApplication:
 
     # 1. a Python Callable
     func1 = BasicConstant(lambda x, y: x + y)
     constant_one = BasicConstant(1)
     constant_two = BasicConstant(2)
     fa1 = BasicFunctionApplication(func1, [constant_one, constant_two])
-
-    # 2. a Function. Here Add is a subclass of Function. All Function has a method lambdify(), which
-    # will be handy for interpretation.
-    func2 = BasicConstant(Add())
+    # using operator.add is easy to compare (operator.add == operator.add) and thus more desirable than using lambda.
+    func2 = BasicConstant(operator.add)
     fa2 = BasicFunctionApplication(func2, [constant_one, constant_two])
 
-    # 3. a Variable. In this case the function is uninterpreted. Even it's named "add", it does not necessarily
+    # 2. a Variable. In this case the function is uninterpreted. Even it's named "add", it does not necessarily
     # have to be a function of addition.
     func3 = BasicConstant(BasicVariable("add"))
-    fa3 = BasicFunctionApplication(func3, [constant_one, fa2])  # use fa1 here, expression can be recursive
+    fa3 = BasicFunctionApplication(func3, [constant_one, fa2])  # use fa2 here, expression can be recursive
 
-    assert fa2.subexpressions() == [func2, constant_one, constant_two]
+    assert fa2.subexpressions() == [BasicConstant(operator.add), constant_one, constant_two]
     assert fa2 == fa2
     # python cannot check __eq__ of two lambdas, so we have the following inequality
     assert fa1.subexpressions() != [lambda x, y: x + y, constant_one, constant_two]

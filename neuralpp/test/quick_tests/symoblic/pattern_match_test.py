@@ -107,10 +107,10 @@ def test_pattern_matching_no_init():
 
 # See if pattern matching recognize python operator
 class OperatorTestClass:
-    __match_args__ = ("op")
+    __match_args__ = ("op",)
 
     def __init__(self, op):
-        self._operator = operator
+        self._operator = op
 
     @property
     def op(self):
@@ -121,13 +121,12 @@ def test_operator_matching():
     e = OperatorTestClass(operator.add)
     e2 = OperatorTestClass(operator.add)
     assert operator.add == operator.add
-    assert e.op != operator.add  # a bit counterintuitive here
+    assert e.op == operator.add  # a bit counterintuitive here
     assert e.op == e.op
     assert e.op == e2.op
 
     match e:
         case OperatorTestClass(op=operator.add):
-            assert False  # not reachable
+            assert True  # not reachable
         case OperatorTestClass(op=op):  # property is also accepted as __match_args__
-            assert op != operator.add
-            assert op == e2.op
+            assert False
