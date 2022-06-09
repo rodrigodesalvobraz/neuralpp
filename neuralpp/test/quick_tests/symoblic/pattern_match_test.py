@@ -2,7 +2,6 @@
 
 
 # this example is from https://peps.python.org/pep-0636/
-import builtins
 import operator
 
 
@@ -40,7 +39,7 @@ def test_pattern_matching_clarification():
     e = Click2(pos=(1, 1), btn="left")
     match e:
         # if ("button", "position") refers to args, then "button"=pos "position"=btn
-        case Click2(position="left", button=(x, y)):
+        case Click2(position="left", button=_):
             assert False  # not reachable, so not the case
         # or, if ("button", "position") refers to attributes, then "button"=self.button, "position"=self.position
         case Click2(position=(x, y), button="left"):
@@ -67,7 +66,7 @@ class Click3:
 def test_pattern_matching_property():
     e = Click3(pos=(1, 1), btn="left")
     match e:
-        case Click3(position="left", button=(x, y)):
+        case Click3(position="left", button=_):
             assert False  # not reachable
         case Click3(position=(x, y), button="left"):  # property is also accepted as __match_args__
             assert x == 1 and y == 1
@@ -99,7 +98,7 @@ def test_pattern_matching_no_init():
     e.position = (1, 1)
     e.button = "left"
     match e:
-        case Click4(position="left", button=(x, y)):
+        case Click4(position="left", button=_):
             assert False  # not reachable
         case Click4(position=(x, y), button="left"):  # property is also accepted as __match_args__
             assert x == 1 and y == 1
@@ -128,5 +127,5 @@ def test_operator_matching():
     match e:
         case OperatorTestClass(op=operator.add):
             assert True  # not reachable
-        case OperatorTestClass(op=op):  # property is also accepted as __match_args__
+        case OperatorTestClass(op=_):  # property is also accepted as __match_args__
             assert False
