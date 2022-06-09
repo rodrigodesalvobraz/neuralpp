@@ -52,19 +52,29 @@ class Expression(ABC):
     def __eq__(self, other) -> bool:
         pass
 
+    @abstractmethod
+    def new_constant(self, value: Any) -> Constant:
+        pass
 
-class AtomicExpression(Expression):
-    def __init__(self, atom: Any):
-        self._atom = atom
+    @abstractmethod
+    def new_variable(self, name: str) -> Variable:
+        pass
 
+    @abstractmethod
+    def new_function_application(self, func: Expression, args: List[Expression]) -> FunctionApplication:
+        pass
+
+
+class AtomicExpression(Expression, ABC):
     @property
     @abstractmethod
     def base_type(self) -> str:
         pass
 
     @property
+    @abstractmethod
     def atom(self) -> str:
-        return self._atom
+        pass
 
     def subexpressions(self) -> List[Expression]:
         return []
@@ -81,7 +91,7 @@ class AtomicExpression(Expression):
     def __eq__(self, other) -> bool:
         match other:
             case AtomicExpression(base_type=other_base_type, atom=other_atom):
-                return other_base_type == self.base_type and self.atom == other.atom
+                return other_base_type == self.base_type and self.atom == other_atom
             case _:
                 return False
 
@@ -89,10 +99,7 @@ class AtomicExpression(Expression):
         return self == target
 
 
-class Variable(AtomicExpression):
-    def __init__(self, name: str):
-        super().__init__(name)
-
+class Variable(AtomicExpression, ABC):
     @property
     def base_type(self) -> str:
         return "Variable"
@@ -102,10 +109,7 @@ class Variable(AtomicExpression):
         return super().atom
 
 
-class Constant(AtomicExpression):
-    def __init__(self, value: Any):
-        super().__init__(value)
-
+class Constant(AtomicExpression, ABC):
     @property
     def base_type(self) -> str:
         return "Constant"
@@ -115,32 +119,22 @@ class Constant(AtomicExpression):
         return super().atom
 
 
-class FunctionApplication(Expression):
+class FunctionApplication(Expression, ABC):
     __match_args__ = ("function", "arguments")
 
-    def __init__(self, function: Expression, arguments: List[Expression]):
-        """`func` is an expression. Legal options are:
-        1. a Python Callable. E.g.,
-            BasicFunctionApplication(BasicConstant(lambda x, y: x + y), [..])
-
-        2. a subclass of Function (function.py). E.g.,
-            BasicFunctionApplication(BasicConstant(function.Add()), [..])
-
-        3. a Variable. In this case the function is uninterpreted. E.g.,
-        BasicFunctionApplication(BasicConstant(BasicVariable("f")), [..])
-        """
-        self._subexpressions = [function] + arguments
-
     @property
+    @abstractmethod
     def function(self) -> Expression:
-        return self._subexpressions[0]
+        pass
 
     @property
+    @abstractmethod
     def arguments(self) -> List[Expression]:
-        return self._subexpressions[1:]
+        pass
 
+    @abstractmethod
     def subexpressions(self) -> List[Expression]:
-        return self._subexpressions
+        pass
 
     def __eq__(self, other):
         match other:
@@ -150,13 +144,14 @@ class FunctionApplication(Expression):
                 return False
 
     def set(self, i: int, new_expression: Expression) -> Expression:
-        arity = len(self.arguments)
         if i == 0:
-            return FunctionApplication(new_expression, self.arguments)
-        elif i-1 < arity:
+            return self.new_function_application(new_expression, self.arguments)
+
+        arity = len(self.arguments)  # evaluate len after i != 0, if i == 0 we can be lazy
+        if i-1 < arity:
             arguments = self.arguments
             arguments[i-1] = new_expression
-            return FunctionApplication(self.function, arguments)
+            return self.new_function_application(self.function, arguments)
         else:
             raise IndexError(f"Out of scope. Function only has arity {arity} but you are setting {i-1}th arguments.")
 
@@ -166,4 +161,4 @@ class FunctionApplication(Expression):
             to_expression if e == from_expression else e.replace(from_expression, to_expression)
             for e in self.subexpressions()
         ]
-        return FunctionApplication(new_subexpressions[0], new_subexpressions[1:])
+        return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
