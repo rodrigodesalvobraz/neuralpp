@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 
 class Expression(ABC):
+    @property
     @abstractmethod
     def subexpressions(self) -> List[Expression]:
         """
@@ -42,7 +43,7 @@ class Expression(ABC):
         if self == target:
             return True
 
-        for sub_expr in self.subexpressions():
+        for sub_expr in self.subexpressions:
             if sub_expr.contains(target):
                 return True
 
@@ -76,6 +77,7 @@ class AtomicExpression(Expression, ABC):
     def atom(self) -> str:
         pass
 
+    @property
     def subexpressions(self) -> List[Expression]:
         return []
 
@@ -132,6 +134,7 @@ class FunctionApplication(Expression, ABC):
     def arguments(self) -> List[Expression]:
         pass
 
+    @property
     @abstractmethod
     def subexpressions(self) -> List[Expression]:
         pass
@@ -139,7 +142,7 @@ class FunctionApplication(Expression, ABC):
     def __eq__(self, other):
         match other:
             case FunctionApplication(function=function, arguments=arguments):
-                return self.subexpressions() == [function] + arguments
+                return self.subexpressions == [function] + arguments
             case _:
                 return False
 
@@ -159,6 +162,6 @@ class FunctionApplication(Expression, ABC):
         # recursively do the replacement
         new_subexpressions = [
             to_expression if e == from_expression else e.replace(from_expression, to_expression)
-            for e in self.subexpressions()
+            for e in self.subexpressions
         ]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])

@@ -46,5 +46,6 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def arguments(self) -> List[Expression]:
         return self._subexpressions[1:]
 
+    @property
     def subexpressions(self) -> List[Expression]:
         return self._subexpressions

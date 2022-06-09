@@ -10,7 +10,7 @@ def test_basic_constant():
     constant_abc = BasicConstant("abc")
     assert constant_one != constant_abc
     assert constant_one == BasicConstant(2-1)
-    assert constant_one.subexpressions() == []
+    assert constant_one.subexpressions == []
     assert not constant_one.contains(constant_abc)
     assert constant_one.contains(constant_one)  # A constant contains() itself
     assert constant_one.replace(constant_one, constant_abc) == constant_abc
@@ -26,7 +26,7 @@ def test_basic_variable():
     variable_y = BasicVariable("y")
     assert variable_x != variable_y
     assert variable_x == BasicVariable("x")
-    assert variable_x.subexpressions() == []
+    assert variable_x.subexpressions == []
     assert not variable_x.contains(variable_y)
     assert variable_x.contains(variable_x)  # A variable contains() itself
     assert variable_x.replace(variable_x, variable_y) == variable_y
@@ -55,10 +55,10 @@ def test_basic_function_application():
     func3 = BasicConstant(BasicVariable("add"))
     fa3 = BasicFunctionApplication(func3, [constant_one, fa2])  # use fa2 here, expression can be recursive
 
-    assert fa2.subexpressions() == [BasicConstant(operator.add), constant_one, constant_two]
+    assert fa2.subexpressions == [BasicConstant(operator.add), constant_one, constant_two]
     assert fa2 == fa2
     # python cannot check __eq__ of two lambdas, so we have the following inequality
-    assert fa1.subexpressions() != [lambda x, y: x + y, constant_one, constant_two]
+    assert fa1.subexpressions != [lambda x, y: x + y, constant_one, constant_two]
     # but if the two lambdas are the same object then they are equal.
     assert fa1 == fa1
 
