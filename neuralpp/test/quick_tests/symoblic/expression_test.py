@@ -16,6 +16,8 @@ def test_basic_constant():
     assert constant_one.replace(constant_one, constant_abc) == constant_abc
     with pytest.raises(IndexError):
         constant_one.set(1, constant_abc)
+    assert constant_one.value == 1
+    assert constant_abc.value == "abc"
 
 
 def test_basic_variable():
@@ -30,6 +32,8 @@ def test_basic_variable():
     assert variable_x.replace(variable_x, variable_y) == variable_y
     with pytest.raises(IndexError):
         variable_x.set(1, variable_y)
+    assert variable_x.name == "x"
+    assert variable_y.name == "y"
 
 
 def test_basic_function_application():

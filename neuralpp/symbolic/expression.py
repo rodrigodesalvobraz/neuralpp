@@ -106,7 +106,7 @@ class Variable(AtomicExpression, ABC):
 
     @property
     def name(self) -> str:
-        return super().atom
+        return self.atom
 
 
 class Constant(AtomicExpression, ABC):
@@ -116,7 +116,7 @@ class Constant(AtomicExpression, ABC):
 
     @property
     def value(self) -> Any:
-        return super().atom
+        return self.atom
 
 
 class FunctionApplication(Expression, ABC):
