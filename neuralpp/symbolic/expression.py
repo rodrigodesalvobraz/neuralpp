@@ -1,5 +1,5 @@
 from __future__ import annotations  # to support forward reference for recursive type reference
-from typing import Any, List
+from typing import Any, List, Type
 from abc import ABC, abstractmethod
 
 
@@ -53,16 +53,19 @@ class Expression(ABC):
     def __eq__(self, other) -> bool:
         pass
 
+    @classmethod
     @abstractmethod
-    def new_constant(self, value: Any) -> Constant:
+    def new_constant(cls, value: Any) -> Constant:
         pass
 
+    @classmethod
     @abstractmethod
-    def new_variable(self, name: str) -> Variable:
+    def new_variable(cls, name: str) -> Variable:
         pass
 
+    @classmethod
     @abstractmethod
-    def new_function_application(self, func: Expression, args: List[Expression]) -> FunctionApplication:
+    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> FunctionApplication:
         pass
 
 
