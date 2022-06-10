@@ -1,17 +1,27 @@
 from __future__ import annotations
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
+    ExpressionFactory
 from abc import ABC
-from typing import Any, List
+from typing import Any, List, Type
 
 
 class BasicExpression(Expression, ABC):
-    def new_constant(self, value: Any) -> BasicConstant:
+    @property
+    def factory(self) -> Type[ExpressionFactory]:
+        return BasicExpressionFactory
+
+
+class BasicExpressionFactory(ExpressionFactory):
+    @staticmethod
+    def new_constant(value: Any) -> BasicConstant:
         return BasicConstant(value)
 
-    def new_variable(self, name: str) -> BasicVariable:
+    @staticmethod
+    def new_variable(name: str) -> BasicVariable:
         return BasicVariable(name)
 
-    def new_function_application(self, func: Expression, args: List[Expression]) -> BasicFunctionApplication:
+    @staticmethod
+    def new_function_application(func: Expression, args: List[Expression]) -> BasicFunctionApplication:
         return BasicFunctionApplication(func, args)
 
 
