@@ -14,8 +14,8 @@ class BasicExpression(Expression, ABC):
         return BasicVariable(name)
 
     @classmethod
-    def new_function_application(cls, func: Expression, args: List[Expression]) -> BasicFunctionApplication:
-        return BasicFunctionApplication(func, args)
+    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
+        return BasicFunctionApplication(function, arguments)
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):

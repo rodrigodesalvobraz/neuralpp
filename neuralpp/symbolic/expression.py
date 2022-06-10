@@ -65,7 +65,7 @@ class Expression(ABC):
 
     @classmethod
     @abstractmethod
-    def new_function_application(cls, func: Expression, args: List[Expression]) -> FunctionApplication:
+    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> FunctionApplication:
         pass
 
 
