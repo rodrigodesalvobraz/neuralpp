@@ -53,26 +53,19 @@ class Expression(ABC):
     def __eq__(self, other) -> bool:
         pass
 
-    @property
+    @classmethod
     @abstractmethod
-    def factory(self) -> Type[ExpressionFactory]:
+    def new_constant(cls, value: Any) -> Constant:
         pass
 
-
-class ExpressionFactory(ABC):
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def new_constant(value: Any) -> Constant:
+    def new_variable(cls, name: str) -> Variable:
         pass
 
-    @staticmethod
+    @classmethod
     @abstractmethod
-    def new_variable(name: str) -> Variable:
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def new_function_application(func: Expression, args: List[Expression]) -> FunctionApplication:
+    def new_function_application(cls, func: Expression, args: List[Expression]) -> FunctionApplication:
         pass
 
 
@@ -158,13 +151,13 @@ class FunctionApplication(Expression, ABC):
 
     def set(self, i: int, new_expression: Expression) -> Expression:
         if i == 0:
-            return self.factory.new_function_application(new_expression, self.arguments)
+            return self.new_function_application(new_expression, self.arguments)
 
         arity = len(self.arguments)  # evaluate len after i != 0, if i == 0 we can be lazy
         if i-1 < arity:
             arguments = self.arguments
             arguments[i-1] = new_expression
-            return self.factory.new_function_application(self.function, arguments)
+            return self.new_function_application(self.function, arguments)
         else:
             raise IndexError(f"Out of scope. Function only has arity {arity} but you are setting {i-1}th arguments.")
 
@@ -174,4 +167,4 @@ class FunctionApplication(Expression, ABC):
             to_expression if e == from_expression else e.replace(from_expression, to_expression)
             for e in self.subexpressions
         ]
-        return self.factory.new_function_application(new_subexpressions[0], new_subexpressions[1:])
+        return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
