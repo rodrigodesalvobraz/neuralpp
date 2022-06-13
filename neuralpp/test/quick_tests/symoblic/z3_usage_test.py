@@ -150,3 +150,15 @@ def test_z3_solver():
     s2.add(x > y)
     assert s2.check() == sat
 
+    # merging two solvers
+    x, y = Ints('x y')
+    constraints = And(x > 2, y < 0)
+    s1 = Solver()
+    s1.add(constraints)
+    s2 = Solver()
+    s2.add(Not(x > y))
+    s3 = copy(s1)
+    assert s3.check() == sat
+    s3.append(s2.assertions())
+    assert s3.check() == unsat
+
