@@ -1,8 +1,11 @@
 """
 Test of Z3Py. Most parts are covered in `https://ericpony.github.io/z3py-tutorial/guide-examples.htm`.
 """
+import pytest
+import z3.z3types
 from z3 import Solver, Not, sat, unsat, Int, Implies, Or, simplify, Ints, And, Reals, BitVecVal, Function, IntSort, \
-    ForAll, Exists, ExprRef, Sum
+    ForAll, Exists, ExprRef, Sum, Context
+from copy import copy
 
 
 def is_valid(predicate: ExprRef) -> bool:
@@ -97,3 +100,96 @@ def test_sum():
     assert (is_valid(Sum([j for j in range(N+1)]) == (1 + N)*N/2))
     assert (is_valid(Sum([x for _ in range(N+1)]) == (1 + N)*x))
     assert (is_valid(Sum([x + j for j in range(N+1)]) == (1 + N)*x + (1 + N)*N/2))
+
+
+def test_z3_solver():
+    """
+    We want to test if Z3's solver environment can be copied. The use case:
+    say we already have constraint C, and we see a new literal L; we want to check the satisfiability of both
+    "C and L" and "C and not L"; if we can clone the Z3 environment/solver, then we can treat it as immutable.
+    Otherwise, we must treat it as mutable and can only check "C and L", call pop(), and then check "C and not L".
+    """
+    # the use case of using only one Solver()
+    s = Solver()
+    x, y = Ints('x y')
+    constraints = And(x > 2, y < 0)
+    s.add(constraints)
+    literal = x > y
+
+    # s.push() creates a new scope, so z3 knows where it should pop() to. E.g.:
+    #
+    #      constraints0,     <- s.add(constraints0)
+    #      constraints1,     <- s.add(constraints1)
+    # -------new scope------ <- s.push()
+    #      constraints2,     <- s.add(constraints2)
+    #      constraints3,     <- s.add(constraints3)
+    #
+    #  now if we call s.pop(), constraints2 and constraints3 will be deleted.
+    s.push()
+    s.add(x > y)
+    assert s.check() == sat
+    s.pop()
+    s.add(Not(x > y))
+    assert s.check() == unsat
+
+    # z3 has "context", or state/environment.
+    c1 = Context()
+    s = Solver(ctx=c1)
+    x, y = Ints('x y', ctx=c1)
+    constraints = And(x > 2, y < 0)
+    s.add(constraints)
+    c2 = Context()
+    s2 = s.translate(c2)  # "translate" s with the context c2, create a new solver object.
+    s.add(Not(x > y))
+    assert s.check() == unsat
+    # we cannot reuse x and y in another context
+    with pytest.raises(z3.z3types.Z3Exception):
+        s2.add(Not(x > y))
+    x2, y2 = Ints('x y', ctx=c2)
+    s2.add(Not(x2 > y2))
+    assert s2.check() == unsat
+
+    # We can just operate in one context.
+    # Actually, according to document of Z3Py:
+    # "Z3Py uses a default global context. For most applications this is sufficient."
+    c = Context()
+    s = Solver(ctx=c)
+    x, y = Ints('x y', ctx=c)
+    constraints = And(x > 2, y < 0)
+    s.add(constraints)
+    s2 = s.translate(c)  # "translate" with the same context is just copy
+    s.add(Not(x > y))
+    assert s.check() == unsat
+    # now the state of s is already unsat, if "s2 = s" is not a deep copy, s2.check() should be unsat
+    s2.add(x > y)
+    assert s2.check() == sat
+
+    # Solver can take care of copying for us, we don't need to worry about context. From z3.Solver's source code:
+    #   def __copy__(self):
+    #       return self.translate(self.ctx)
+    #
+    #   def __deepcopy__(self, memo={}):
+    #       return self.translate(self.ctx)
+    # So last section of code above can be simplified to the following, where we don't need an explicit context.
+    s = Solver()
+    x, y = Ints('x y')
+    constraints = And(x > 2, y < 0)
+    s.add(constraints)
+    s2 = copy(s)  # just use copy instead of "context"
+    s.add(Not(x > y))
+    assert s.check() == unsat
+    s2.add(x > y)
+    assert s2.check() == sat
+
+    # merging two solvers
+    x, y = Ints('x y')
+    constraints = And(x > 2, y < 0)
+    s1 = Solver()
+    s1.add(constraints)
+    s2 = Solver()
+    s2.add(Not(x > y))
+    s3 = copy(s1)
+    assert s3.check() == sat
+    s3.append(s2.assertions())
+    assert s3.check() == unsat
+
