@@ -71,7 +71,7 @@ class Expression(ABC):
     @classmethod
     def _convert(cls, from_expression: Expression) -> Expression:
         """ general helper for converting an Expression into this subclass of Expression. """
-        if issubclass(type(from_expression), cls):
+        if isinstance(from_expression, cls):
             return from_expression
         match from_expression:
             case Constant(value=value):

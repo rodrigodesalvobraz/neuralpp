@@ -50,8 +50,8 @@ def python_callable_to_sympy_function(python_callable: Callable) -> Type[sympy.B
 
 
 def is_sympy_value(sympy_object: sympy.Basic) -> bool:
-    return issubclass(type(sympy_object), sympy.Number) or \
-           issubclass(type(sympy_object), sympy.logic.boolalg.BooleanAtom)
+    return isinstance(sympy_object, sympy.Number) or \
+           isinstance(sympy_object, sympy.logic.boolalg.BooleanAtom)
 
 
 def sympy_object_to_expression(sympy_object: sympy.Basic) -> SymPyExpression:
@@ -71,7 +71,7 @@ class SymPyExpression(Expression, ABC):
     @classmethod
     def new_constant(cls, value: Any) -> SymPyConstant:
         # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
-        if issubclass(type(value), sympy.Basic):
+        if isinstance(value, sympy.Basic):
             sympy_object = value
         elif type(value) == bool:
             sympy_object = sympy.S.true if value else sympy.S.false
