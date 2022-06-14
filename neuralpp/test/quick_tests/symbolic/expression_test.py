@@ -1,16 +1,20 @@
+import fractions
+
 import pytest
 import operator
 import sympy
 import builtins
+import z3
 
 from typing import Callable
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
     BasicExpression
 from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, python_callable_to_sympy_function, \
-    sympy_function_to_python_callable
+    sympy_function_to_python_callable, SymPyFunctionApplication
+from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression
 
 
-@pytest.fixture(params=[BasicExpression, SymPyExpression])
+@pytest.fixture(params=[BasicExpression, SymPyExpression, Z3Expression])
 def expression_factory(request):
     return request.param
 
@@ -58,7 +62,7 @@ def test_variable(expression_factory):
     variable_y = expression_factory.new_variable("y", int)
     assert variable_x != variable_y
     assert variable_x == expression_factory.new_variable("x", int)
-    assert variable_x != expression_factory.new_variable("x", float)  # must be of the same type
+    assert variable_x != expression_factory.new_variable("x", bool)  # must be of the same type
     assert variable_x.subexpressions == []
     assert not variable_x.contains(variable_y)
     assert variable_x.contains(variable_x)
@@ -128,6 +132,13 @@ def test_basic_function_application():
                                                    BasicFunctionApplication(func2, [constant_two, constant_two])])
 
 
+@pytest.fixture(params=[operator.and_, operator.or_, operator.not_, operator.xor, operator.le,
+                        operator.lt, operator.ge, operator.gt, operator.eq,
+                        operator.add, operator.mul, operator.pow, builtins.min, builtins.max])
+def python_callable(request):
+    return request.param
+
+
 @pytest.fixture(params=[sympy.And, sympy.Or, sympy.Not, sympy.Xor, sympy.Le, sympy.Lt, sympy.Ge, sympy.Gt, sympy.Eq,
                         sympy.Add, sympy.Mul, sympy.Pow, sympy.Min, sympy.Max])
 def sympy_func(request):
@@ -138,18 +149,12 @@ def test_python_callable_and_sympy_function_conversion(sympy_func):
     assert python_callable_to_sympy_function(sympy_function_to_python_callable(sympy_func)) == sympy_func
 
 
-@pytest.fixture(params=[operator.and_, operator.or_, operator.not_, operator.xor, operator.le,
-                        operator.lt, operator.ge, operator.gt, operator.eq,
-                        operator.add, operator.mul, operator.pow, builtins.min, builtins.max])
-def python_callable(request):
-    return request.param
-
-
 def test_python_callable_and_sympy_function_conversion2(python_callable):
     assert sympy_function_to_python_callable(python_callable_to_sympy_function(python_callable)) == python_callable
 
 
-def test_sympy_function_application():
+def test_function_application(expression_factory):
+    """ General test cases for function application. """
     constant_one = SymPyExpression.new_constant(1)
     constant_two = SymPyExpression.new_constant(2)
     add_func = SymPyExpression.new_constant(operator.add, int_to_int_to_int)
@@ -191,9 +196,13 @@ def test_sympy_function_application():
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
 
+
+def test_sympy_function_application():
+    constant_two = SymPyExpression.new_constant(2)
     # a trickier one: add can be of different types.
     int_to_float_to_float = Callable[[int, float], float]
     float_to_float_to_float = Callable[[float, float], float]
+    # this one does not work on z3 because z3 enforce arguments of add to have the same type.
     mixed_add_func = SymPyExpression.new_constant(operator.add, int_to_float_to_float)
     float_add_func = SymPyExpression.new_constant(operator.add, float_to_float_to_float)
     constant_two_f = SymPyExpression.new_constant(2.0)
@@ -208,3 +217,51 @@ def test_sympy_function_application():
     assert mixed_adds.subexpressions[2].function.type == float_to_float_to_float
     assert mixed_adds.subexpressions[2].subexpressions[1].type == float
     assert mixed_adds.subexpressions[2].subexpressions[2].type == float
+
+
+def test_z3_function_application():
+    """
+    We cannot mimic the test above because we do not support z3's float in function yet.
+    (see z3_usage_test.py: test_z3_fp_sort())
+    Also, z3 requires add/compare/... to be of same type, so we cannot have "add: real -> int -> real".
+    In that case explicit conversion is requires (z3.ToInt()/z3.ToReal())
+    """
+    real = fractions.Fraction
+    real_to_real_to_real = Callable[[real, real], real]
+    real_add_func = Z3Expression.new_constant(operator.add, real_to_real_to_real)
+    z3_constant_one_third_r = z3.RealVal(fractions.Fraction(1, 3))
+    constant_one_third_r = Z3Constant(z3_constant_one_third_r)
+
+    add0 = Z3FunctionApplication(z3_constant_one_third_r + z3_constant_one_third_r)
+    add1 = Z3Expression.new_function_application(real_add_func, [constant_one_third_r, add0])
+    assert add1.type == real
+    assert add1.subexpressions[0].type == real_to_real_to_real
+    assert add1.subexpressions[1].type == real
+    assert add1.subexpressions[2].type == real
+    assert add1.subexpressions[2].function.type == real_to_real_to_real
+    assert add1.subexpressions[2].subexpressions[1].type == real
+    assert add1.subexpressions[2].subexpressions[2].type == real
+
+
+def test_sympy_z3_conversion():
+    real = fractions.Fraction
+    real_to_real_to_real = Callable[[real, real], real]
+
+    real_add_func = Z3Expression.new_constant(operator.add, real_to_real_to_real)
+    z3_constant_one_third_r = z3.RealVal(fractions.Fraction(1, 3))
+    constant_one_third_r = Z3Constant(z3_constant_one_third_r)
+
+    add0 = Z3FunctionApplication(z3_constant_one_third_r + z3_constant_one_third_r)
+    add1 = Z3Expression.new_function_application(real_add_func, [constant_one_third_r, add0])
+
+    sympy_real_add_func = SymPyExpression.new_constant(operator.add, real_to_real_to_real)
+    sympy_constant_one_third_r = sympy.Rational(fractions.Fraction(1, 3))
+    constant_one_third2 = SymPyConstant(sympy_constant_one_third_r)
+
+    sympy_add = sympy.Add(sympy_constant_one_third_r, sympy_constant_one_third_r, evaluate=False)
+    two_third = SymPyFunctionApplication(sympy_add, {}, real_to_real_to_real)
+
+    # in creating add2, we implicitly convert the sympy child `two_third`.
+    add2 = Z3Expression.new_function_application(real_add_func, [constant_one_third2, two_third])
+    assert add2.arguments[1] == add0
+    assert add2 == add1

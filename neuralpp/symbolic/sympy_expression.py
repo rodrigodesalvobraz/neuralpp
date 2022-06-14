@@ -39,7 +39,7 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
                 return infer_python_callable_type(sympy_function_to_python_callable(sympy_object))
 
 
-python_callable_and_sympy_function_relations = [
+python_callable_and_sympy_function_relation = [
     # boolean operation
     (operator.and_, sympy.And),
     (operator.or_, sympy.Or),
@@ -61,10 +61,10 @@ python_callable_and_sympy_function_relations = [
 ]
 sympy_function_python_callable_dict = \
     {sympy_function: python_callable
-     for python_callable, sympy_function in python_callable_and_sympy_function_relations}
+     for python_callable, sympy_function in python_callable_and_sympy_function_relation}
 python_callable_sympy_function_dict = \
     {python_callable: sympy_function
-     for python_callable, sympy_function in python_callable_and_sympy_function_relations}
+     for python_callable, sympy_function in python_callable_and_sympy_function_relation}
 
 
 def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
@@ -165,7 +165,8 @@ class SymPyExpression(Expression, ABC):
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
                     sympy_function, function_type, arguments)
             # if function is not of SymPyConstant but of Constant, then it is assumed to be a python callable
-            case Constant(value=python_callable, type=function_type):
+            case Constant(value=callable_, type=function_type):
+                python_callable = function.pythonize_value(callable_)
                 # during the call, ValueError will be implicitly raised if we cannot convert
                 sympy_function = python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
@@ -176,6 +177,22 @@ class SymPyExpression(Expression, ABC):
                 raise ValueError("The function must be a python callable.")
             case _:
                 raise ValueError("Unknown case.")
+
+    @classmethod
+    def pythonize_value(cls, value: sympy.Basic) -> Any:
+        if isinstance(value, sympy.Integer):
+            return int(value)
+        elif isinstance(value, sympy.Float):
+            return float(value)
+        elif isinstance(value, sympy.Rational):
+            return fractions.Fraction(value)
+        elif isinstance(value, sympy.logic.boolalg.BooleanAtom):
+            return bool(value)
+        else:
+            try:
+                return sympy_function_to_python_callable(value)
+            except Exception:
+                raise ValueError(f"Cannot pythonize {value}.")
 
     @property
     def sympy_object(self):
@@ -205,13 +222,17 @@ class SymPyConstant(SymPyExpression, Constant):
     def atom(self) -> Any:
         return self._sympy_object
 
+    @staticmethod
+    def atom_compare(atom1: sympy.Basic, atom2: sympy.Basic) -> bool:
+        return atom1 == atom2
+
 
 class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType],
                  function_type: Optional[Expression] = None):
         if function_type is None:
             # it's useless to supply type_dict since we are looking for self.type, which is not set in type_dict yet.
-            function_type = infer_sympy_object_type(sympy_object.func, {})  # almost useless, can only infer "not"
+            function_type = infer_sympy_object_type(sympy_object.func, {})
 
         if len(sympy_object.args) == 0:
             raise TypeError("not a function application.")

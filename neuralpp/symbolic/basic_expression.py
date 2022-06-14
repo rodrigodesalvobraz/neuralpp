@@ -47,6 +47,10 @@ class BasicExpression(Expression, ABC):
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
         return BasicFunctionApplication(function, arguments)
 
+    @classmethod
+    def pythonize_value(cls, value: Any) -> Any:
+        return value
+
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def __init__(self, atom: Any, expression_type: Optional[Expression] = None):
@@ -76,9 +80,9 @@ class BasicConstant(BasicAtomicExpression, Constant):
     def __init__(self, value: Any, type_: Optional[Expression] = None):
         BasicAtomicExpression.__init__(self, value, type_)
 
-    # just add this one to simplify debugging
-    def __str__(self) -> str:
-        return f"{self.value}: {self.type}"
+    @staticmethod
+    def atom_compare(atom1: Any, atom2: Any) -> bool:
+        return atom1 == atom2
 
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):
