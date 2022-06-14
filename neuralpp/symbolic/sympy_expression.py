@@ -7,7 +7,7 @@ import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant
 
-# In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr/Basic
+# In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
 
 
