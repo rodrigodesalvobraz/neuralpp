@@ -120,7 +120,6 @@ def test_basic_function_application():
 def test_sympy_function_application():
     constant_one = SymPyExpression.new_constant(1)
     constant_two = SymPyExpression.new_constant(2)
-    # using operator.add is easy to compare (operator.add == operator.add) and thus more desirable than using lambda.
     add_func = SymPyExpression.new_constant(operator.add)
     fa = SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
 
@@ -136,18 +135,16 @@ def test_sympy_function_application():
 
     assert constant_one == SymPyConstant(sympy.Integer(1))
 
-    # replace() is also deep and not in-place (returns a new object instead of modify the called on)
-    fa4 = SymPyExpression.new_function_application(add_func, [constant_one, fa])
-    fa4 = fa4.replace(constant_one, constant_two)
-    assert fa4 == SymPyExpression.new_function_application(
+    fa2 = SymPyExpression.new_function_application(add_func, [constant_one, fa])
+    fa2 = fa2.replace(constant_one, constant_two)
+    assert fa2 == SymPyExpression.new_function_application(
         add_func, [constant_two, SymPyExpression.new_function_application(add_func, [constant_two, constant_two])])
 
-    # set() is also not changing the object that it is called on
-    fa5 = fa.set(0, SymPyExpression.new_constant(operator.mul))
-    assert fa5 == SymPyExpression.new_function_application(SymPyExpression.new_constant(operator.mul),
+    fa3 = fa.set(0, SymPyExpression.new_constant(operator.mul))
+    assert fa3 == SymPyExpression.new_function_application(SymPyExpression.new_constant(operator.mul),
                                                            [constant_one, constant_two])
     assert fa == SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
     fa6 = fa.set(1, SymPyExpression.new_variable("a"))
     assert fa6 == SymPyExpression.new_function_application(add_func, [SymPyExpression.new_variable("a"), constant_two])
     with pytest.raises(IndexError):
-        fa4.set(3, constant_one)
+        fa2.set(3, constant_one)
