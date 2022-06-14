@@ -14,7 +14,7 @@ class BasicInterpreter(Interpreter):
         - the function raises Error when called on the arguments. (this is implicitly raised)
         Note the function does not check `context`, since if the result can be evaluated under True context,
         it must also can be evaluated under a weaker one.
-         """
+        """
         # pattern matching in Python: https://peps.python.org/pep-0636/
         match expression:
             # there's three cases of `function` that BasicInterpreter can eval():
@@ -23,7 +23,7 @@ class BasicInterpreter(Interpreter):
             case FunctionApplication(function=Constant(value=python_callable), arguments=args):
                 # * is used to turn a list into "args": https://docs.python.org/2/reference/expressions.html#calls
                 return python_callable(*[self.eval(e, BasicConstant(True)) for e in args])
-            case FunctionApplication(function=Variable(name=f), arguments=args):
+            case FunctionApplication(function=Variable(name=f), arguments=_):
                 raise AttributeError(f"Function {f} is uninterpreted. It cannot be evaluated by BasicInterpreter.")
             case Constant(value=value):
                 return value

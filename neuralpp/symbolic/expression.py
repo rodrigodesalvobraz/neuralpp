@@ -1,5 +1,5 @@
 from __future__ import annotations  # to support forward reference for recursive type reference
-from typing import Any, List, Type
+from typing import Any, List
 from abc import ABC, abstractmethod
 
 
@@ -67,6 +67,21 @@ class Expression(ABC):
     @abstractmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> FunctionApplication:
         pass
+
+    @classmethod
+    def _convert(cls, from_expression: Expression) -> Expression:
+        """ general helper for converting an Expression into this subclass of Expression. """
+        if issubclass(type(from_expression), cls):
+            return from_expression
+        match from_expression:
+            case Constant(value=value):
+                return cls.new_constant(value)
+            case Variable(name=name):
+                return cls.new_variable(name)
+            case FunctionApplication(function=function, arguments=arguments):
+                return cls.new_function_application(function, arguments)
+            case _:
+                raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
 
 
 class AtomicExpression(Expression, ABC):
