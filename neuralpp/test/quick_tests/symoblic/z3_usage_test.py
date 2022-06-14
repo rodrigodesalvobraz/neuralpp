@@ -1,6 +1,8 @@
 """
 Test of Z3Py. Most parts are covered in `https://ericpony.github.io/z3py-tutorial/guide-examples.htm`.
 """
+import pytest
+import z3.z3types
 from z3 import Solver, Not, sat, unsat, Int, Implies, Or, simplify, Ints, And, Reals, BitVecVal, Function, IntSort, \
     ForAll, Exists, ExprRef, Sum, Context
 from copy import copy
@@ -113,7 +115,17 @@ def test_z3_solver():
     constraints = And(x > 2, y < 0)
     s.add(constraints)
     literal = x > y
-    s.push()  # create a new scope, so z3 knows where it should pop() to
+
+    # s.push() creates a new scope, so z3 knows where it should pop() to. E.g.:
+    #
+    #      constraints0,     <- s.add(constraints0)
+    #      constraints1,     <- s.add(constraints1)
+    # -------new scope------ <- s.push()
+    #      constraints2,     <- s.add(constraints2)
+    #      constraints3,     <- s.add(constraints3)
+    #
+    #  now if we call s.pop(), constraints2 and constraints3 will be deleted.
+    s.push()
     s.add(x > y)
     assert s.check() == sat
     s.pop()
@@ -121,12 +133,31 @@ def test_z3_solver():
     assert s.check() == unsat
 
     # z3 has "context", or state/environment.
+    c1 = Context()
+    s = Solver(ctx=c1)
+    x, y = Ints('x y', ctx=c1)
+    constraints = And(x > 2, y < 0)
+    s.add(constraints)
+    c2 = Context()
+    s2 = s.translate(c2)  # "translate" s with the context c2, create a new solver object.
+    s.add(Not(x > y))
+    assert s.check() == unsat
+    # we cannot reuse x and y in another context
+    with pytest.raises(z3.z3types.Z3Exception):
+        s2.add(Not(x > y))
+    x2, y2 = Ints('x y', ctx=c2)
+    s2.add(Not(x2 > y2))
+    assert s2.check() == unsat
+
+    # We can just operate in one context.
+    # Actually, according to document of Z3Py:
+    # "Z3Py uses a default global context. For most applications this is sufficient."
     c = Context()
     s = Solver(ctx=c)
     x, y = Ints('x y', ctx=c)
     constraints = And(x > 2, y < 0)
     s.add(constraints)
-    s2 = s.translate(c)  # "translate" s with the context c, create a new solver object.
+    s2 = s.translate(c)  # "translate" with the same context is just copy
     s.add(Not(x > y))
     assert s.check() == unsat
     # now the state of s is already unsat, if "s2 = s" is not a deep copy, s2.check() should be unsat
