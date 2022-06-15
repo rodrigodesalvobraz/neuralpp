@@ -6,7 +6,7 @@ import sys
 from setuptools import find_packages, setup
 
 REQUIRED_MAJOR = 3
-REQUIRED_MINOR = 8
+REQUIRED_MINOR = 10
 
 
 TEST_REQUIRES = [
@@ -19,7 +19,7 @@ TEST_REQUIRES = [
     "pytest",
     "pytest-cov",
     "sympy",
-    "z3-solver"
+    "z3-solver",
 ]
 DEV_REQUIRES = TEST_REQUIRES + [
     "black",
