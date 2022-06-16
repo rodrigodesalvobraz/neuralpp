@@ -5,6 +5,7 @@ from abc import ABC
 import sympy
 import operator
 import builtins
+import fractions
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
     FunctionNotTypedError, NotTypedError, FunctionType
 from neuralpp.symbolic.basic_expression import BasicConstant, new_type, infer_python_callable_type
@@ -21,6 +22,8 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
             return BasicConstant(int)
         case sympy.Float():
             return BasicConstant(float)
+        case sympy.Rational():
+            return BasicConstant(fractions.Fraction)
         case sympy.logic.boolalg.BooleanAtom():
             return BasicConstant(bool)
         case _:
@@ -122,6 +125,8 @@ class SymPyExpression(Expression, ABC):
             sympy_object = sympy.Integer(value)
         elif type(value) == float:
             sympy_object = sympy.Float(value)
+        elif type(value) == fractions.Fraction:
+            sympy_object = sympy.Rational(value)
         elif type(value) == str:
             sympy_object = sympy.Function(value)
             if constant_type is None:
