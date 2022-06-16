@@ -3,7 +3,7 @@ from __future__ import annotations
 import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
-    VariableNotTypedError, FunctionType
+    VariableNotTypedError, ExpressionType
 from abc import ABC
 from typing import Any, List, Optional, Type, Callable, Tuple
 
@@ -13,14 +13,14 @@ class AmbiguousTypeError(TypeError, ValueError):
         super().__init__(f"{python_callable} is ambiguous.")
 
 
-def infer_python_callable_type(python_callable: Callable) -> FunctionType:
+def infer_python_callable_type(python_callable: Callable) -> ExpressionType:
     match python_callable:
         # boolean operation
-        case operator.__and__ | operator.__or__ | operator.__xor__:
+        case operator.and_ | operator.or_ | operator.xor:
             raise AmbiguousTypeError(python_callable)  # this is also ambiguous because the arity could be arbitrary
-            # return FunctionType([bool, bool], bool)
-        case operator.__not__:
-            return FunctionType([bool], bool)
+            # return Callable[[bool, bool], bool]
+        case operator.not_:
+            return Callable[[bool], bool]
         # comparison
         case operator.le | operator.lt | operator.ge | operator.gt | operator.eq:
             raise AmbiguousTypeError(python_callable)
@@ -36,26 +36,21 @@ def infer_python_callable_type(python_callable: Callable) -> FunctionType:
 
 class BasicExpression(Expression, ABC):
     @classmethod
-    def new_constant(cls, value: Any, constant_type: Optional[Expression] = None) -> BasicConstant:
-        return BasicConstant(value, constant_type)
+    def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> BasicConstant:
+        return BasicConstant(value, type_)
 
     @classmethod
-    def new_variable(cls, name: str, variable_type: Expression) -> BasicVariable:
-        return BasicVariable(name, variable_type)
+    def new_variable(cls, name: str, type_: ExpressionType) -> BasicVariable:
+        return BasicVariable(name, type_)
 
     @classmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
         return BasicFunctionApplication(function, arguments)
 
 
-def new_type(python_type: Type) -> Expression:
-    """ A handy method to create properly wrapped type as an Expression. E.g., new_type(int). """
-    return BasicConstant(python_type)
-
-
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def __init__(self, atom: Any, expression_type: Optional[Expression] = None):
-        if expression_type is None and not Expression.is_internal_type(atom):
+        if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
             if isinstance(atom, Callable):
                 internal_type = infer_python_callable_type(atom)
@@ -71,15 +66,15 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
 
 
 class BasicVariable(BasicAtomicExpression, Variable):
-    def __init__(self, name: str, variable_type: Expression):
-        if variable_type is None:
+    def __init__(self, name: str, type_: Expression):
+        if type_ is None:
             raise VariableNotTypedError
-        BasicAtomicExpression.__init__(self, name, variable_type)
+        BasicAtomicExpression.__init__(self, name, type_)
 
 
 class BasicConstant(BasicAtomicExpression, Constant):
-    def __init__(self, value: Any, constant_type: Optional[Expression] = None):
-        BasicAtomicExpression.__init__(self, value, constant_type)
+    def __init__(self, value: Any, type_: Optional[Expression] = None):
+        BasicAtomicExpression.__init__(self, value, type_)
 
     # just add this one to simplify debugging
     def __str__(self) -> str:
@@ -88,7 +83,7 @@ class BasicConstant(BasicAtomicExpression, Constant):
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def __init__(self, function: Expression, arguments: List[Expression]):
-        function_type = BasicConstant(function.get_return_type(len(arguments)))
+        function_type = function.get_return_type(len(arguments))
         super().__init__(function_type)
         self._subexpressions = [function] + arguments
 

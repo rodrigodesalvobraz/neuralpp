@@ -7,41 +7,44 @@ import operator
 import builtins
 import fractions
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
-    FunctionNotTypedError, NotTypedError, FunctionType
-from neuralpp.symbolic.basic_expression import BasicConstant, new_type, infer_python_callable_type
-from neuralpp.util.util import consistently_update_dict
+    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType
+from neuralpp.symbolic.basic_expression import infer_python_callable_type
+from neuralpp.util.util import update_consistent_dict
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
 
 
-def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, Expression]) -> Expression:
+def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
+    """
+    type_dict can be, for example, {a: int, b: int, c: float, a+b:int->int->int, (a+b)+c:int->float->float}.
+    """
     match sympy_object:
         case sympy.Integer():
-            return BasicConstant(int)
+            return int
         case sympy.Float():
-            return BasicConstant(float)
+            return float
         case sympy.Rational():
-            return BasicConstant(fractions.Fraction)
+            return fractions.Fraction
         case sympy.logic.boolalg.BooleanAtom():
-            return BasicConstant(bool)
+            return bool
         case _:
             # It is obvious that we can look up type_dict for symbols like `symbol("x")`.
-            # We can also look up for function, such as `a+b`, where type_dict records the function type (instead of
-            # return type) of the (root-level) function.
+            # We can also look up for function application, such as `a+b`, where type_dict records the
+            # function type (instead of return type) of the function used in the function application.
             try:
                 return type_dict[sympy_object]
             except KeyError:  # if it's not in type_dict, try figure out ourselves
-                return BasicConstant(infer_python_callable_type(sympy_function_to_python_callable(sympy_object)))
+                return infer_python_callable_type(sympy_function_to_python_callable(sympy_object))
 
 
-python_callable_and_sympy_function_pair = [
+python_callable_and_sympy_function_relations = [
     # boolean operation
-    (operator.__and__, sympy.And),
-    (operator.__or__, sympy.Or),
-    (operator.__not__, sympy.Not),
-    (operator.__xor__, sympy.Xor),
+    (operator.and_, sympy.And),
+    (operator.or_, sympy.Or),
+    (operator.not_, sympy.Not),
+    (operator.xor, sympy.Xor),
     # comparison
     (operator.le, sympy.Le),
     (operator.lt, sympy.Lt),
@@ -56,20 +59,24 @@ python_callable_and_sympy_function_pair = [
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
 ]
+sympy_function_python_callable_dict = \
+    {sympy_function: python_callable
+     for python_callable, sympy_function in python_callable_and_sympy_function_relations}
+python_callable_sympy_function_dict = \
+    {python_callable: sympy_function
+     for python_callable, sympy_function in python_callable_and_sympy_function_relations}
 
 
 def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
     try:
-        return {sympy_function: python_callable
-                for python_callable, sympy_function in python_callable_and_sympy_function_pair}[sympy_function]
+        return sympy_function_python_callable_dict[sympy_function]
     except KeyError:
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
 def python_callable_to_sympy_function(python_callable: Callable) -> sympy.Basic:
     try:
-        return {python_callable: sympy_function
-                for python_callable, sympy_function in python_callable_and_sympy_function_pair}[python_callable]
+        return python_callable_sympy_function_dict[python_callable]
     except KeyError:
         raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -91,7 +98,7 @@ def sympy_object_to_expression(sympy_object: sympy.Basic, argument_type: Express
 
 
 def build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, Expression]) -> None:
-    consistently_update_dict(type_dict, sympy_arguments.type_dict)
+    update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
 
 def build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]) -> Dict[sympy.Basic, Expression]:
@@ -115,7 +122,7 @@ class SymPyExpression(Expression, ABC):
         self._type_dict = type_dict
 
     @classmethod
-    def new_constant(cls, value: Any, constant_type: Optional[Expression] = None) -> SymPyConstant:
+    def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> SymPyConstant:
         # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
         if isinstance(value, sympy.Basic):
             sympy_object = value
@@ -129,7 +136,7 @@ class SymPyExpression(Expression, ABC):
             sympy_object = sympy.Rational(value)
         elif type(value) == str:
             sympy_object = sympy.Function(value)
-            if constant_type is None:
+            if type_ is None:
                 raise FunctionNotTypedError
         else:
             try:
@@ -137,15 +144,15 @@ class SymPyExpression(Expression, ABC):
             except Exception:
                 raise ValueError(f"SymPyConstant does not support {type(value)}: "
                                  f"unable to turn into a sympy representation internally")
-        return SymPyConstant(sympy_object, constant_type)
+        return SymPyConstant(sympy_object, type_)
 
     @classmethod
-    def new_variable(cls, name: str, variable_type: Expression) -> SymPyVariable:
+    def new_variable(cls, name: str, type_: ExpressionType) -> SymPyVariable:
         # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
         if ' ' in name:
             raise ValueError(f"`{name}` should not contain a whitespace!")
         sympy_var = sympy.symbols(name)
-        return SymPyVariable(sympy_var, variable_type)
+        return SymPyVariable(sympy_var, type_)
 
     @classmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> SymPyFunctionApplication:
@@ -200,7 +207,7 @@ class SymPyConstant(SymPyExpression, Constant):
 
 
 class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
-    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, Expression],
+    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType],
                  function_type: Optional[Expression] = None):
         if function_type is None:
             # it's useless to supply type_dict since we are looking for self.type, which is not set in type_dict yet.
@@ -217,9 +224,8 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
                                  f"{type_dict[sympy_object]}.")
 
         self._function_type = function_type
-        return_type = function_type.get_function_type_of_type_expression().\
-            return_type_after_application(len(sympy_object.args))
-        SymPyExpression.__init__(self, sympy_object, BasicConstant(return_type), type_dict)
+        return_type = return_type_after_application(function_type, len(sympy_object.args))
+        SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
 
     @property
     def number_of_arguments(self) -> int:

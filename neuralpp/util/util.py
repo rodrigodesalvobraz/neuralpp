@@ -622,11 +622,11 @@ def check_consistency_of_two_dicts(dict1: Dict, dict2: Dict):
             raise ValueError(f"inconsistent dicts on {key}: {dict1[key]} and {dict2[key]}.")
 
 
-def consistently_update_dict(dict1: Dict, dict2: Dict):
+def update_consistent_dict(dict1: Dict, dict2: Dict):
     """
     Assumes two dictionaries are consistent (i.e., for all k, if k in dict1 and k in dict2: dict1[k] == dict2[k])
-    E.g., suppose dict1 = {1:2, 2:3}, after consistently_update_dict(dict1, {2:3, 3:5}), dict1 = {1:2, 2:3, 3:5};
-          consistently_update_dict({1:2, 2:3}, {2:4, 3:5}) raises error.
+    E.g., suppose dict1 = {1:2, 2:3}, after update_consistent_dict(dict1, {2:3, 3:5}), dict1 = {1:2, 2:3, 3:5};
+          update_consistent_dict({1:2, 2:3}, {2:4, 3:5}) raises error.
     """
     check_consistency_of_two_dicts(dict1, dict2)
     dict1.update(dict2)

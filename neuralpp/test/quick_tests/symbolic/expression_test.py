@@ -3,9 +3,9 @@ import operator
 import sympy
 import builtins
 
-from neuralpp.symbolic.expression import FunctionType
+from typing import Callable
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
-    BasicExpression, new_type
+    BasicExpression
 from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, python_callable_to_sympy_function, \
     sympy_function_to_python_callable
 
@@ -15,10 +15,13 @@ def expression_factory(request):
     return request.param
 
 
+int_to_int_to_int = Callable[[int, int], int]  # int -> int -> int
+
+
 def test_constant(expression_factory):
     # Constant can be anything
     constant_one = expression_factory.new_constant(1)
-    constant_abc = expression_factory.new_constant("abc", BasicConstant(([int], int)))
+    constant_abc = expression_factory.new_constant("abc", Callable[[int], int])
     assert constant_one != constant_abc
     assert constant_one == expression_factory.new_constant(2-1)
     assert constant_one.subexpressions == []
@@ -42,20 +45,20 @@ def test_basic_constant():
 
 
 def test_sympy_constant():
-    constant_sympy_obj = SymPyConstant(sympy.Rational(1, 3), BasicConstant(float))
-    constant_sympy_obj2 = SymPyConstant(sympy.Rational(3, 9), BasicConstant(float))
+    constant_sympy_obj = SymPyConstant(sympy.Rational(1, 3), float)
+    constant_sympy_obj2 = SymPyConstant(sympy.Rational(3, 9), float)
     assert constant_sympy_obj == constant_sympy_obj2
-    constant_abc = SymPyExpression.new_constant("abc", BasicConstant(FunctionType([int, int], int)))
+    constant_abc = SymPyExpression.new_constant("abc", int_to_int_to_int)
     assert constant_abc.value == sympy.Function("abc")
 
 
 def test_variable(expression_factory):
     # Variable is initialized by a variable name.
-    variable_x = expression_factory.new_variable("x", BasicConstant(int))
-    variable_y = expression_factory.new_variable("y", BasicConstant(int))
+    variable_x = expression_factory.new_variable("x", int)
+    variable_y = expression_factory.new_variable("y", int)
     assert variable_x != variable_y
-    assert variable_x == expression_factory.new_variable("x", BasicConstant(int))
-    assert variable_x != expression_factory.new_variable("x", BasicConstant(float))  # must be of the same type
+    assert variable_x == expression_factory.new_variable("x", int)
+    assert variable_x != expression_factory.new_variable("x", float)  # must be of the same type
     assert variable_x.subexpressions == []
     assert not variable_x.contains(variable_y)
     assert variable_x.contains(variable_x)
@@ -67,8 +70,7 @@ def test_variable(expression_factory):
 
 
 def test_basic_function_application():
-    int_to_int_to_int = BasicConstant(FunctionType([int, int], int))  # int -> int -> int
-    int_type = new_type(int)
+    int_type = int
 
     # function application has the interface FunctionApplication(func: Expression, args: List[Expression]).
     # Note that the first argument `func` is of Expression type.
@@ -136,7 +138,7 @@ def test_python_callable_and_sympy_function_conversion(sympy_func):
     assert python_callable_to_sympy_function(sympy_function_to_python_callable(sympy_func)) == sympy_func
 
 
-@pytest.fixture(params=[operator.__and__, operator.__or__, operator.__not__, operator.__xor__, operator.le,
+@pytest.fixture(params=[operator.and_, operator.or_, operator.not_, operator.xor, operator.le,
                         operator.lt, operator.ge, operator.gt, operator.eq,
                         operator.add, operator.mul, operator.pow, builtins.min, builtins.max])
 def python_callable(request):
@@ -150,7 +152,6 @@ def test_python_callable_and_sympy_function_conversion2(python_callable):
 def test_sympy_function_application():
     constant_one = SymPyExpression.new_constant(1)
     constant_two = SymPyExpression.new_constant(2)
-    int_to_int_to_int = BasicConstant(FunctionType([int, int], int))
     add_func = SymPyExpression.new_constant(operator.add, int_to_int_to_int)
     fa = SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
 
@@ -173,26 +174,26 @@ def test_sympy_function_application():
 
     # some new type test.
     assert fa2.subexpressions[0].type == int_to_int_to_int
-    assert fa2.subexpressions[1].type == new_type(int)
-    assert fa2.subexpressions[2].type == new_type(int)  # return type
+    assert fa2.subexpressions[1].type == int
+    assert fa2.subexpressions[2].type == int  # return type
     assert fa2.subexpressions[2].function.type == int_to_int_to_int  # return type
-    assert fa2.subexpressions[2].subexpressions[1].type == new_type(int)
-    assert fa2.subexpressions[2].subexpressions[2].type == new_type(int)
+    assert fa2.subexpressions[2].subexpressions[1].type == int
+    assert fa2.subexpressions[2].subexpressions[2].type == int
 
     fa3 = fa.set(0, SymPyExpression.new_constant(operator.mul, int_to_int_to_int))
     assert fa3 == SymPyExpression.new_function_application(SymPyExpression.new_constant(operator.mul,
                                                                                         int_to_int_to_int),
                                                            [constant_one, constant_two])
     assert fa == SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
-    fa6 = fa.set(1, SymPyExpression.new_variable("a", new_type(int)))
-    assert fa6 == SymPyExpression.new_function_application(add_func, [SymPyExpression.new_variable("a", new_type(int)),
+    fa6 = fa.set(1, SymPyExpression.new_variable("a", int))
+    assert fa6 == SymPyExpression.new_function_application(add_func, [SymPyExpression.new_variable("a", int),
                                                                       constant_two])
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
 
     # a trickier one: add can be of different types.
-    int_to_float_to_float = BasicConstant(FunctionType([int, float], float))
-    float_to_float_to_float = BasicConstant(FunctionType([float, float], float))
+    int_to_float_to_float = Callable[[int, float], float]
+    float_to_float_to_float = Callable[[float, float], float]
     mixed_add_func = SymPyExpression.new_constant(operator.add, int_to_float_to_float)
     float_add_func = SymPyExpression.new_constant(operator.add, float_to_float_to_float)
     constant_two_f = SymPyExpression.new_constant(2.0)
@@ -200,10 +201,10 @@ def test_sympy_function_application():
         mixed_add_func, [constant_two,
                          SymPyExpression.new_function_application(float_add_func,
                                                                   [constant_two_f, constant_two_f])])
-    assert mixed_adds.type == new_type(float)
+    assert mixed_adds.type == float
     assert mixed_adds.subexpressions[0].type == int_to_float_to_float
-    assert mixed_adds.subexpressions[1].type == new_type(int)
-    assert mixed_adds.subexpressions[2].type == new_type(float)
+    assert mixed_adds.subexpressions[1].type == int
+    assert mixed_adds.subexpressions[2].type == float
     assert mixed_adds.subexpressions[2].function.type == float_to_float_to_float
-    assert mixed_adds.subexpressions[2].subexpressions[1].type == new_type(float)
-    assert mixed_adds.subexpressions[2].subexpressions[2].type == new_type(float)
+    assert mixed_adds.subexpressions[2].subexpressions[1].type == float
+    assert mixed_adds.subexpressions[2].subexpressions[2].type == float

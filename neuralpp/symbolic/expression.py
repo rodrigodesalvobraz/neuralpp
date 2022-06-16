@@ -1,46 +1,28 @@
 from __future__ import annotations  # to support forward reference for recursive type reference
 
-from typing import List, Any, Optional, Tuple, Type, NewType
+import typing
+from typing import List, Any, Optional, Type, Callable
 from abc import ABC, abstractmethod
 
 
-class FunctionType:
-    def __init__(self, argument_types: List[Type], return_type: Type):
-        self._argument_types = argument_types
-        self._return_type = return_type
+ExpressionType = Callable | Type
 
-    @property
-    def argument_types(self):
-        return self._argument_types
 
-    @property
-    def return_type(self):
-        return self._return_type
-
-    @property
-    def arity(self):
-        return len(self._argument_types)
-
-    def return_type_after_application(self, number_of_arguments: int) -> FunctionType | Type:
-        """ Given number_of_arguments (<=arity), return the return type after (partial) application. """
-        if number_of_arguments > self.arity:
-            raise ValueError(f"number_of_arguments {number_of_arguments} > arity {self.arity}.")
-        elif number_of_arguments == self.arity:
-            return self.return_type
-        else:
-            return FunctionType(self.argument_types[number_of_arguments:], self.return_type)
-
-    def __str__(self) -> str:
-        return f"{self.argument_types} -> {self.return_type}"
+def return_type_after_application(callable_: Callable, number_of_arguments: int) -> ExpressionType:
+    """ Given number_of_arguments (<=arity), return the return type after (partial) application. """
+    argument_types, return_type = typing.get_args(callable_)
+    arity = len(argument_types)
+    if number_of_arguments > arity:
+        raise ValueError(f"number_of_arguments {number_of_arguments} > arity {arity}.")
+    elif number_of_arguments == arity:
+        return return_type
+    else:
+        return Callable[argument_types[number_of_arguments:], return_type]
 
 
 class Expression(ABC):
-    def __init__(self, expression_type: Expression):
+    def __init__(self, expression_type: ExpressionType):
         self._type = expression_type
-
-    @staticmethod
-    def is_internal_type(atom: Any):
-        return isinstance(atom, FunctionType | Type)
 
     @property
     @abstractmethod
@@ -93,12 +75,12 @@ class Expression(ABC):
 
     @classmethod
     @abstractmethod
-    def new_constant(cls, value: Any, constant_type: Optional[Expression]) -> Constant:
+    def new_constant(cls, value: Any, type_: Optional[ExpressionType]) -> Constant:
         pass
 
     @classmethod
     @abstractmethod
-    def new_variable(cls, name: str, variable_type: Expression) -> Variable:
+    def new_variable(cls, name: str, type_: ExpressionType) -> Variable:
         pass
 
     @classmethod
@@ -112,40 +94,45 @@ class Expression(ABC):
         if isinstance(from_expression, cls):
             return from_expression
         match from_expression:
-            case Constant(value=value, type=constant_type):
-                return cls.new_constant(value, constant_type)
-            case Variable(name=name, type=variable_type):
-                return cls.new_variable(name, variable_type)
-            case FunctionApplication(function=function, arguments=arguments, type=function_type):
+            case Constant(value=value, type=type_):
+                return cls.new_constant(value, type_)
+            case Variable(name=name, type=type_):
+                return cls.new_variable(name, type_)
+            case FunctionApplication(function=function, arguments=arguments):
                 return cls.new_function_application(function, arguments)
             case _:
                 raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
 
     @property
-    def type(self) -> Expression:
+    def type(self) -> ExpressionType:
         return self._type
 
-    def get_function_type(self) -> FunctionType | Type:
-        """ Call me when self is a function """
+    def get_function_type(self) -> ExpressionType:
+        """
+        For example, a function (the declaration, not the application) can be:
+            add_func_type = Callable[[int, int], int]
+            add_func = Constant(operator.add, add_func_type)
+        get_function_type() serves as a method to retrieve the "function type" of `add_func`, so we can expect:
+            add_func.get_function_type() == add_func_type
+        Note add_func can also be
+            add_func = Variable("add", add_func_type)  # uninterpreted function
+        or
+            three_way_add = Variable("three_way_add", Callable[[int, int, int], int])
+            add_func = FunctionApplication(three_way_add, Constant(0))
+        In both cases we can expect
+            add_func.get_function_type() == add_func_type
+        """
         match self:
-            case Constant(type=type_expression) | Variable(type=type_expression):
-                return type_expression.get_function_type_of_type_expression()
+            case Constant(type=type_) | Variable(type=type_):
+                return type_
             case FunctionApplication(function=function, number_of_arguments=num):
                 return function.get_return_type(num)
 
-    def get_function_type_of_type_expression(self) -> FunctionType | Type:
-        """ Call me when self is a type Expression of a function """
-        match self:
-            case Constant(value=internal_type):
-                if not Expression.is_internal_type(internal_type):
-                    raise TypeError(f"{internal_type} is not internal type.")
-                return internal_type
-            case _:
-                raise TypeError(f"Unrecognized type expression {self}.")
-
-    def get_return_type(self, number_of_arguments: int) -> FunctionType | Type:
+    def get_return_type(self, number_of_arguments: int) -> ExpressionType:
         function_type = self.get_function_type()
-        return function_type.return_type_after_application(number_of_arguments)
+        if not isinstance(function_type, Callable):
+            raise TypeError(f"{self}'s function is not of function type.")
+        return return_type_after_application(function_type, number_of_arguments)
 
 
 class AtomicExpression(Expression, ABC):
