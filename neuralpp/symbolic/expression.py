@@ -36,17 +36,6 @@ class FunctionType:
 
 class Expression(ABC):
     def __init__(self, expression_type: Expression):
-        """
-        All types are represented by a function-style 2-element tuple (argument_types, return_type),
-        where argument_types is a list of argument types.
-        For simple type such as int, it's treated as an arity=0 function, i.e., ([], int).
-        We refer to this tuple type representation as "internal type".
-
-        The reason I do not use "typing.Callable | int | float ..." is that it's not a unified system,
-        for example, we have
-            not isinstance(typing.Callable, type) and isinstance(int, type)
-            not isinstance(typing.Callable, typing.Type) and isinstance(int, typing.Type)
-        """
         self._type = expression_type
 
     @staticmethod
