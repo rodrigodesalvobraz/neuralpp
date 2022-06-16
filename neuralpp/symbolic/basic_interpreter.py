@@ -20,7 +20,7 @@ class BasicInterpreter(Interpreter):
             # there's three cases of `function` that BasicInterpreter can eval():
             # 1. a Python callable, which we'll directly call
             # 2. an uninterpreted function, which is not callable. We raise Error when encounter it.
-            case FunctionApplication(function=Constant(value=python_callable), arguments=args):
+            case FunctionApplication(function=Constant(value=python_callable), arguments=args, type=_):
                 # * is used to turn a list into "args": https://docs.python.org/2/reference/expressions.html#calls
                 return python_callable(*[self.eval(e, BasicConstant(True)) for e in args])
             case FunctionApplication(function=Variable(name=f), arguments=_):
