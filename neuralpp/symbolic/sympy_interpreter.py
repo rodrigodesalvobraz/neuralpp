@@ -1,6 +1,7 @@
 import sympy
 
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable
+from neuralpp.symbolic.basic_expression import BasicConstant
 from neuralpp.symbolic.simplifier import Simplifier
 from neuralpp.symbolic.interpreter import Interpreter
 from neuralpp.symbolic.sympy_expression import SymPyExpression, is_sympy_value
@@ -34,7 +35,7 @@ def context_to_variable_value_dict(context: Expression) -> \
 
 
 class SymPyInterpreter(Interpreter, Simplifier):
-    def eval(self, expression: SymPyExpression, context: Expression):
+    def eval(self, expression: SymPyExpression, context: Expression = BasicConstant(True)):
         variable_value_dict = context_to_variable_value_dict(context)
         # in creation of function application, we set evaluate=False, so 1 + 2 will not evaluate
         # call simplify() evaluates that
