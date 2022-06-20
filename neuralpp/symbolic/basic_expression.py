@@ -49,7 +49,7 @@ class BasicExpression(Expression, ABC):
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
-    def __init__(self, atom: Any, expression_type: Optional[Expression] = None):
+    def __init__(self, atom: Any, expression_type: Optional[ExpressionType] = None):
         if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
             if isinstance(atom, Callable):
@@ -66,14 +66,14 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
 
 
 class BasicVariable(BasicAtomicExpression, Variable):
-    def __init__(self, name: str, type_: Expression):
+    def __init__(self, name: str, type_: ExpressionType):
         if type_ is None:
             raise VariableNotTypedError
         BasicAtomicExpression.__init__(self, name, type_)
 
 
 class BasicConstant(BasicAtomicExpression, Constant):
-    def __init__(self, value: Any, type_: Optional[Expression] = None):
+    def __init__(self, value: Any, type_: Optional[ExpressionType] = None):
         BasicAtomicExpression.__init__(self, value, type_)
 
     # just add this one to simplify debugging

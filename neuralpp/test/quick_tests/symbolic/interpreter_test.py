@@ -168,4 +168,3 @@ def test_sympy_interpreter_simplify():
                                                              [x_only, real_y])
     assert x_plus_real_y.type_dict[x] == int
     assert x_plus_real_y.type_dict[y] == fractions.Fraction
-
