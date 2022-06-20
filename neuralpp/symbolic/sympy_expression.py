@@ -86,17 +86,6 @@ def is_sympy_value(sympy_object: sympy.Basic) -> bool:
            isinstance(sympy_object, sympy.logic.boolalg.BooleanAtom)
 
 
-def sympy_object_to_expression(sympy_object: sympy.Basic, argument_type: Expression,
-                               type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
-    # Here we just try to find a type of expression for sympy object.
-    if type(sympy_object) == sympy.Symbol:
-        return SymPyVariable(sympy_object, argument_type)
-    elif is_sympy_value(sympy_object):
-        return SymPyConstant(sympy_object, argument_type)
-    else:
-        return SymPyFunctionApplication(sympy_object, type_dict, type_dict[sympy_object])
-
-
 def build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, Expression]) -> None:
     update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
@@ -185,6 +174,24 @@ class SymPyExpression(Expression, ABC):
     def type_dict(self) -> Dict[sympy.Basic, Expression]:
         return self._type_dict
 
+    @staticmethod
+    def from_sympy_object(sympy_object: sympy.Basic, argument_type: Expression,
+                          type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
+        # Here we just try to find a type of expression for sympy object.
+        if type(sympy_object) == sympy.Symbol:
+            return SymPyVariable(sympy_object, argument_type)
+        elif is_sympy_value(sympy_object):
+            return SymPyConstant(sympy_object, argument_type)
+        else:
+            return SymPyFunctionApplication(sympy_object, type_dict, type_dict[sympy_object])
+
+    def garbage_collect_type_dict(self):
+        subexpressions = set(sympy.preorder_traversal(self.sympy_object))
+        type_dict_keys = set(self.type_dict)
+        unused_keys = type_dict_keys - subexpressions
+        for key in unused_keys:
+            del self.type_dict[key]
+
 
 class SymPyVariable(SymPyExpression, Variable):
     def __init__(self, sympy_object: sympy.Basic, expression_type: Expression):
@@ -209,9 +216,18 @@ class SymPyConstant(SymPyExpression, Constant):
 class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType],
                  function_type: Optional[Expression] = None):
+        """
+        Calling by function_type=None asks this function to try to infer the function type.
+        If the caller knows the function_type, it should always set function_type to a non-None value.
+        This function always set type_dict[sympy_object] with the new (inferred or supplied) function_type value.
+        The old value, if exists, is only used for consistency checking.
+        """
         if function_type is None:
-            # it's useless to supply type_dict since we are looking for self.type, which is not set in type_dict yet.
-            function_type = infer_sympy_object_type(sympy_object.func, {})  # almost useless, can only infer "not"
+            # Do not look up this function type from type_dict:
+            # 1. it's useless: in most cases it does not exist, since library calling functions with function_type=None
+            #    do not know the function_type.
+            # 2. if the old value exists, it can be erroneous and thus should not be used.
+            function_type = infer_sympy_object_type(sympy_object.func, {})
 
         if len(sympy_object.args) == 0:
             raise TypeError("not a function application.")
@@ -237,7 +253,9 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
 
     @property
     def arguments(self) -> List[Expression]:
-        return [sympy_object_to_expression(argument, infer_sympy_object_type(argument, self.type_dict), self.type_dict)
+        return [SymPyExpression.from_sympy_object(argument,
+                                                  infer_sympy_object_type(argument, self.type_dict),
+                                                  self.type_dict)
                 for argument in self.native_arguments]
 
     @property

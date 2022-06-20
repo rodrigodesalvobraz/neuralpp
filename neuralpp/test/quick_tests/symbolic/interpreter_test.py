@@ -1,3 +1,5 @@
+import fractions
+
 import pytest
 import operator
 import sympy
@@ -12,6 +14,7 @@ from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 
 
 int_to_int_to_int = Callable[[int, int], int]
+int_to_real_to_real = Callable[[int, fractions.Fraction], fractions.Fraction]
 int_to_int_to_bool = Callable[[int, int], bool]
 bool_to_bool_to_bool = Callable[[bool, bool], bool]
 
@@ -144,3 +147,25 @@ def test_sympy_interpreter():
                                                                  [SymPyVariable(x, int),
                                                                   SymPyVariable(y, int)])
     assert si.eval(min_of_three_five, dict_to_sympy_context(dict1)) == 3
+
+
+def test_sympy_interpreter_simplify():
+
+    si = SymPyInterpreter()
+    x, y, z = sympy.symbols("x y z")
+    x_plus_y = SymPyFunctionApplication(x+y, {x: int, y: int}, Callable[[int, int], int])
+    neg_y = SymPyFunctionApplication(-y, {y: int}, Callable[[int, int], int])  # -y is (-1)*y in sympy
+    x_plus_y_minus_y = SymPyExpression.new_function_application(BasicConstant(operator.add, int_to_int_to_int),
+                                                                [x_plus_y, neg_y])
+    assert x_plus_y_minus_y.number_of_arguments == 2
+    x_only = si.simplify(x_plus_y_minus_y)
+    assert isinstance(x_only, SymPyVariable)
+    assert x_only == SymPyVariable(x, int)
+    assert x_only.type_dict == {x: int}
+    # assert x_plus_y_minus_y.type_dict == {x: int, y: int, x+y: Callable[[int, int], int]}
+    real_y = SymPyVariable(y, fractions.Fraction)
+    x_plus_real_y = SymPyExpression.new_function_application(BasicConstant(operator.add, int_to_real_to_real),
+                                                             [x_only, real_y])
+    assert x_plus_real_y.type_dict[x] == int
+    assert x_plus_real_y.type_dict[y] == fractions.Fraction
+
