@@ -158,13 +158,24 @@ def test_sympy_interpreter_simplify():
     x_plus_y_minus_y = SymPyExpression.new_function_application(BasicConstant(operator.add, int_to_int_to_int),
                                                                 [x_plus_y, neg_y])
     assert x_plus_y_minus_y.number_of_arguments == 2
-    x_only = si.simplify(x_plus_y_minus_y)
+    assert x_plus_y_minus_y.type_dict[x] == int
+    assert x_plus_y_minus_y.type_dict[y] == int
+    assert x_plus_y_minus_y.type_dict[-y] == Callable[[int, int], int]
+    assert x_plus_y_minus_y.type_dict[x+y] == Callable[[int, int], int]
+    assert x_plus_y_minus_y.type_dict[sympy.Add(x+y, -y, evaluate=False)] == Callable[[int, int], int]
+    assert len(x_plus_y_minus_y.type_dict) == 5
+
+    x_only = si.simplify(x_plus_y_minus_y)  # simplifies x + y - y to x
     assert isinstance(x_only, SymPyVariable)
     assert x_only == SymPyVariable(x, int)
+    assert len(x_only.type_dict) == 1  # no other type information
     assert x_only.type_dict == {x: int}
-    # assert x_plus_y_minus_y.type_dict == {x: int, y: int, x+y: Callable[[int, int], int]}
+
     real_y = SymPyVariable(y, fractions.Fraction)
     x_plus_real_y = SymPyExpression.new_function_application(BasicConstant(operator.add, int_to_real_to_real),
                                                              [x_only, real_y])
+    # old y type has been deleted
+    assert len(x_plus_real_y.type_dict) == 3
     assert x_plus_real_y.type_dict[x] == int
     assert x_plus_real_y.type_dict[y] == fractions.Fraction
+    assert x_plus_real_y.type_dict[x+y] == Callable[[int, fractions.Fraction], fractions.Fraction]
