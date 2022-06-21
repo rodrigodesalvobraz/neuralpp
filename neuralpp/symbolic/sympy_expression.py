@@ -191,10 +191,10 @@ class SymPyExpression(Expression, ABC):
             return SymPyFunctionApplication(sympy_object, type_dict, type_dict[sympy_object])
 
     def garbage_collect_type_dict(self):
-        subexpressions = set(sympy.preorder_traversal(self.sympy_object))
-        subexpressions.add(self.sympy_object)  # also, don't GC myself.
+        expressions_to_be_kept = set(sympy.preorder_traversal(self.sympy_object))  # traversal gets all subexpressions
+        expressions_to_be_kept.add(self.sympy_object)  # also, don't GC myself.
         type_dict_keys = set(self.type_dict)
-        unused_keys = type_dict_keys - subexpressions
+        unused_keys = type_dict_keys - expressions_to_be_kept
         for key in unused_keys:
             del self.type_dict[key]
 

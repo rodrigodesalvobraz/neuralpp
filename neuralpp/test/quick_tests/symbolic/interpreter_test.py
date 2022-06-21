@@ -62,18 +62,18 @@ def boolean_function_of_arity(arity: int) -> BasicConstant:
 
 
 def dict_to_sympy_context(kv_map: dict) -> SymPyExpression:
-    result = True
+    conjunction = sympy.S.true
     type_dict = {}
     for k, v in kv_map.items():
         symbol = sympy.symbols(k)
         eq_expression = sympy.Eq(symbol, v, evaluate=False)
-        result = sympy.And(result, eq_expression, evaluate=False)
+        conjunction = sympy.And(conjunction, eq_expression, evaluate=False)
         type_dict[symbol] = int  # it's fine for test, we only use int
         type_dict[eq_expression] = int_to_int_to_bool
     if len(kv_map) > 1:
-        return SymPyFunctionApplication(result, type_dict, boolean_function_of_arity(len(result.args)))
+        return SymPyFunctionApplication(conjunction, type_dict, boolean_function_of_arity(len(conjunction.args)))
     else:  # And(True, Eq(x,1,evaluate=False), evaluate=False) is still Eq(x,1,evaluate=False)
-        return SymPyFunctionApplication(result, type_dict, int_to_int_to_bool)
+        return SymPyFunctionApplication(conjunction, type_dict, int_to_int_to_bool)
 
 
 def test_sympy_interpreter():
