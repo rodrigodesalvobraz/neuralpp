@@ -62,15 +62,18 @@ def boolean_function_of_arity(arity: int) -> BasicConstant:
 
 
 def dict_to_sympy_context(kv_map: dict) -> SymPyExpression:
-    result = sympy.S.true
+    result = True
     type_dict = {}
     for k, v in kv_map.items():
         symbol = sympy.symbols(k)
         eq_expression = sympy.Eq(symbol, v, evaluate=False)
-        result = sympy.And(result, eq_expression)
+        result = sympy.And(result, eq_expression, evaluate=False)
         type_dict[symbol] = int  # it's fine for test, we only use int
         type_dict[eq_expression] = int_to_int_to_bool
-    return SymPyFunctionApplication(result, type_dict, boolean_function_of_arity(len(result.args)))
+    if len(kv_map) > 1:
+        return SymPyFunctionApplication(result, type_dict, boolean_function_of_arity(len(result.args)))
+    else:  # And(True, Eq(x,1,evaluate=False), evaluate=False) is still Eq(x,1,evaluate=False)
+        return SymPyFunctionApplication(result, type_dict, int_to_int_to_bool)
 
 
 def test_sympy_interpreter():
@@ -150,7 +153,6 @@ def test_sympy_interpreter():
 
 
 def test_sympy_interpreter_simplify():
-
     si = SymPyInterpreter()
     x, y, z = sympy.symbols("x y z")
     x_plus_y = SymPyFunctionApplication(x+y, {x: int, y: int}, Callable[[int, int], int])
@@ -167,6 +169,7 @@ def test_sympy_interpreter_simplify():
 
     x_only = si.simplify(x_plus_y_minus_y)  # simplifies x + y - y to x
     assert isinstance(x_only, SymPyVariable)
+    assert x_only.type_dict == SymPyVariable(x, int).type_dict
     assert x_only == SymPyVariable(x, int)
     assert len(x_only.type_dict) == 1  # no other type information
     assert x_only.type_dict == {x: int}
@@ -178,4 +181,18 @@ def test_sympy_interpreter_simplify():
     assert len(x_plus_real_y.type_dict) == 3
     assert x_plus_real_y.type_dict[x] == int
     assert x_plus_real_y.type_dict[y] == fractions.Fraction
-    assert x_plus_real_y.type_dict[x+y] == Callable[[int, fractions.Fraction], fractions.Fraction]
+    assert x_plus_real_y.type_dict[sympy.Add(x, y, evaluate=False)] == \
+           Callable[[int, fractions.Fraction], fractions.Fraction]
+
+    # similar as above but with BasicExpression, internal conversion here
+    b_x = BasicVariable("x", int)
+    b_y = BasicVariable("y", int)
+    b_x_plus_y = BasicFunctionApplication(BasicConstant(operator.add, int_to_int_to_int), [b_x, b_y])
+    b_x_plus_y_minus_y = BasicFunctionApplication(BasicConstant(operator.sub, int_to_int_to_int), [b_x_plus_y, b_y])
+    assert si.simplify(b_x_plus_y_minus_y) == SymPyVariable(x, int)
+    assert si.simplify(b_x_plus_y).sympy_object == x + y
+
+    # with a context
+    y_2_context = dict_to_sympy_context({"y": 2})
+    print(f"y=2 context:{y_2_context}")
+    assert si.simplify(b_x_plus_y, y_2_context).sympy_object == x + 2

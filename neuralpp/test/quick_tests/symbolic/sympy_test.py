@@ -130,3 +130,19 @@ def test_sum():
     # If start > end in (i, start, end), it is defined to be the same as (i, end+1, start-1)
     # https://docs.sympy.org/latest/modules/concrete.html?highlight=sum#sympy.concrete.summations.Sum
     assert Sum(k, (k, i, i - 100)).doit() == -Sum(k, (k, i - 99, i - 1)).doit()
+
+
+def test_sympy_bug():
+    from sympy import Max, Add
+    from neuralpp.util.sympy_util import SymPyNoEvaluation
+
+    assert Add(1, 3) == 4
+    assert Add(1, 3, evaluate=False) != 4
+    assert Max(1, 3) == 3
+    assert Max(1, 3, evaluate=False) != 3
+
+    with SymPyNoEvaluation():
+        assert Add(1, 3) != 4  # desired behavior
+        assert Max(1, 3) == 3  # HERE! should not evaluate. If the sympy bug is fixed this line should fail
+        # assert Max(1, 3) != 3  # If the sympy bug is fixed we should use this line
+

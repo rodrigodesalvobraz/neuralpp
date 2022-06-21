@@ -3,6 +3,7 @@ from typing import List, Any, Type, Callable, Tuple, Optional, Dict
 from abc import ABC
 
 import sympy
+from sympy import abc
 import operator
 import builtins
 import fractions
@@ -10,6 +11,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
+from neuralpp.util.sympy_util import SymPyNoEvaluation
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
@@ -39,6 +41,7 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
                 return infer_python_callable_type(sympy_function_to_python_callable(sympy_object))
 
 
+# Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relations = [
     # boolean operation
     (operator.and_, sympy.And),
@@ -55,6 +58,8 @@ python_callable_and_sympy_function_relations = [
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
+    (operator.sub, sympy.Lambda((abc.x, abc.y), abc.x-abc.y)),  # "lambda x: (-1)*x"
+    (operator.neg, sympy.Lambda((abc.x,), -abc.x)),  # "lambda x: (-1)*x"
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
@@ -187,10 +192,15 @@ class SymPyExpression(Expression, ABC):
 
     def garbage_collect_type_dict(self):
         subexpressions = set(sympy.preorder_traversal(self.sympy_object))
+        subexpressions.add(self.sympy_object)  # also, don't GC myself.
         type_dict_keys = set(self.type_dict)
         unused_keys = type_dict_keys - subexpressions
         for key in unused_keys:
             del self.type_dict[key]
+
+    @classmethod
+    def convert(cls, from_expression: Expression) -> SymPyExpression:
+        return cls._convert(from_expression)
 
 
 class SymPyVariable(SymPyExpression, Variable):
@@ -224,12 +234,12 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
         """
         if function_type is None:
             # Do not look up this function type from type_dict:
-            # 1. it's useless: in most cases it does not exist, since library calling functions with function_type=None
-            #    do not know the function_type.
-            # 2. if the old value exists, it can be erroneous and thus should not be used.
+            # 1. in most cases, calling functions in this symbolic library with function_type=None do not know the
+            #    function_type.
+            # 2. if the old value exists, it can be erroneous and should only be used for checking
             function_type = infer_sympy_object_type(sympy_object.func, {})
 
-        if len(sympy_object.args) == 0:
+        if not sympy_object.args:
             raise TypeError("not a function application.")
 
         if sympy_object not in type_dict:
@@ -272,6 +282,13 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
                                                   arguments: List[Expression]) -> SymPyFunctionApplication:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = build_type_dict_from_sympy_arguments(sympy_arguments)
-        sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
-                                      evaluate=False)  # Stop evaluation, otherwise Add(1,1) will be 2 in sympy
-        return SymPyFunctionApplication(sympy_object, type_dict, function_type)
+        # Stop evaluation, otherwise Add(1,1) will be 2 in sympy.
+        if sympy_function == sympy.Min or sympy_function == sympy.Max:
+            # see test/sympy_test.py: test_sympy_bug()
+            sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
+                                          evaluate=False)
+            return SymPyFunctionApplication(sympy_object, type_dict, function_type)
+        else:
+            with SymPyNoEvaluation():
+                sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
+                return SymPyFunctionApplication(sympy_object, type_dict, function_type)
