@@ -101,18 +101,13 @@ class Expression(ABC):
             return from_expression
         match from_expression:
             case Constant(value=value, type=type_):
-                return cls.new_constant(from_expression.pythonize_value(value), type_)
+                return cls.new_constant(value, type_)
             case Variable(name=name, type=type_):
                 return cls.new_variable(name, type_)
             case FunctionApplication(function=function, arguments=arguments):
                 return cls.new_function_application(function, arguments)
             case _:
                 raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
-
-    @classmethod
-    @abstractmethod
-    def pythonize_value(cls, value: Any) -> Any:
-        pass
 
     @property
     def type(self) -> ExpressionType:
@@ -170,23 +165,6 @@ class AtomicExpression(Expression, ABC):
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
-    @staticmethod
-    @abstractmethod
-    def atom_compare(atom1: Any, atom2: Any) -> bool:
-        """
-        Some atom overloads operator.eq, so we cannot just use "atom1 == atom2" for comparison.
-        E.g., for z3 object, x == y creates an expression instead of comparing the structure of x and y.
-        """
-        pass
-
-    def __eq__(self, other) -> bool:
-        match other:
-            case AtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
-                return other_base_type == self.base_type and self.type == other_type and \
-                       self.atom_compare(self.atom, other_atom)
-            case _:
-                return False
-
     def contains(self, target: Expression) -> bool:
         return self == target
 
@@ -199,10 +177,6 @@ class Variable(AtomicExpression, ABC):
     @property
     def name(self) -> str:
         return self.atom
-
-    @staticmethod
-    def atom_compare(atom1: str, atom2: str) -> bool:
-        return atom1 == atom2
 
     def __str__(self) -> str:
         return f'"{self.name}"'
@@ -246,13 +220,6 @@ class FunctionApplication(Expression, ABC):
     @abstractmethod
     def subexpressions(self) -> List[Expression]:
         pass
-
-    def __eq__(self, other):
-        match other:
-            case FunctionApplication(function=function, arguments=arguments, type=other_type):
-                return self.subexpressions == [function] + arguments and self.type == other_type
-            case _:
-                return False
 
     def set(self, i: int, new_expression: Expression) -> Expression:
         if i == 0:

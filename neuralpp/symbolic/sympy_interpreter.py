@@ -1,3 +1,4 @@
+import operator
 import sympy
 
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable
@@ -17,11 +18,11 @@ def context_to_variable_value_dict_helper(context: Expression,
     This does not violate our specification, since ex falso quodlibet, "from falsehood, anything follows".
     """
     match context:
-        case FunctionApplication(function=Constant(value=sympy.And), arguments=arguments):
+        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
             # the conjunctive case
             for sub_context in arguments:
                 variable_to_value = context_to_variable_value_dict_helper(sub_context, variable_to_value)
-        case FunctionApplication(function=Constant(value=sympy.Eq),
+        case FunctionApplication(function=Constant(value=operator.eq),
                                  arguments=[Variable(name=lhs), Constant(value=rhs)]):
             # the leaf case
             variable_to_value[sympy.symbols(lhs)] = rhs

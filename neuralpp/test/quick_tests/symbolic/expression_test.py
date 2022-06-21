@@ -35,8 +35,9 @@ def test_constant(expression_factory):
     with pytest.raises(IndexError):
         constant_one.set(1, constant_abc)
     assert constant_one.value == 1
-    constant_float = expression_factory.new_constant(3.14)
-    assert constant_float.value == 3.14
+    one_third = fractions.Fraction(1, 3)
+    constant_real = expression_factory.new_constant(one_third)
+    assert constant_real.value == one_third
     constant_true = expression_factory.new_constant(True)
     constant_false = expression_factory.new_constant(False)
     assert constant_true.value
@@ -53,7 +54,7 @@ def test_sympy_constant():
     constant_sympy_obj2 = SymPyConstant(sympy.Rational(3, 9), float)
     assert constant_sympy_obj == constant_sympy_obj2
     constant_abc = SymPyExpression.new_constant("abc", int_to_int_to_int)
-    assert constant_abc.value == sympy.Function("abc")
+    assert constant_abc.value == "abc"
 
 
 def test_variable(expression_factory):

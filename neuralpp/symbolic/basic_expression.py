@@ -47,10 +47,6 @@ class BasicExpression(Expression, ABC):
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
         return BasicFunctionApplication(function, arguments)
 
-    @classmethod
-    def pythonize_value(cls, value: Any) -> Any:
-        return value
-
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def __init__(self, atom: Any, expression_type: Optional[Expression] = None):
@@ -68,6 +64,13 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def atom(self) -> str:
         return self._atom
 
+    def __eq__(self, other) -> bool:
+        match other:
+            case BasicAtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
+                return other_base_type == self.base_type and self.type == other_type and self.atom == other_atom
+            case _:
+                return False
+
 
 class BasicVariable(BasicAtomicExpression, Variable):
     def __init__(self, name: str, type_: Expression):
@@ -79,10 +82,6 @@ class BasicVariable(BasicAtomicExpression, Variable):
 class BasicConstant(BasicAtomicExpression, Constant):
     def __init__(self, value: Any, type_: Optional[Expression] = None):
         BasicAtomicExpression.__init__(self, value, type_)
-
-    @staticmethod
-    def atom_compare(atom1: Any, atom2: Any) -> bool:
-        return atom1 == atom2
 
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):
@@ -106,3 +105,10 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     @property
     def number_of_arguments(self) -> int:
         return len(self.arguments)
+
+    def __eq__(self, other):
+        match other:
+            case BasicFunctionApplication(function=function, arguments=arguments, type=other_type):
+                return self.subexpressions == [function] + arguments and self.type == other_type
+            case _:
+                return False

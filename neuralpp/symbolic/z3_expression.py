@@ -248,11 +248,10 @@ class Z3Expression(Expression, ABC):
     @classmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> Z3FunctionApplication:
         match function:
-            case Z3Constant(value=z3_function_declaration):
+            case Z3Constant(z3_object=z3_function_declaration):
                 z3_arguments = [cls._convert(argument).z3_object for argument in arguments]
                 return Z3FunctionApplication(z3_function_declaration(*z3_arguments))
-            case Constant(value=callable_):
-                python_callable = function.pythonize_value(callable_)
+            case Constant(value=python_callable):
                 z3_arguments = [cls._convert(argument).z3_object for argument in arguments]
                 return Z3FunctionApplication(apply_python_callable_on_z3_arguments(python_callable, *z3_arguments))
             case Variable(name=name):
@@ -272,10 +271,13 @@ class Z3Expression(Expression, ABC):
             elif value.sort() == z3.RealSort():
                 return fractions.Fraction(str(value))
             elif value.sort() == z3.BoolSort():
-                return bool(str(value))
+                return bool(value)
             else:
                 raise TypeError(f"Unrecognized z3 sort {value.sort()}")
         elif isinstance(value, z3.FuncDeclRef):
+            if value.kind() == z3.Z3_OP_UNINTERPRETED:
+                return value.name()
+
             try:
                 return z3_function_to_python_callable(value)
             except Exception:
@@ -287,6 +289,13 @@ class Z3Expression(Expression, ABC):
     def z3_object(self):
         return self._z3_object
 
+    def __eq__(self, other) -> bool:
+        match other:
+            case Z3Expression(z3_object=other_z3_object):
+                return self.z3_object.eq(other_z3_object)
+            case _:
+                return False
+
 
 class Z3Variable(Z3Expression, Variable):
     @property
@@ -297,11 +306,7 @@ class Z3Variable(Z3Expression, Variable):
 class Z3Constant(Z3Expression, Constant):
     @property
     def atom(self) -> Any:
-        return self._z3_object
-
-    @staticmethod
-    def atom_compare(atom1: z3.AstRef, atom2: z3.AstRef) -> bool:
-        return atom1.eq(atom2)
+        return Z3Expression.pythonize_value(self._z3_object)
 
 
 class Z3FunctionApplication(Z3Expression, FunctionApplication):

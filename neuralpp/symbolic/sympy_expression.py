@@ -135,7 +135,7 @@ class SymPyExpression(Expression, ABC):
         elif type(value) == fractions.Fraction:
             sympy_object = sympy.Rational(value)
         elif type(value) == str:
-            sympy_object = sympy.Function(value)
+            sympy_object = sympy.core.function.UndefinedFunction(value)
             if type_ is None:
                 raise FunctionNotTypedError
         else:
@@ -161,12 +161,11 @@ class SymPyExpression(Expression, ABC):
         match function:
             # first check if function is of SymPyConstant, where sympy_function is assumed to be a sympy function,
             # and we don't need to convert it.
-            case SymPyConstant(value=sympy_function, type=function_type):
+            case SymPyConstant(sympy_object=sympy_function, type=function_type):
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
                     sympy_function, function_type, arguments)
             # if function is not of SymPyConstant but of Constant, then it is assumed to be a python callable
-            case Constant(value=callable_, type=function_type):
-                python_callable = function.pythonize_value(callable_)
+            case Constant(value=python_callable, type=function_type):
                 # during the call, ValueError will be implicitly raised if we cannot convert
                 sympy_function = python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
@@ -188,6 +187,8 @@ class SymPyExpression(Expression, ABC):
             return fractions.Fraction(value)
         elif isinstance(value, sympy.logic.boolalg.BooleanAtom):
             return bool(value)
+        elif isinstance(value, sympy.core.function.UndefinedFunction):
+            return str(value)  # uninterpreted function
         else:
             try:
                 return sympy_function_to_python_callable(value)
@@ -201,6 +202,13 @@ class SymPyExpression(Expression, ABC):
     @property
     def type_dict(self) -> Dict[sympy.Basic, Expression]:
         return self._type_dict
+
+    def __eq__(self, other) -> bool:
+        match other:
+            case SymPyExpression(sympy_object=other_sympy_object, type_dict=other_type_dict):
+                return self.sympy_object == other_sympy_object and self.type_dict == other_type_dict
+            case _:
+                return False
 
 
 class SymPyVariable(SymPyExpression, Variable):
@@ -220,11 +228,7 @@ class SymPyConstant(SymPyExpression, Constant):
 
     @property
     def atom(self) -> Any:
-        return self._sympy_object
-
-    @staticmethod
-    def atom_compare(atom1: sympy.Basic, atom2: sympy.Basic) -> bool:
-        return atom1 == atom2
+        return SymPyExpression.pythonize_value(self._sympy_object)
 
 
 class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
