@@ -11,7 +11,6 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
-from neuralpp.util.sympy_util import SymPyNoEvaluation
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
@@ -289,6 +288,6 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
                                           evaluate=False)
             return SymPyFunctionApplication(sympy_object, type_dict, function_type)
         else:
-            with SymPyNoEvaluation():
+            with sympy.evaluate(False):
                 sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
                 return SymPyFunctionApplication(sympy_object, type_dict, function_type)

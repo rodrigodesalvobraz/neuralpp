@@ -133,15 +133,14 @@ def test_sum():
 
 
 def test_sympy_bug():
-    from sympy import Max, Add
-    from neuralpp.util.sympy_util import SymPyNoEvaluation
+    from sympy import Max, Add, evaluate
 
     assert Add(1, 3) == 4
     assert Add(1, 3, evaluate=False) != 4
     assert Max(1, 3) == 3
     assert Max(1, 3, evaluate=False) != 3
 
-    with SymPyNoEvaluation():
+    with evaluate(False):
         assert Add(1, 3) != 4  # desired behavior
         assert Max(1, 3) == 3  # HERE! should not evaluate. If the sympy bug is fixed this line should fail
         # assert Max(1, 3) != 3  # If the sympy bug is fixed we should use this line
