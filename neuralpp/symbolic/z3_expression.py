@@ -141,7 +141,7 @@ def z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
 
 
 def z3_object_to_expression(z3_object: z3.ExprRef) -> Z3Expression:
-    # Here we just try to find a type of expression for z3 object.
+    # Returns an instance of the appropriate subclass of Expression matching z3_object
     if z3_object.num_args() > 0:
         return Z3FunctionApplication(z3_object)
     elif z3.is_int_value(z3_object) or z3.is_rational_value(z3_object) or z3.is_fp_value(z3_object) or \

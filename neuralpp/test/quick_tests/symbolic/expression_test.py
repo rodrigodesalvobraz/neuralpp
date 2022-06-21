@@ -224,7 +224,7 @@ def test_z3_function_application():
     """
     We cannot mimic the test above because we do not support z3's float in function yet.
     (see z3_usage_test.py: test_z3_fp_sort())
-    Also, z3 requires add/compare/... to be of same type, so we cannot have "add: real -> int -> real".
+    Also, z3 required add/compare/... to be of same type, so we cannot have "add: real -> int -> real".
     In that case explicit conversion is requires (z3.ToInt()/z3.ToReal())
     """
     real = fractions.Fraction
