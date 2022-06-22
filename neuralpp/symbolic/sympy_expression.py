@@ -41,7 +41,7 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
 
 
 sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x-abc.y)
-sympy_Neg = sympy.Lambda((abc.x,), -abc.x)
+sympy_Neg = sympy.Lambda((abc.x,), -abc.x)  # "lambda x: (-1)*x"
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
     # boolean operation
@@ -60,7 +60,7 @@ python_callable_and_sympy_function_relation = [
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
     (operator.sub, sympy_Sub),
-    (operator.neg, sympy_Neg),  # "lambda x: (-1)*x"
+    (operator.neg, sympy_Neg),
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
