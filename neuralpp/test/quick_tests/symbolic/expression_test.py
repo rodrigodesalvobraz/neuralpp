@@ -11,7 +11,7 @@ from typing import Callable
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
     BasicExpression
 from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, python_callable_to_sympy_function, \
-    sympy_function_to_python_callable, SymPyFunctionApplication
+    sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable
 from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression
 
 
@@ -157,27 +157,25 @@ def test_python_callable_and_sympy_function_conversion2(python_callable):
 
 def test_function_application(expression_factory):
     """ General test cases for function application. """
-    constant_one = SymPyExpression.new_constant(1)
-    constant_two = SymPyExpression.new_constant(2)
-    add_func = SymPyExpression.new_constant(operator.add, int_to_int_to_int)
-    fa = SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
+    constant_one = expression_factory.new_constant(1)
+    constant_two = expression_factory.new_constant(2)
+    add_func = expression_factory.new_constant(operator.add, int_to_int_to_int)
+    fa = expression_factory.new_function_application(add_func, [constant_one, constant_two])
 
     assert fa.subexpressions[0] == add_func
-    assert type(constant_one) == SymPyConstant
-    assert type(fa.subexpressions[1]) == SymPyConstant
     assert fa.subexpressions[1].value == 1
     assert fa.subexpressions[2].value == 2
     assert fa == fa
 
-    assert fa != SymPyExpression.new_function_application(add_func, [constant_one, constant_one])
-    assert fa == SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
+    assert fa != expression_factory.new_function_application(add_func, [constant_one, constant_one])
+    assert fa == expression_factory.new_function_application(add_func, [constant_one, constant_two])
 
-    assert constant_one == SymPyConstant(sympy.Integer(1))
+    assert constant_one == expression_factory.new_constant(1)
 
-    fa2 = SymPyExpression.new_function_application(add_func, [constant_one, fa])
+    fa2 = expression_factory.new_function_application(add_func, [constant_one, fa])
     fa2 = fa2.replace(constant_one, constant_two)
-    assert fa2 == SymPyExpression.new_function_application(
-        add_func, [constant_two, SymPyExpression.new_function_application(add_func, [constant_two, constant_two])])
+    assert fa2 == expression_factory.new_function_application(
+        add_func, [constant_two, expression_factory.new_function_application(add_func, [constant_two, constant_two])])
 
     # some new type test.
     assert fa2.subexpressions[0].type == int_to_int_to_int
@@ -187,27 +185,35 @@ def test_function_application(expression_factory):
     assert fa2.subexpressions[2].subexpressions[1].type == int
     assert fa2.subexpressions[2].subexpressions[2].type == int
 
-    fa3 = fa.set(0, SymPyExpression.new_constant(operator.mul, int_to_int_to_int))
-    assert fa3 == SymPyExpression.new_function_application(SymPyExpression.new_constant(operator.mul,
-                                                                                        int_to_int_to_int),
+    fa3 = fa.set(0, expression_factory.new_constant(operator.mul, int_to_int_to_int))
+    assert fa3 == expression_factory.new_function_application(expression_factory.new_constant(operator.mul,
+                                                                                              int_to_int_to_int),
                                                            [constant_one, constant_two])
-    assert fa == SymPyExpression.new_function_application(add_func, [constant_one, constant_two])
-    fa6 = fa.set(1, SymPyExpression.new_variable("a", int))
-    assert fa6 == SymPyExpression.new_function_application(add_func, [SymPyExpression.new_variable("a", int),
-                                                                      constant_two])
+    assert fa == expression_factory.new_function_application(add_func, [constant_one, constant_two])
+    fa6 = fa.set(1, expression_factory.new_variable("a", int))
+    assert fa6 == expression_factory.new_function_application(add_func, [expression_factory.new_variable("a", int),
+                                                                         constant_two])
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
 
     # operator overloading
-    x = BasicVariable("x", int)
+    x = expression_factory.new_variable("x", int)
     x_plus_one = x + 1
     assert x_plus_one.function.type == int_to_int_to_int
-    one_third_plus_x = fractions.Fraction(1, 3) + x
-    assert one_third_plus_x.function.type == Callable[[fractions.Fraction, int], fractions.Fraction]
     x_minus_one = x - 1
     assert x_minus_one.function.type == int_to_int_to_int
-    pi_times_x = math.pi * x
-    assert pi_times_x.function.type == Callable[[float, int], float]
+    if expression_factory != Z3Expression:
+        # these tests won't work in Z3 because it does not support arithmetic of different types
+        one_third_plus_x = fractions.Fraction(1, 3) + x
+        assert one_third_plus_x.function.type == Callable[[fractions.Fraction, int], fractions.Fraction]
+        pi_times_x = math.pi * x
+        assert pi_times_x.function.type == Callable[[float, int], float]
+
+    b1 = expression_factory.new_variable("b1", bool)
+    b2 = expression_factory.new_variable("b2", bool)
+    b3 = expression_factory.new_variable("b3", bool)
+    expr = b1 & b2 | ~b3
+    assert expr.function.type == Callable[[bool, bool], bool]
 
 
 def test_sympy_function_application():
@@ -230,6 +236,10 @@ def test_sympy_function_application():
     assert mixed_adds.subexpressions[2].function.type == float_to_float_to_float
     assert mixed_adds.subexpressions[2].subexpressions[1].type == float
     assert mixed_adds.subexpressions[2].subexpressions[2].type == float
+
+    b0 = SymPyVariable(sympy.symbols("b0"), bool)
+    with pytest.raises(TypeError):
+        b0 & True  # note this will not work as sympy always short circuit this
 
 
 def test_z3_function_application():

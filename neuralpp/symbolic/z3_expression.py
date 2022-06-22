@@ -69,7 +69,7 @@ def python_callable_to_z3_function(python_callable: Callable, type_: Optional[Ex
             return z3.And(True, True).decl()
         case operator.or_:
             return z3.Or(True, True).decl()
-        case operator.not_:
+        case operator.invert:
             return z3.Not(True).decl()
         case operator.xor:
             return z3.Xor(True, True).decl()
@@ -89,6 +89,8 @@ def python_callable_to_z3_function(python_callable: Callable, type_: Optional[Ex
             return (x == y).decl()
         case operator.add:
             return (x + y).decl()
+        case operator.sub:
+            return (x - y).decl()
         case operator.mul:
             return (x * y).decl()
         case operator.pow:
@@ -115,7 +117,7 @@ def z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
         case z3.Z3_OP_OR:
             return operator.or_
         case z3.Z3_OP_NOT:
-            return operator.not_
+            return operator.invert
         case z3.Z3_OP_XOR:
             return operator.xor
         # comparison
@@ -132,6 +134,8 @@ def z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
         # arithmetic
         case z3.Z3_OP_ADD:
             return operator.add
+        case z3.Z3_OP_SUB:
+            return operator.sub
         case z3.Z3_OP_MUL:
             return operator.mul
         case z3.Z3_OP_POWER:
@@ -170,7 +174,7 @@ def apply_python_callable_on_z3_arguments(python_callable: Callable,
             return z3.And(arguments)
         case operator.or_:
             return z3.Or(arguments)
-        case operator.not_:
+        case operator.invert:
             return z3.Not(arguments)
         case operator.xor:
             return z3.Xor(arguments[0], arguments[1])
@@ -188,6 +192,8 @@ def apply_python_callable_on_z3_arguments(python_callable: Callable,
         # arithmetic
         case operator.add:
             return arguments[0] + arguments[1]
+        case operator.sub:
+            return arguments[0] - arguments[1]
         case operator.mul:
             return arguments[0] * arguments[1]
         case operator.pow:
@@ -237,7 +243,6 @@ class Z3Expression(Expression, ABC):
             else:
                 argument_type = None
             z3_object = python_callable_to_z3_function(value, argument_type)
-            print(f"z3 object: {z3_object} : {argument_type}, {z3_object.domain(0)} {z3_object.domain(1)} {z3_object.range()}")
         return Z3Constant(z3_object)
 
     @classmethod
