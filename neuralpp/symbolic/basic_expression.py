@@ -64,6 +64,13 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def atom(self) -> str:
         return self._atom
 
+    def __eq__(self, other) -> bool:
+        match other:
+            case BasicAtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
+                return other_base_type == self.base_type and self.type == other_type and self.atom == other_atom
+            case _:
+                return False
+
 
 class BasicVariable(BasicAtomicExpression, Variable):
     def __init__(self, name: str, type_: ExpressionType):
@@ -75,10 +82,6 @@ class BasicVariable(BasicAtomicExpression, Variable):
 class BasicConstant(BasicAtomicExpression, Constant):
     def __init__(self, value: Any, type_: Optional[ExpressionType] = None):
         BasicAtomicExpression.__init__(self, value, type_)
-
-    # just add this one to simplify debugging
-    def __str__(self) -> str:
-        return f"{self.value}: {self.type}"
 
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):
@@ -102,3 +105,10 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     @property
     def number_of_arguments(self) -> int:
         return len(self.arguments)
+
+    def __eq__(self, other):
+        match other:
+            case BasicFunctionApplication(function=function, arguments=arguments, type=other_type):
+                return self.subexpressions == [function] + arguments and self.type == other_type
+            case _:
+                return False

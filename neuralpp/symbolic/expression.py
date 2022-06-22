@@ -76,6 +76,12 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_constant(cls, value: Any, type_: Optional[ExpressionType]) -> Constant:
+        """
+        Value is expected to be a python object or a "native" object. E.g.,
+        SymPyExpression.new_constant()'s legal input would have python `int` and `sympy.Integer`,
+        but not `z3.Int`. Similarly, Z3Expression.new_constant()'s legal input has `int` and `z3.Int` but
+        not `sympy.Integer`.
+        """
         pass
 
     @classmethod
@@ -159,13 +165,6 @@ class AtomicExpression(Expression, ABC):
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
-    def __eq__(self, other) -> bool:
-        match other:
-            case AtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
-                return other_base_type == self.base_type and self.atom == other_atom and self.type == other_type
-            case _:
-                return False
-
     def contains(self, target: Expression) -> bool:
         return self == target
 
@@ -179,6 +178,9 @@ class Variable(AtomicExpression, ABC):
     def name(self) -> str:
         return self.atom
 
+    def __str__(self) -> str:
+        return f'"{self.name}"'
+
 
 class Constant(AtomicExpression, ABC):
     @property
@@ -188,6 +190,9 @@ class Constant(AtomicExpression, ABC):
     @property
     def value(self) -> Any:
         return self.atom
+
+    def __str__(self) -> str:
+        return f"{self.value}: {self.type}"
 
 
 class FunctionApplication(Expression, ABC):
@@ -216,13 +221,6 @@ class FunctionApplication(Expression, ABC):
     def subexpressions(self) -> List[Expression]:
         pass
 
-    def __eq__(self, other):
-        match other:
-            case FunctionApplication(function=function, arguments=arguments, type=other_type):
-                return self.subexpressions == [function] + arguments and self.type == other_type
-            case _:
-                return False
-
     def set(self, i: int, new_expression: Expression) -> Expression:
         if i == 0:
             return self.new_function_application(new_expression, self.arguments)
@@ -243,6 +241,10 @@ class FunctionApplication(Expression, ABC):
             for e in self.subexpressions
         ]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
+
+    def __str__(self) -> str:
+        argument_str = ",".join([str(arg) for arg in self.arguments])
+        return f"{self.function}({argument_str})"
 
 
 class NotTypedError(ValueError, TypeError):
