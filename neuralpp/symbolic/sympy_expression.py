@@ -45,7 +45,7 @@ python_callable_and_sympy_function_relation = [
     # boolean operation
     (operator.and_, sympy.And),
     (operator.or_, sympy.Or),
-    (operator.not_, sympy.Not),
+    (operator.invert, sympy.Not),
     (operator.xor, sympy.Xor),
     # comparison
     (operator.le, sympy.Le),

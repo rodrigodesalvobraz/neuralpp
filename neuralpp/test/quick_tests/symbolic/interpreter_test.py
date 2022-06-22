@@ -133,7 +133,7 @@ def test_sympy_interpreter():
     with pytest.raises(TypeError):
         SymPyExpression.new_function_application(BasicConstant(operator.or_, bool_to_bool_to_bool), [true, false])
     # but not the case for "not" (for sympy 1.10.1, wonder if it's a bug?)
-    not_true = SymPyExpression.new_function_application(BasicConstant(operator.not_), [true])
+    not_true = SymPyExpression.new_function_application(BasicConstant(operator.invert), [true])
     assert not si.eval(not_true)
 
     one_le_one = SymPyExpression.new_function_application(BasicConstant(operator.le, int_to_int_to_bool), [one, one])

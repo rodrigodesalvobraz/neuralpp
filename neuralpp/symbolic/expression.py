@@ -1,6 +1,7 @@
 from __future__ import annotations  # to support forward reference for recursive type reference
 
 import typing
+import operator
 from typing import List, Any, Optional, Type, Callable
 from abc import ABC, abstractmethod
 
@@ -139,6 +140,49 @@ class Expression(ABC):
         if not isinstance(function_type, Callable):
             raise TypeError(f"{self}'s function is not of function type.")
         return return_type_after_application(function_type, number_of_arguments)
+
+    def _new_binary_operation(self, other, operator_, reverse=False) -> Expression:
+        """
+        Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
+        an Expression.
+        E.g., if operator_ is `+`, other is `3`. return self + Constant(3).
+        By default, self is the 1st argument and other is the 2nd.
+        If reverse is set to True, it is reversed, so e.g., if operator_ is `-` and reverse is True, then return
+        `other - self`.
+        """
+        if not isinstance(other, Expression):
+            other = self.new_constant(other, None)  # we can only try to create constant, for variable we need type.
+        arguments = [self, other] if not reverse else [other, self]
+        return self.new_function_application(self.new_constant(operator_, None), arguments)
+
+    def __add__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.add)
+
+    __radd__ = __add__
+
+    def __mul__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.mul)
+
+    __rmul__ = __mul__
+
+    def __sub__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.sub)
+
+    def __rsub__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.sub, reverse=True)
+
+    def __and__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.and_)
+
+    __rand__ = __and__
+
+    def __or__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.or_)
+
+    __ror__ = __or__
+
+    def __invert__(self) -> Expression:
+        return self.new_function_application(self.new_constant(operator.invert, None), [self])
 
 
 class AtomicExpression(Expression, ABC):

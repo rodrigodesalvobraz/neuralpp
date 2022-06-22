@@ -19,7 +19,7 @@ def infer_python_callable_type(python_callable: Callable) -> ExpressionType:
         case operator.and_ | operator.or_ | operator.xor:
             raise AmbiguousTypeError(python_callable)  # this is also ambiguous because the arity could be arbitrary
             # return Callable[[bool, bool], bool]
-        case operator.not_:
+        case operator.invert:
             return Callable[[bool], bool]
         # comparison
         case operator.le | operator.lt | operator.ge | operator.gt | operator.eq:

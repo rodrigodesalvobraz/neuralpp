@@ -133,7 +133,7 @@ def test_basic_function_application():
                                                    BasicFunctionApplication(func2, [constant_two, constant_two])])
 
 
-@pytest.fixture(params=[operator.and_, operator.or_, operator.not_, operator.xor, operator.le,
+@pytest.fixture(params=[operator.and_, operator.or_, operator.invert, operator.xor, operator.le,
                         operator.lt, operator.ge, operator.gt, operator.eq,
                         operator.add, operator.mul, operator.pow, builtins.min, builtins.max])
 def python_callable(request):
