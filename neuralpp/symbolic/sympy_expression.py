@@ -3,6 +3,7 @@ from typing import List, Any, Type, Callable, Tuple, Optional, Dict
 from abc import ABC
 
 import sympy
+from sympy import abc
 import operator
 import builtins
 import fractions
@@ -39,6 +40,7 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
                 return infer_python_callable_type(sympy_function_to_python_callable(sympy_object))
 
 
+# Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
     # boolean operation
     (operator.and_, sympy.And),
@@ -55,6 +57,8 @@ python_callable_and_sympy_function_relation = [
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
+    (operator.sub, sympy.Lambda((abc.x, abc.y), abc.x-abc.y)),  # "lambda x: (-1)*x"
+    (operator.neg, sympy.Lambda((abc.x,), -abc.x)),  # "lambda x: (-1)*x"
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
@@ -86,22 +90,11 @@ def is_sympy_value(sympy_object: sympy.Basic) -> bool:
            isinstance(sympy_object, sympy.logic.boolalg.BooleanAtom)
 
 
-def sympy_object_to_expression(sympy_object: sympy.Basic, argument_type: Expression,
-                               type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
-    # Here we just try to find a type of expression for sympy object.
-    if type(sympy_object) == sympy.Symbol:
-        return SymPyVariable(sympy_object, argument_type)
-    elif is_sympy_value(sympy_object):
-        return SymPyConstant(sympy_object, argument_type)
-    else:
-        return SymPyFunctionApplication(sympy_object, type_dict, type_dict[sympy_object])
-
-
-def build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, Expression]) -> None:
+def build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]) -> None:
     update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
 
-def build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]) -> Dict[sympy.Basic, Expression]:
+def build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]) -> Dict[sympy.Basic, ExpressionType]:
     """
     Assumption: each element in sympy_arguments has a proper type_dict.
     Returns: a proper type_dict with these arguments joint
@@ -113,8 +106,8 @@ def build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression])
 
 
 class SymPyExpression(Expression, ABC):
-    def __init__(self, sympy_object: sympy.Basic, expression_type: Expression,
-                 type_dict: Dict[sympy.Basic, Expression]):
+    def __init__(self, sympy_object: sympy.Basic, expression_type: ExpressionType,
+                 type_dict: Dict[sympy.Basic, ExpressionType]):
         if expression_type is None:
             raise NotTypedError
         super().__init__(expression_type)
@@ -210,9 +203,32 @@ class SymPyExpression(Expression, ABC):
             case _:
                 return False
 
+    @staticmethod
+    def from_sympy_object(sympy_object: sympy.Basic, argument_type: ExpressionType,
+                          type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
+        # Here we just try to find a type of expression for sympy object.
+        if type(sympy_object) == sympy.Symbol:
+            return SymPyVariable(sympy_object, argument_type)
+        elif is_sympy_value(sympy_object):
+            return SymPyConstant(sympy_object, argument_type)
+        else:
+            return SymPyFunctionApplication(sympy_object, type_dict, type_dict[sympy_object])
+
+    def garbage_collect_type_dict(self):
+        expressions_to_be_kept = set(sympy.preorder_traversal(self.sympy_object))  # traversal gets all subexpressions
+        expressions_to_be_kept.add(self.sympy_object)  # also, don't GC myself.
+        type_dict_keys = set(self.type_dict)
+        unused_keys = type_dict_keys - expressions_to_be_kept
+        for key in unused_keys:
+            del self.type_dict[key]
+
+    @classmethod
+    def convert(cls, from_expression: Expression) -> SymPyExpression:
+        return cls._convert(from_expression)
+
 
 class SymPyVariable(SymPyExpression, Variable):
-    def __init__(self, sympy_object: sympy.Basic, expression_type: Expression):
+    def __init__(self, sympy_object: sympy.Basic, expression_type: ExpressionType):
         SymPyExpression.__init__(self, sympy_object, expression_type, {sympy_object: expression_type})
 
     @property
@@ -221,7 +237,7 @@ class SymPyVariable(SymPyExpression, Variable):
 
 
 class SymPyConstant(SymPyExpression, Constant):
-    def __init__(self, sympy_object: sympy.Basic, expression_type: Optional[Expression] = None):
+    def __init__(self, sympy_object: sympy.Basic, expression_type: Optional[ExpressionType] = None):
         if expression_type is None:
             expression_type = infer_sympy_object_type(sympy_object, {})
         SymPyExpression.__init__(self, sympy_object, expression_type, {sympy_object: expression_type})
@@ -233,12 +249,21 @@ class SymPyConstant(SymPyExpression, Constant):
 
 class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType],
-                 function_type: Optional[Expression] = None):
+                 function_type: Optional[ExpressionType] = None):
+        """
+        Calling by function_type=None asks this function to try to infer the function type.
+        If the caller knows the function_type, it should always set function_type to a non-None value.
+        This function always set type_dict[sympy_object] with the new (inferred or supplied) function_type value.
+        The old value, if exists, is only used for consistency checking.
+        """
         if function_type is None:
-            # it's useless to supply type_dict since we are looking for self.type, which is not set in type_dict yet.
+            # Do not look up this function type from type_dict:
+            # 1. in most cases, calling functions in this symbolic library with function_type=None do not know the
+            #    function_type.
+            # 2. if the old value exists, it can be erroneous and should only be used for checking
             function_type = infer_sympy_object_type(sympy_object.func, {})
 
-        if len(sympy_object.args) == 0:
+        if not sympy_object.args:
             raise TypeError("not a function application.")
 
         if sympy_object not in type_dict:
@@ -262,7 +287,9 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
 
     @property
     def arguments(self) -> List[Expression]:
-        return [sympy_object_to_expression(argument, infer_sympy_object_type(argument, self.type_dict), self.type_dict)
+        return [SymPyExpression.from_sympy_object(argument,
+                                                  infer_sympy_object_type(argument, self.type_dict),
+                                                  self.type_dict)
                 for argument in self.native_arguments]
 
     @property
@@ -275,10 +302,17 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
         return [self.function] + self.arguments
 
     @staticmethod
-    def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, function_type: Expression,
+    def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, function_type: ExpressionType,
                                                   arguments: List[Expression]) -> SymPyFunctionApplication:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = build_type_dict_from_sympy_arguments(sympy_arguments)
-        sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
-                                      evaluate=False)  # Stop evaluation, otherwise Add(1,1) will be 2 in sympy
-        return SymPyFunctionApplication(sympy_object, type_dict, function_type)
+        # Stop evaluation, otherwise Add(1,1) will be 2 in sympy.
+        if sympy_function == sympy.Min or sympy_function == sympy.Max:
+            # see test/sympy_test.py: test_sympy_bug()
+            sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
+                                          evaluate=False)
+            return SymPyFunctionApplication(sympy_object, type_dict, function_type)
+        else:
+            with sympy.evaluate(False):
+                sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
+                return SymPyFunctionApplication(sympy_object, type_dict, function_type)
