@@ -222,16 +222,16 @@ class Z3Expression(Expression, ABC):
     def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> Z3Constant:
         if isinstance(value, z3.ExprRef | z3.FuncDeclRef):
             z3_object = value
-        elif type(value) == bool:
+        elif isinstance(value, bool):
             z3_object = z3.BoolVal(value)
-        elif type(value) == int:
+        elif isinstance(value, int):
             z3_object = z3.IntVal(value)
-        elif type(value) == float:
+        elif isinstance(value, float):
             # z3_object = z3.FPVal(value)
             z3_object = z3.RealVal(value)  # z3's fp is not supported yet
-        elif type(value) == fractions.Fraction:
+        elif isinstance(value, fractions.Fraction):
             z3_object = z3.RealVal(value)
-        elif type(value) == str:
+        elif isinstance(value, str):
             if type_ is None:
                 raise NotImplementedError("z3 requires specifying arguments and return "
                                           "type of an uninterpreted function.")

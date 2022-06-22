@@ -121,15 +121,15 @@ class SymPyExpression(Expression, ABC):
         # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
         if isinstance(value, sympy.Basic):
             sympy_object = value
-        elif type(value) == bool:
+        elif isinstance(value, bool):
             sympy_object = sympy.S.true if value else sympy.S.false
-        elif type(value) == int:
+        elif isinstance(value, int):
             sympy_object = sympy.Integer(value)
-        elif type(value) == float:
+        elif isinstance(value, float):
             sympy_object = sympy.Float(value)
-        elif type(value) == fractions.Fraction:
+        elif isinstance(value, fractions.Fraction):
             sympy_object = sympy.Rational(value)
-        elif type(value) == str:
+        elif isinstance(value, str):
             sympy_object = sympy.core.function.UndefinedFunction(value)
             if type_ is None:
                 raise FunctionNotTypedError
@@ -209,7 +209,7 @@ class SymPyExpression(Expression, ABC):
     def from_sympy_object(sympy_object: sympy.Basic, argument_type: ExpressionType,
                           type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
         # Here we just try to find a type of expression for sympy object.
-        if type(sympy_object) == sympy.Symbol:
+        if isinstance(sympy_object, sympy.Symbol):
             return SymPyVariable(sympy_object, argument_type)
         elif is_sympy_value(sympy_object):
             return SymPyConstant(sympy_object, argument_type)
