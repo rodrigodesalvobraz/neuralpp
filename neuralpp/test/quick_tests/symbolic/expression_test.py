@@ -5,6 +5,7 @@ import operator
 import sympy
 import builtins
 import z3
+import math
 
 from typing import Callable
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
@@ -196,6 +197,17 @@ def test_function_application(expression_factory):
                                                                       constant_two])
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
+
+    # operator overloading
+    x = BasicVariable("x", int)
+    x_plus_one = x + 1
+    assert x_plus_one.function.type == int_to_int_to_int
+    one_third_plus_x = fractions.Fraction(1, 3) + x
+    assert one_third_plus_x.function.type == Callable[[fractions.Fraction, int], fractions.Fraction]
+    x_minus_one = x - 1
+    assert x_minus_one.function.type == int_to_int_to_int
+    pi_times_x = math.pi * x
+    assert pi_times_x.function.type == Callable[[float, int], float]
 
 
 def test_sympy_function_application():

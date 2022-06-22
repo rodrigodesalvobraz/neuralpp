@@ -53,10 +53,9 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
         if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
             if isinstance(atom, Callable):
-                internal_type = infer_python_callable_type(atom)
+                expression_type = infer_python_callable_type(atom)
             else:
-                internal_type = type(atom)
-            expression_type = BasicConstant(internal_type, None)
+                expression_type = type(atom)
         super().__init__(expression_type)
         self._atom = atom
 
