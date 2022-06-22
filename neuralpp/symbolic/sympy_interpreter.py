@@ -64,7 +64,7 @@ class SymPyInterpreter(Interpreter, Simplifier):
         for k, v in type_dict.items():
             new_key = SymPyInterpreter._simplify_expression(k, context)
             if new_key == k or new_key not in type_dict:
-                # if skip the update if not(new_key == k or new_key not in type_dict), i.e,
+                # skip the update if not(new_key == k or new_key not in type_dict), i.e,
                 # if (i) new_key is a new key (has been simplified()) and (ii) new_key exists in type_dict.
                 # From (i) and (ii), k must be a function application (if k is a variable and simpified, new_key would
                 # be constant and will not be in type_dict). Based on the type of new_key, there's two cases:
