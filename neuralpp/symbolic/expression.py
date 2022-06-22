@@ -221,6 +221,9 @@ class Expression(ABC):
     def __rsub__(self, other: Any) -> Expression:
         return self._new_binary_operation(other, operator.sub, reverse=True)
 
+    def __neg__(self) -> Expression:
+        return self.new_function_application(self.new_constant(operator.neg, Callable[[self.type], self.type]), [self])
+
     def __and__(self, other: Any) -> Expression:
         return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool])
 

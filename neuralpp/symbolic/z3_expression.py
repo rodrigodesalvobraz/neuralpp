@@ -91,6 +91,8 @@ def python_callable_to_z3_function(python_callable: Callable, type_: Optional[Ex
             return (x + y).decl()
         case operator.sub:
             return (x - y).decl()
+        case operator.neg:
+            return (-x).decl()
         case operator.mul:
             return (x * y).decl()
         case operator.pow:
@@ -136,6 +138,8 @@ def z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.add
         case z3.Z3_OP_SUB:
             return operator.sub
+        case z3.Z3_OP_UMINUS:
+            return operator.neg
         case z3.Z3_OP_MUL:
             return operator.mul
         case z3.Z3_OP_POWER:
@@ -194,6 +198,8 @@ def apply_python_callable_on_z3_arguments(python_callable: Callable,
             return arguments[0] + arguments[1]
         case operator.sub:
             return arguments[0] - arguments[1]
+        case operator.neg:
+            return - arguments[1]
         case operator.mul:
             return arguments[0] * arguments[1]
         case operator.pow:

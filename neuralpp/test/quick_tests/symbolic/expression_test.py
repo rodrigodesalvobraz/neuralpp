@@ -213,7 +213,20 @@ def test_function_application(expression_factory):
     b2 = expression_factory.new_variable("b2", bool)
     b3 = expression_factory.new_variable("b3", bool)
     expr = b1 & b2 | ~b3
-    assert expr.function.type == Callable[[bool, bool], bool]
+    assert expr.function.type == Callable[[bool, bool], bool]  # or
+    if expression_factory != SymPyExpression:
+        assert expr.arguments[0].function.type == Callable[[bool, bool], bool]  # and
+        assert expr.arguments[1].function.type == Callable[[bool], bool]  # not
+        expr1 = b1 & True
+        assert expr1.function.type == Callable[[bool, bool], bool]
+    else:  # sympy changes the argument order
+        assert expr.arguments[0].function.type == Callable[[bool], bool]  # not
+        assert expr.arguments[1].function.type == Callable[[bool, bool], bool]  # and
+        # Also, we cannot create a function application of b1 & True in SymPy because it always short-circuits in this
+        # situation. The internal sympy object is not a function application, so it fails our type check.
+        # (Even if we don't raise at creation, we cannot get e.g. expr1.argument[1]
+        with pytest.raises(TypeError):
+            expr1 = b1 & True
 
 
 def test_sympy_function_application():
@@ -288,3 +301,9 @@ def test_sympy_z3_conversion():
     add2 = Z3Expression.new_function_application(real_add_func, [constant_one_third2, two_third])
     assert add2.arguments[1] == add0
     assert add2 == add1
+
+
+def test_sympy_neg_weird():
+    x = SymPyVariable(sympy.symbols("x"), int)
+    neg_x = -x
+    assert neg_x.function.value == operator.mul  # because it is actually "-1 * x"

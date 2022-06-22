@@ -40,6 +40,8 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
                 return infer_python_callable_type(sympy_function_to_python_callable(sympy_object))
 
 
+sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x-abc.y)
+sympy_Neg = sympy.Lambda((abc.x,), -abc.x)
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
     # boolean operation
@@ -57,8 +59,8 @@ python_callable_and_sympy_function_relation = [
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
-    (operator.sub, sympy.Lambda((abc.x, abc.y), abc.x-abc.y)),  # "lambda x: (-1)*x"
-    (operator.neg, sympy.Lambda((abc.x,), -abc.x)),  # "lambda x: (-1)*x"
+    (operator.sub, sympy_Sub),
+    (operator.neg, sympy_Neg),  # "lambda x: (-1)*x"
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
@@ -306,6 +308,13 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
                                                   arguments: List[Expression]) -> SymPyFunctionApplication:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = build_type_dict_from_sympy_arguments(sympy_arguments)
+
+        # a hack here, because in sympy, "-x" is turned into "(-1)*x", so the function type is actually that
+        # of multiplication. (Similar things happen for "Sub", but since the function type is the same we don't
+        # have to do anything).
+        if sympy_function == sympy_Neg:
+            function_type = Callable[[int, int], int]
+
         # Stop evaluation, otherwise Add(1,1) will be 2 in sympy.
         if sympy_function == sympy.Min or sympy_function == sympy.Max:
             # see test/sympy_test.py: test_sympy_bug()
