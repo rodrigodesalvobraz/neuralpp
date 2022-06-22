@@ -339,6 +339,6 @@ def test_multiply_bug():
 
 def test_type_inference():
     from sympy.abc import a, b
-    sympy_expr = (a > b) | (a <= -b)
+    sympy_expr: sympy.Basic = (a > b) | (a <= -b)
     assert infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]
     assert infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool

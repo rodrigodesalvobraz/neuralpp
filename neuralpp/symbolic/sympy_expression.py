@@ -10,8 +10,9 @@ import operator
 import builtins
 import fractions
 
+from functools import cached_property
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
-    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType
+    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
 
@@ -314,3 +315,43 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
             with sympy.evaluate(False):
                 sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
                 return SymPyFunctionApplication(sympy_object, type_dict)
+
+
+def context_to_variable_value_dict_helper(context: FunctionApplication,
+                                          variable_to_value: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    variable_to_value: the mutable argument also serves as a return value.
+    If the context has multiple assignments (e.g., x==3 and x==5), we just pick the last one.
+    This does not violate our specification, since ex falso quodlibet, "from falsehood, anything follows".
+    """
+    match context:
+        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
+            # the conjunctive case
+            for sub_context in arguments:
+                variable_to_value = context_to_variable_value_dict_helper(sub_context, variable_to_value)
+        case FunctionApplication(function=Constant(value=operator.eq),
+                                 arguments=[Variable(name=lhs), Constant(value=rhs)]):
+            # the leaf case
+            variable_to_value[lhs] = rhs
+        # all other cases are ignored
+    return variable_to_value
+
+
+def context_to_variable_value_dict(context: FunctionApplication) -> \
+        Dict[str, int | sympy.Integer]:
+    return context_to_variable_value_dict_helper(context, {})
+
+
+class SymPyContext(SymPyFunctionApplication, Context):
+    """
+    SymPyContext is just a SymPyFunctionApplication, which is always satisfiable (treating unsatisfiable statement
+    as satisfiable does not affect correctness). And we create a dictionary from the function application at the
+    first time `dict()` property is called. """
+    @property
+    def unsatisfiable(self) -> bool:
+        return False
+
+    @cached_property
+    def dict(self) -> Dict[str, Any]:
+        return context_to_variable_value_dict(self)
+

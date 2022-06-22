@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import fractions
 import typing
-from typing import List, Any, Callable, Tuple, Optional, Type
-from abc import ABC
+from typing import List, Any, Callable, Tuple, Optional, Type, Dict
+from abc import ABC, abstractmethod
 
 import z3
 import operator
 import builtins
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context
+from neuralpp.symbolic.basic_expression import FalseContext
+from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal
+from functools import cached_property
 
 
 def get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> ExpressionType:
@@ -19,7 +22,7 @@ def get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> Expressio
     """
     match z3_object:
         case z3.FuncDeclRef():  # for uninterpreted functions.
-           return Callable[[z3_sort_to_type(z3_object.domain(i)) for i in range(z3_object.arity())],
+            return Callable[[z3_sort_to_type(z3_object.domain(i)) for i in range(z3_object.arity())],
                             z3_sort_to_type(z3_object.range())]
         case z3.ExprRef():
             # this can be an atom such as "x:int" or "2", or this can also be "1+2".
@@ -214,10 +217,6 @@ def apply_python_callable_on_z3_arguments(python_callable: Callable,
 
 
 class Z3Expression(Expression, ABC):
-    def __init__(self, z3_object: z3.ExprRef | z3.FuncDeclRef):
-        super().__init__(get_type_from_z3_object(z3_object))
-        self._z3_object = z3_object
-
     @classmethod
     def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> Z3Constant:
         if isinstance(value, z3.ExprRef | z3.FuncDeclRef):
@@ -260,10 +259,10 @@ class Z3Expression(Expression, ABC):
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> Z3FunctionApplication:
         match function:
             case Z3Constant(z3_object=z3_function_declaration):
-                z3_arguments = [cls._convert(argument).z3_object for argument in arguments]
+                z3_arguments = [cls.convert(argument).z3_expression for argument in arguments]
                 return Z3FunctionApplication(z3_function_declaration(*z3_arguments))
             case Constant(value=python_callable):
-                z3_arguments = [cls._convert(argument).z3_object for argument in arguments]
+                z3_arguments = [cls.convert(argument).z3_expression for argument in arguments]
                 return Z3FunctionApplication(apply_python_callable_on_z3_arguments(python_callable, *z3_arguments))
             case Variable(name=name):
                 raise ValueError(f"Cannot create a Z3Expression from uninterpreted function {name}")
@@ -296,38 +295,55 @@ class Z3Expression(Expression, ABC):
         else:
             raise ValueError("Cannot pythonize non-z3 object")
 
+    @classmethod
+    def convert(cls, from_expression: Expression) -> Z3Expression:
+        return cls._convert(from_expression)
+
+    @property
+    @abstractmethod
+    def z3_expression(self) -> z3.AstRef:
+        pass
+
+
+class Z3ObjectExpression(Z3Expression, ABC):
+    def __init__(self, z3_object: z3.ExprRef | z3.FuncDeclRef):
+        Expression.__init__(self, get_type_from_z3_object(z3_object))
+        self._z3_object = z3_object
+
     @property
     def z3_object(self):
         return self._z3_object
 
     def __eq__(self, other) -> bool:
         match other:
-            case Z3Expression(z3_object=other_z3_object):
+            case Z3ObjectExpression(z3_object=other_z3_object):
                 return self.z3_object.eq(other_z3_object)
             case _:
                 return False
 
+    @property
+    def z3_expression(self) -> z3.AstRef:
+        return self.z3_object
 
-class Z3Variable(Z3Expression, Variable):
+
+class Z3Variable(Z3ObjectExpression, Variable):
     @property
     def atom(self) -> str:
         return str(self._z3_object)
 
 
-class Z3Constant(Z3Expression, Constant):
+class Z3Constant(Z3ObjectExpression, Constant):
     @property
     def atom(self) -> Any:
         return Z3Expression.pythonize_value(self._z3_object)
 
 
-class Z3FunctionApplication(Z3Expression, FunctionApplication):
-    def __init__(self, z3_object: z3.ExprRef):
-        """
-        Note here z3_object cannot be z3.FuncDeclRef: add(1,2) is a ExprRef, while add is a FuncDeclRef.
-        Z3 does not allow partial application nor high-order functions (arguments must be of atomic type such as int,
-        not int -> int).
-        """
-        Z3Expression.__init__(self, z3_object)
+class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
+    """
+    Note here z3_object cannot be z3.FuncDeclRef: add(1,2) is a ExprRef, while add is a FuncDeclRef.
+    Z3 does not allow partial application nor high-order functions (arguments must be of atomic type such as int,
+    not int -> int).
+    """
 
     @property
     def function(self) -> Expression:
@@ -349,3 +365,118 @@ class Z3FunctionApplication(Z3Expression, FunctionApplication):
     @property
     def number_of_arguments(self) -> int:
         return self.z3_object.num_args()
+
+
+z3_false = z3.BoolVal(False)
+
+
+def extract_key_value_from_assertions_helper(assertions: List[z3.ExprRef] | z3.AstVector, dict_: Dict[str, Any]):
+    def is_value(v):
+        return z3.is_int_value(v) or z3.is_rational_value(v) or z3.is_algebraic_value(v) or z3.is_fp_value(v)
+
+    def is_key(k):
+        return z3.is_const(k) and not is_value(k)
+
+    for assertion in assertions:
+        if z3.is_eq(assertion):
+            lhs, rhs = assertion.arg(0), assertion.arg(1)
+            if is_key(lhs) and is_value(rhs):
+                dict_[str(lhs)] = rhs
+            elif is_key(rhs) and is_value(lhs):
+                dict_[str(rhs)] = lhs
+        elif z3.is_and(assertion):
+            extract_key_value_from_assertions_helper(assertion.children(), dict_)
+
+
+def extract_key_value_from_assertions(assertions: List[z3.ExprRef] | z3.AstVector) -> Dict[str, Any]:
+    """
+    Extract all key-value pairs if it's in the form of "k1 == v1 & k2 == v2 & ..". `And` can be nested:
+    we can extract all 4 pairs in And(k1 == v1, k2 == v2, And(k3 == v3, k4 == v4)).
+    """
+    result = {}
+    extract_key_value_from_assertions_helper(assertions, result)
+    return result
+
+
+class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return self._dict
+
+    def __eq__(self, other) -> bool:
+        return False  # why do we need to compare two Z3ConjunctiveClause?
+
+    def __init__(self, z3_solver: z3.Solver, value_dict: Dict[str, Any] | None = None):
+        """
+        Assume z3_solver is satisfiable, otherwise user should use Z3UnsatContext() instead.
+        Also assumes value_dict is not contradictory to z3_solver. Formally, the following statement is valid:
+            for all k,v in value_dict.item(), z3_solver.assertions implies k == v
+        """
+        # assert z3_solver.check() == sat
+        super().__init__(z3_false)
+        self._solver = z3_solver
+        if value_dict is not None:
+            self._dict = value_dict
+        else:  # figure out ourselves
+            self._dict = extract_key_value_from_assertions(z3_solver.assertions())
+
+    @cached_property
+    def assertions(self) -> z3.AstVector:
+        return self._solver.assertions()
+
+    @property
+    def function(self) -> Expression:
+        # conjunctive clause is an "and" of all arguments
+        return Z3Constant(z3.And(True, True).decl())
+
+    @cached_property
+    def arguments(self) -> List[Expression]:
+        return [z3_object_to_expression(assertion) for assertion in self.assertions]
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.function] + self.arguments
+
+    @property
+    def unsatisfiable(self) -> bool:  # self should always be satisfiable
+        return False
+
+    @property
+    def number_of_arguments(self) -> int:
+        return len(self.assertions)
+
+    @cached_property
+    def z3_expression(self) -> z3.AstRef:
+        return z3.And(self.assertions)
+
+    @staticmethod
+    def make(solver: z3.Solver, dict_: Dict[str, Any]) -> Context:
+        match solver.check():
+            case z3.unsat:
+                return FalseContext()
+            case z3.sat:
+                return Z3SolverExpression(solver, dict_)
+            case z3.unknown:
+                raise RuntimeError(f"{solver} is unknown.")
+
+    def __and__(self, other: Any) -> Context:
+        if self.unsatisfiable:
+            # if an expression is unsatisfiable, its conjunction with anything is still unsatisfiable
+            return self
+
+        if isinstance(other, Z3SolverExpression):
+            if other.unsatisfiable:
+                return other
+            new_solver = z3_merge_solvers(self._solver, other._solver)
+            new_dict = self._dict | other._dict
+        else:
+            if not isinstance(other, Expression):
+                other = Z3Expression.new_constant(other, None)
+            elif not isinstance(other, Z3Expression):
+                other = Z3Expression.convert(other)
+            # Always treat `other` as a literal. Will raise if it cannot be converted to a boolean in Z3.
+            new_solver = z3_add_solver_and_literal(self._solver, other.z3_object)
+            new_dict = self._dict | extract_key_value_from_assertions([other.z3_object])
+        return Z3SolverExpression.make(new_solver, new_dict)
+
+    __rand__ = __and__

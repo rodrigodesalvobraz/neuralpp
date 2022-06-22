@@ -3,7 +3,7 @@ from __future__ import annotations  # to support forward reference for recursive
 import fractions
 import typing
 import operator
-from typing import List, Any, Optional, Type, Callable
+from typing import List, Any, Optional, Type, Callable, Dict
 from abc import ABC, abstractmethod
 
 # typing.Callable can be ambiguous.
@@ -159,6 +159,10 @@ class Expression(ABC):
     def type(self) -> ExpressionType:
         return self._type
 
+    @property
+    def and_priority(self) -> int:
+        return 0
+
     def get_function_type(self) -> ExpressionType:
         """
         For example, a function (the declaration, not the application) can be:
@@ -225,7 +229,10 @@ class Expression(ABC):
         return self.new_function_application(self.new_constant(operator.neg, Callable[[self.type], self.type]), [self])
 
     def __and__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool])
+        if isinstance(other, Expression) and other.and_priority > self.and_priority:
+            return other.__and__(self)
+        else:
+            return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool])
 
     def __rand__(self, other: Any) -> Expression:
         return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool], reverse=True)
@@ -248,7 +255,7 @@ class AtomicExpression(Expression, ABC):
 
     @property
     @abstractmethod
-    def atom(self) -> str:
+    def atom(self) -> Any:
         pass
 
     @property
@@ -344,6 +351,23 @@ class FunctionApplication(Expression, ABC):
     def __str__(self) -> str:
         argument_str = ",".join([str(arg) for arg in self.arguments])
         return f"{self.function}({argument_str})"
+
+
+class Context(Expression, ABC):
+    @property
+    @abstractmethod
+    def unsatisfiable(self) -> bool:
+        pass
+
+    @property
+    def and_priority(self) -> int:
+        """ So that conjoining anything with a context object `c` causes c.__and__ to be called. """
+        return 1
+
+    @property
+    @abstractmethod
+    def dict(self) -> Dict[str, Any]:
+        pass
 
 
 class NotTypedError(ValueError, TypeError):

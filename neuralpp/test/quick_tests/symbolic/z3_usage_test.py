@@ -4,7 +4,7 @@ Test of Z3Py. Most parts are covered in `https://ericpony.github.io/z3py-tutoria
 import pytest
 import z3.z3types
 from z3 import Solver, Not, sat, unsat, Int, Implies, Or, simplify, Ints, And, Reals, BitVecVal, Function, IntSort, \
-    ForAll, Exists, ExprRef, Sum, Context, Array, BoolSort
+    ForAll, Exists, ExprRef, Sum, Context, Array, BoolSort, Goal, Tactic
 from copy import copy
 
 
@@ -258,3 +258,20 @@ def test_z3_fp_sort():
     assert fp_add.domain(1) == double_sort
     assert fp_add.domain(2) == double_sort
     assert fp_add.range() == double_sort
+
+
+def test_z3_simplify():
+    x = Int('x')
+    g = Goal()
+    g.add(x > 1)
+    g.add(x < 3)
+    r = Tactic('simplify')(g)
+    r = simplify(r.as_expr())
+    # limited, cannot get x == 2
+    assert repr(r) == "And(Not(x <= 1), Not(3 <= x))"
+
+    g.add(x > 1)
+    g.add(x < 1)
+    s = Solver()
+    s.add(g)
+    assert s.check() == unsat
