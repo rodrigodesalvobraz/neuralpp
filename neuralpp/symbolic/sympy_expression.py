@@ -57,6 +57,7 @@ python_callable_and_sympy_function_relation = [
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
+    (operator.truediv, sympy.Lambda((abc.x, abc.y), abc.x / abc.y)),
     (operator.sub, sympy.Lambda((abc.x, abc.y), abc.x-abc.y)),  # "lambda x: (-1)*x"
     (operator.neg, sympy.Lambda((abc.x,), -abc.x)),  # "lambda x: (-1)*x"
     # min/max
