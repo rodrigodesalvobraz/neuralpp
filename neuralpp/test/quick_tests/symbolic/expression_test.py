@@ -307,3 +307,13 @@ def test_sympy_neg_weird():
     x = SymPyVariable(sympy.symbols("x"), int)
     neg_x = -x
     assert neg_x.function.value == operator.mul  # because it is actually "-1 * x"
+
+
+def test_basic_z3_conversion():
+    real = fractions.Fraction
+    v = BasicVariable("v", real)
+    v2 = Z3Expression.new_variable("v2", real)
+
+    v2_times_neg_v = v2 * (-v)
+    assert v2_times_neg_v.function.value == operator.mul
+    assert v2_times_neg_v.arguments[1].function.value == operator.neg

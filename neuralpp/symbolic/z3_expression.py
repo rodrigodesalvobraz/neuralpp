@@ -199,7 +199,7 @@ def apply_python_callable_on_z3_arguments(python_callable: Callable,
         case operator.sub:
             return arguments[0] - arguments[1]
         case operator.neg:
-            return - arguments[1]
+            return - arguments[0]
         case operator.mul:
             return arguments[0] * arguments[1]
         case operator.pow:
