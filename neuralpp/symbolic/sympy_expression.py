@@ -40,12 +40,14 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
                 return infer_python_callable_type(sympy_function_to_python_callable(sympy_object))
 
 
+sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x-abc.y)
+sympy_Neg = sympy.Lambda((abc.x,), -abc.x)  # "lambda x: (-1)*x"
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
     # boolean operation
     (operator.and_, sympy.And),
     (operator.or_, sympy.Or),
-    (operator.not_, sympy.Not),
+    (operator.invert, sympy.Not),
     (operator.xor, sympy.Xor),
     # comparison
     (operator.le, sympy.Le),
@@ -57,8 +59,8 @@ python_callable_and_sympy_function_relation = [
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
-    (operator.sub, sympy.Lambda((abc.x, abc.y), abc.x-abc.y)),  # "lambda x: (-1)*x"
-    (operator.neg, sympy.Lambda((abc.x,), -abc.x)),  # "lambda x: (-1)*x"
+    (operator.sub, sympy_Sub),
+    (operator.neg, sympy_Neg),
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
@@ -119,15 +121,15 @@ class SymPyExpression(Expression, ABC):
         # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
         if isinstance(value, sympy.Basic):
             sympy_object = value
-        elif type(value) == bool:
+        elif isinstance(value, bool):
             sympy_object = sympy.S.true if value else sympy.S.false
-        elif type(value) == int:
+        elif isinstance(value, int):
             sympy_object = sympy.Integer(value)
-        elif type(value) == float:
+        elif isinstance(value, float):
             sympy_object = sympy.Float(value)
-        elif type(value) == fractions.Fraction:
+        elif isinstance(value, fractions.Fraction):
             sympy_object = sympy.Rational(value)
-        elif type(value) == str:
+        elif isinstance(value, str):
             sympy_object = sympy.core.function.UndefinedFunction(value)
             if type_ is None:
                 raise FunctionNotTypedError
@@ -207,7 +209,7 @@ class SymPyExpression(Expression, ABC):
     def from_sympy_object(sympy_object: sympy.Basic, argument_type: ExpressionType,
                           type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
         # Here we just try to find a type of expression for sympy object.
-        if type(sympy_object) == sympy.Symbol:
+        if isinstance(sympy_object, sympy.Symbol):
             return SymPyVariable(sympy_object, argument_type)
         elif is_sympy_value(sympy_object):
             return SymPyConstant(sympy_object, argument_type)
@@ -306,6 +308,13 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
                                                   arguments: List[Expression]) -> SymPyFunctionApplication:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = build_type_dict_from_sympy_arguments(sympy_arguments)
+
+        # a hack here, because in sympy, "-x" is turned into "(-1)*x", so the function type is actually that
+        # of multiplication. (Similar things happen for "Sub", but since the function type is the same we don't
+        # have to do anything).
+        if sympy_function == sympy_Neg:
+            function_type = Callable[[int, int], int]
+
         # Stop evaluation, otherwise Add(1,1) will be 2 in sympy.
         if sympy_function == sympy.Min or sympy_function == sympy.Max:
             # see test/sympy_test.py: test_sympy_bug()

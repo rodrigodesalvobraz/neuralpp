@@ -19,7 +19,7 @@ def infer_python_callable_type(python_callable: Callable) -> ExpressionType:
         case operator.and_ | operator.or_ | operator.xor:
             raise AmbiguousTypeError(python_callable)  # this is also ambiguous because the arity could be arbitrary
             # return Callable[[bool, bool], bool]
-        case operator.not_:
+        case operator.invert:
             return Callable[[bool], bool]
         # comparison
         case operator.le | operator.lt | operator.ge | operator.gt | operator.eq:
@@ -53,10 +53,9 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
         if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
             if isinstance(atom, Callable):
-                internal_type = infer_python_callable_type(atom)
+                expression_type = infer_python_callable_type(atom)
             else:
-                internal_type = type(atom)
-            expression_type = BasicConstant(internal_type, None)
+                expression_type = type(atom)
         super().__init__(expression_type)
         self._atom = atom
 
