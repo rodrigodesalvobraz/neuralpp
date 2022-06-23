@@ -1,45 +1,33 @@
 import pytest
 
 import sympy
-from typing import Callable
+from typing import List, Any, Optional, Type, Callable, Dict
 from neuralpp.inference.graphical_model.representation.factor.symbolic_factor import SymbolicFactor
-from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication, \
-    SymPyExpression
+from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyFunctionApplication
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.symbolic.basic_expression import BasicConstant, BasicVariable, BasicFunctionApplication
 
 int_to_int_to_int = Callable[[int, int], int]
 
-@pytest.fixture
-def x():
-    return IntegerVariable("x", 3)
+def test_sympy_condition():
+    x = IntegerVariable("x", 3)
+    y = IntegerVariable("y", 2)
 
+    x_sympy, y_sympy = sympy.symbols("x y")
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
 
-@pytest.fixture
-def y():
-    return IntegerVariable("y", 2)
-
-@pytest.fixture
-def z():
-    return IntegerVariable("z", 3)
-
-@pytest.fixture
-def expression1():
-    x, y = sympy.symbols("x y")
-    return SymPyFunctionApplication(x * y, {x: int, y: int}, int_to_int_to_int)
-
-@pytest.fixture
-def expression2():
-    x, z = sympy.symbols("x z")
-    return SymPyFunctionApplication(x + z, {x: int, z: int}, int_to_int_to_int)
-
-
-def test_sympy_condition(x, y, expression1):
     symbolic = SymbolicFactor([x, y], expression1)
     conditioned = symbolic.condition({x: 1})
-    assert conditioned.expression == SymPyVariable(sympy.symbols("y"), int)
+    assert conditioned.expression == SymPyVariable(y_sympy, int)
 
-def test_mul_by_non_identity(x, y, z, expression1, expression2):
+def test_mul_by_non_identity():
+    x = IntegerVariable("x", 3)
+    y = IntegerVariable("y", 2)
+    z = IntegerVariable("z", 3)
+
+    x_sympy, y_sympy, z_sympy = sympy.symbols("x y z")
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
+    expression2 = SymPyFunctionApplication(x_sympy + z_sympy, {x_sympy: int, z_sympy: int}, int_to_int_to_int)
+
     symbolic1 = SymbolicFactor([x, y], expression1)
     symbolic2 = SymbolicFactor([x, z], expression2)
     symbolic3 = symbolic1.mul_by_non_identity(symbolic2)
@@ -50,14 +38,26 @@ def test_mul_by_non_identity(x, y, z, expression1, expression2):
 
     assert symbolic1_condition.expression.sympy_object * symbolic2_condition.expression.sympy_object == symbolic3_condition.expression.sympy_object
 
-def test_sum_out_variable(x, y, expression1):
+def test_sum_out_variable():
+    x = IntegerVariable("x", 3)
+    y = IntegerVariable("y", 2)
+
+    x_sympy, y_sympy = sympy.symbols("x y")
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
+
     symbolic = SymbolicFactor([x, y], expression1)
     sum_out_x = symbolic.sum_out_variable(x)
-    assert sum_out_x.expression.sympy_object == 3 * sympy.symbols("y")
+    assert sum_out_x.expression.sympy_object == 3 * y_sympy
 
-def test_normalize(x, y, expression1):
+def test_normalize():
+    x = IntegerVariable("x", 3)
+    y = IntegerVariable("y", 2)
+
+    x_sympy, y_sympy = sympy.symbols("x y")
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
+
     symbolic = SymbolicFactor([x, y], expression1)
     sum_variables = symbolic.sum_out_variables([x, y])
     assert sum_variables.expression.sympy_object == 3
     normalized = symbolic.normalize()
-    assert normalized.expression.sympy_object == sympy.symbols("x") * sympy.symbols("y") / 3
+    assert normalized.expression.sympy_object == x_sympy * y_sympy / 3
