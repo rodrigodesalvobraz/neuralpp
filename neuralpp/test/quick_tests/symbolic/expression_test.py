@@ -7,11 +7,13 @@ import builtins
 import z3
 import math
 
-from typing import Callable
+from typing import Callable, Any
+from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
     BasicExpression
 from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, python_callable_to_sympy_function, \
-    sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable
+    sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable, infer_sympy_function_type, \
+    infer_sympy_object_type
 from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression
 
 
@@ -321,9 +323,6 @@ def test_basic_z3_conversion():
 
 def test_multiply_bug():
     """ From Winnie. """
-    from typing import Any
-    from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
-
     x_sympy, y_sympy, z_sympy = sympy.symbols("x y z")
     expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
     expression2 = SymPyFunctionApplication(x_sympy + z_sympy, {x_sympy: int, z_sympy: int})
@@ -339,7 +338,6 @@ def test_multiply_bug():
 
 
 def test_type_inference():
-    from neuralpp.symbolic.sympy_expression import infer_sympy_function_type, infer_sympy_object_type
     from sympy.abc import a, b
     sympy_expr = (a > b) | (a <= -b)
     assert infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]

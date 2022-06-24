@@ -17,7 +17,7 @@ def boolean_function_of_arity(arity: int) -> Callable:
     return Callable[[bool for i in range(arity)], bool]
 
 
-def infer_python_callable_type(python_callable: Callable, argument_types: List[ExpressionType] = None) -> \
+def infer_python_callable_type(python_callable: Callable, argument_types: List[ExpressionType] | None = None) -> \
         Callable:
     match python_callable:
         # boolean operation
@@ -27,7 +27,7 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
             if not all([argument_type == bool for argument_type in argument_types]):
                 raise TypeError(f"Argument types to boolean function {python_callable} should all be booleans. "
                                 f"Got {argument_types}.")
-            return boolean_function_of_arity(len(argument_types))
+            return Callable[argument_types, bool]
         case operator.invert:
             if argument_types is not None and argument_types != [bool]:
                 raise TypeError(f"Invert expect only one boolean argument. Got {argument_types}.")
