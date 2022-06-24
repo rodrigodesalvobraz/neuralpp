@@ -53,3 +53,10 @@ def test_context():
     context8 = context1 & dict_to_sympy_context({'z': 4})  # internally convert other types of expressions
     assert context8.dict['z'] == 4
 
+    s4 = Solver()
+    s4.add(x == y)
+    s4.add(y == 2)
+    s4.add(x == 1)
+    with pytest.raises(ValueError):
+        Z3SolverExpression(s4)  # because s4 is unsat
+

@@ -412,7 +412,9 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         Also assumes value_dict is not contradictory to z3_solver. Formally, the following statement is valid:
             for all k,v in value_dict.item(), z3_solver.assertions implies k == v
         """
-        # assert z3_solver.check() == sat
+        if not z3_solver.check() == z3.sat:
+            raise ValueError(f"Expect a solver that is satisifable. Got {z3_solver.check()}.")
+
         super().__init__(z3_false)
         self._solver = z3_solver
         if value_dict is not None:
