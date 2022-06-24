@@ -1,38 +1,23 @@
-from types import SimpleNamespace
-
 import torch
 
 from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import default_parameters, \
     solve_learning_problem_from_parameters
-from neuralpp.inference.graphical_model.learn.learning_problem_solver import solve_learning_problem, LearningProblem
-from neuralpp.inference.graphical_model.learn.uniform_training import UniformTraining
-from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import (
-    FixedPyTorchTableFactor,
-)
-from neuralpp.inference.graphical_model.representation.factor.neural.neural_factor import (
-    NeuralFactor,
-)
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
-    PyTorchTableFactor,
-)
-from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
-    PyTorchLogTable,
-)
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
-from neuralpp.inference.neural_net.ConvNet import ConvNet
-from neuralpp.inference.neural_net.MLP import MLP
-from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
-    FromLogToProbabilitiesAdapter,
-)
-from neuralpp.util.data_loader_from_random_data_point_thunk import (
-    data_loader_from_batch_generator,
-)
-from neuralpp.util.generic_sgd_learner import default_after_epoch
-from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
-from neuralpp.util.util import join, set_seed
 
-# Trains a digit recognizer with the following factor graph:
+
+# Trains a digit recognizer with the generative model:
+#
+# Digit[i] ~ Uniform(0..9)
+# Image[i] ~ Image_generation(Digit[i]), for i in {0, 1}
+# Sum = Digit[0] + Digit[1]
+#
+# with dataset in which each example is  (Image[0], Image[1], Sum)   (no digit labels).
+#
+# It turns out that, during inference, we actually only need
+# the *inverse* of image_generation,
+# which is provided by a digit recognizer ConvNet.
+#
+# The corresponding factor graph is:
+#
 #
 #                      Constraint0
 #                           |
