@@ -53,17 +53,17 @@ def return_type_after_application(callable_: Callable, number_of_arguments: int)
         return Callable[argument_types[number_of_arguments:], return_type]
 
 
-def get_binary_function_type_from_argument_types(argument_type1: ExpressionType, argument_type2: ExpressionType) -> \
-        Callable:
-    type_order = [fractions.Fraction, float, int]
+type_order_in_arithmetic = [fractions.Fraction, float, int]
+
+
+def get_arithmetic_function_type_from_argument_types(argument_types: List[ExpressionType]) -> Callable:
     try:
-        index1 = type_order.index(argument_type1)
-        index2 = type_order.index(argument_type2)
-        return_type = type_order[min(index1, index2)]  # e.g., if float + int, the return type is float
-        return Callable[[argument_type1, argument_type2], return_type]
-    except ValueError:
+        # e.g., if float + int, the return type is float
+        return_type = type_order_in_arithmetic[min(map(type_order_in_arithmetic.index, argument_types))]
+        return Callable[argument_types, return_type]
+    except ValueError as err:
         raise ValueError(f"Can only infer the return type from arithmetic argument types: "
-                         f"fractions.Fraction, float and int. Got {argument_type1} and {argument_type2}.")
+                         f"fractions.Fraction, float and int. {err}")
 
 
 class Expression(ABC):
@@ -199,7 +199,7 @@ class Expression(ABC):
             other = self.new_constant(other, None)  # we can only try to create constant, for variable we need type.
         arguments = [self, other] if not reverse else [other, self]
         if function_type is None:
-            function_type = get_binary_function_type_from_argument_types(arguments[0].type, arguments[1].type)
+            function_type = get_arithmetic_function_type_from_argument_types([arguments[0].type, arguments[1].type])
         return self.new_function_application(self.new_constant(operator_, function_type), arguments)
 
     def __add__(self, other: Any) -> Expression:

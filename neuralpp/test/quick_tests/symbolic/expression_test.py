@@ -295,7 +295,7 @@ def test_sympy_z3_conversion():
     constant_one_third2 = SymPyConstant(sympy_constant_one_third_r)
 
     sympy_add = sympy.Add(sympy_constant_one_third_r, sympy_constant_one_third_r, evaluate=False)
-    two_third = SymPyFunctionApplication(sympy_add, {}, real_to_real_to_real)
+    two_third = SymPyFunctionApplication(sympy_add, {})
 
     # in creating add2, we implicitly convert the sympy child `two_third`.
     add2 = Z3Expression.new_function_application(real_add_func, [constant_one_third2, two_third])
@@ -317,3 +317,30 @@ def test_basic_z3_conversion():
     v2_times_neg_v = v2 * (-v)
     assert v2_times_neg_v.function.value == operator.mul
     assert v2_times_neg_v.arguments[1].function.value == operator.neg
+
+
+def test_multiply_bug():
+    """ From Winnie. """
+    from typing import Any
+    from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
+
+    x_sympy, y_sympy, z_sympy = sympy.symbols("x y z")
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
+    expression2 = SymPyFunctionApplication(x_sympy + z_sympy, {x_sympy: int, z_sympy: int})
+
+    mul_callable = Callable[[Any, Any], Any]
+    mul_operator = BasicConstant(operator.mul, mul_callable)
+    result_expression = BasicFunctionApplication(mul_operator, [expression1, expression2])
+
+    # result_expression = SymPyExpression.convert(result_expression)
+    interpreter = SymPyInterpreter()
+    result_expression = interpreter.simplify(result_expression)
+    assert result_expression.sympy_object == x_sympy * y_sympy * (x_sympy + z_sympy)
+
+
+def test_type_inference():
+    from neuralpp.symbolic.sympy_expression import infer_sympy_function_type, infer_sympy_object_type
+    from sympy.abc import a, b
+    sympy_expr = (a > b) | (a <= -b)
+    assert infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]
+    assert infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
