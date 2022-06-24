@@ -179,15 +179,13 @@ class SymPyExpression(Expression, ABC):
         match function:
             # first check if function is of SymPyConstant, where sympy_function is assumed to be a sympy function,
             # and we don't need to convert it.
-            case SymPyConstant(sympy_object=sympy_function, type=function_type):
-                return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
-                    sympy_function, function_type, arguments)
+            case SymPyConstant(sympy_object=sympy_function):
+                return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
             # if function is not of SymPyConstant but of Constant, then it is assumed to be a python callable
-            case Constant(value=python_callable, type=function_type):
+            case Constant(value=python_callable):
                 # during the call, ValueError will be implicitly raised if we cannot convert
                 sympy_function = python_callable_to_sympy_function(python_callable)
-                return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
-                    sympy_function, function_type, arguments)
+                return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
             case Variable(name=name):
                 raise ValueError(f"Cannot create a SymPyExpression from uninterpreted function {name}")
             case FunctionApplication(_, _):
@@ -301,8 +299,8 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
         return [self.function] + self.arguments
 
     @staticmethod
-    def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, function_type: ExpressionType,
-                                                  arguments: List[Expression]) -> SymPyFunctionApplication:
+    def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression]) -> \
+            SymPyFunctionApplication:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = build_type_dict_from_sympy_arguments(sympy_arguments)
 
