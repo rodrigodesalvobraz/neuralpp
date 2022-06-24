@@ -4,7 +4,7 @@ from neuralpp.symbolic.basic_expression import BasicConstant
 
 
 class BasicInterpreter(Interpreter):
-    def eval(self, expression: Expression, context: Expression):
+    def eval(self, expression: Expression, context: Expression = BasicConstant(True)):
         """
         In this BasicInterpreter, `context` is ignored and assumed to be True.
         `expression` is assumed to only (recursively) contain FunctionaApplication and Constant.
@@ -22,7 +22,7 @@ class BasicInterpreter(Interpreter):
             # 2. an uninterpreted function, which is not callable. We raise Error when encounter it.
             case FunctionApplication(function=Constant(value=python_callable), arguments=args):
                 # * is used to turn a list into "args": https://docs.python.org/2/reference/expressions.html#calls
-                return python_callable(*[self.eval(e, BasicConstant(True)) for e in args])
+                return python_callable(*map(self.eval, args))
             case FunctionApplication(function=Variable(name=f), arguments=_):
                 raise AttributeError(f"Function {f} is uninterpreted. It cannot be evaluated by BasicInterpreter.")
             case Constant(value=value):

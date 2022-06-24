@@ -1,9 +1,75 @@
 from __future__ import annotations  # to support forward reference for recursive type reference
-from typing import Any, List
+
+import fractions
+import typing
+import operator
+from typing import List, Any, Optional, Type, Callable
 from abc import ABC, abstractmethod
+
+# typing.Callable can be ambiguous.
+# Consider the following two tests:
+#   >>> isinstance(int, Type)
+#   True
+#   >>> isinstance(1, Type)
+#   False
+# So "int is an instance of Type" and "1 is not an instance of Type"
+# But for Callable, we have
+#   >>> isinstance(Callable[[int],int], Callable)
+#   True
+#   >>> isinstance(lambda x: x, Callable)
+#   True
+# Here the `Callable` in each case means differently, which makes `Callable` ambiguous.
+#
+# Imagine a typed language, we'd have
+#   >>> isinstance(lambda (x: int) : int := x, int->int)
+#   True
+# and only one of the following two cases can be true:
+# CASE ONE: `Callable` means "the type of all function types".
+#   >>> isinstance(int->int, Callable)
+#   True
+#   >>> isinstance(lambda (x: int) : int := x, Callable)
+#   False
+# or
+# CASE TWO: `Callable` means "the type of all functions"
+#   >>> isinstance(int->int, Callable)
+#   False
+#   >>> isinstance(lambda (x: int) : int := x, Callable)
+#   True
+#
+# It should be noted that our usage of `Callable` here means the first, i.e., "the type of all function types"
+# And in our code we use `isinstance()` for cases like `isinstance(Callable[[int],int], Callable)`.
+ExpressionType = Callable | Type
+
+
+def return_type_after_application(callable_: Callable, number_of_arguments: int) -> ExpressionType:
+    """ Given number_of_arguments (<=arity), return the return type after (partial) application. """
+    argument_types, return_type = typing.get_args(callable_)
+    arity = len(argument_types)
+    if number_of_arguments > arity:
+        raise ValueError(f"number_of_arguments {number_of_arguments} > arity {arity}.")
+    elif number_of_arguments == arity:
+        return return_type
+    else:
+        return Callable[argument_types[number_of_arguments:], return_type]
+
+
+def get_binary_function_type_from_argument_types(argument_type1: ExpressionType, argument_type2: ExpressionType) -> \
+        Callable:
+    type_order = [fractions.Fraction, float, int]
+    try:
+        index1 = type_order.index(argument_type1)
+        index2 = type_order.index(argument_type2)
+        return_type = type_order[min(index1, index2)]  # e.g., if float + int, the return type is float
+        return Callable[[argument_type1, argument_type2], return_type]
+    except ValueError:
+        raise ValueError(f"Can only infer the return type from arithmetic argument types: "
+                         f"fractions.Fraction, float and int. Got {argument_type1} and {argument_type2}.")
 
 
 class Expression(ABC):
+    def __init__(self, expression_type: ExpressionType):
+        self._type = expression_type
+
     @property
     @abstractmethod
     def subexpressions(self) -> List[Expression]:
@@ -55,12 +121,18 @@ class Expression(ABC):
 
     @classmethod
     @abstractmethod
-    def new_constant(cls, value: Any) -> Constant:
+    def new_constant(cls, value: Any, type_: Optional[ExpressionType]) -> Constant:
+        """
+        Value is expected to be a python object or a "native" object. E.g.,
+        SymPyExpression.new_constant()'s legal input would have python `int` and `sympy.Integer`,
+        but not `z3.Int`. Similarly, Z3Expression.new_constant()'s legal input has `int` and `z3.Int` but
+        not `sympy.Integer`.
+        """
         pass
 
     @classmethod
     @abstractmethod
-    def new_variable(cls, name: str) -> Variable:
+    def new_variable(cls, name: str, type_: ExpressionType) -> Variable:
         pass
 
     @classmethod
@@ -74,14 +146,98 @@ class Expression(ABC):
         if isinstance(from_expression, cls):
             return from_expression
         match from_expression:
-            case Constant(value=value):
-                return cls.new_constant(value)
-            case Variable(name=name):
-                return cls.new_variable(name)
+            case Constant(value=value, type=type_):
+                return cls.new_constant(value, type_)
+            case Variable(name=name, type=type_):
+                return cls.new_variable(name, type_)
             case FunctionApplication(function=function, arguments=arguments):
                 return cls.new_function_application(function, arguments)
             case _:
                 raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
+
+    @property
+    def type(self) -> ExpressionType:
+        return self._type
+
+    def get_function_type(self) -> ExpressionType:
+        """
+        For example, a function (the declaration, not the application) can be:
+            add_func_type = Callable[[int, int], int]
+            add_func = Constant(operator.add, add_func_type)
+        get_function_type() serves as a method to retrieve the "function type" of `add_func`, so we can expect:
+            add_func.get_function_type() == add_func_type
+        Note add_func can also be
+            add_func = Variable("add", add_func_type)  # uninterpreted function
+        or
+            three_way_add = Variable("three_way_add", Callable[[int, int, int], int])
+            add_func = FunctionApplication(three_way_add, Constant(0))
+        In both cases we can expect
+            add_func.get_function_type() == add_func_type
+        """
+        match self:
+            case Constant(type=type_) | Variable(type=type_):
+                return type_
+            case FunctionApplication(function=function, number_of_arguments=num):
+                return function.get_return_type(num)
+
+    def get_return_type(self, number_of_arguments: int) -> ExpressionType:
+        function_type = self.get_function_type()
+        if not isinstance(function_type, Callable):
+            raise TypeError(f"{self}'s function is not of function type.")
+        return return_type_after_application(function_type, number_of_arguments)
+
+    def _new_binary_operation(self, other, operator_, function_type=None, reverse=False) -> Expression:
+        """
+        Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
+        an Expression.
+        E.g., if operator_ is `+`, other is `3`. return self + Constant(3).
+        By default, self is the 1st argument and other is the 2nd.
+        If reverse is set to True, it is reversed, so e.g., if operator_ is `-` and reverse is True, then return
+        `other - self`.
+        """
+        if not isinstance(other, Expression):
+            other = self.new_constant(other, None)  # we can only try to create constant, for variable we need type.
+        arguments = [self, other] if not reverse else [other, self]
+        if function_type is None:
+            function_type = get_binary_function_type_from_argument_types(arguments[0].type, arguments[1].type)
+        return self.new_function_application(self.new_constant(operator_, function_type), arguments)
+
+    def __add__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.add)
+
+    # We can also write __radd__ = __add__. But it may be better to keep the order?
+    def __radd__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.add, reverse=True)
+
+    def __mul__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.mul)
+
+    def __rmul__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.mul, reverse=True)
+
+    def __sub__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.sub)
+
+    def __rsub__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.sub, reverse=True)
+
+    def __neg__(self) -> Expression:
+        return self.new_function_application(self.new_constant(operator.neg, Callable[[self.type], self.type]), [self])
+
+    def __and__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool])
+
+    def __rand__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool], reverse=True)
+
+    def __or__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.or_, Callable[[bool, bool], bool])
+
+    def __ror__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.or_, Callable[[bool, bool], bool], reverse=True)
+
+    def __invert__(self) -> Expression:
+        return self.new_function_application(self.new_constant(operator.invert, Callable[[bool], bool]), [self])
 
 
 class AtomicExpression(Expression, ABC):
@@ -108,13 +264,6 @@ class AtomicExpression(Expression, ABC):
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
-    def __eq__(self, other) -> bool:
-        match other:
-            case AtomicExpression(base_type=other_base_type, atom=other_atom):
-                return other_base_type == self.base_type and self.atom == other_atom
-            case _:
-                return False
-
     def contains(self, target: Expression) -> bool:
         return self == target
 
@@ -128,6 +277,9 @@ class Variable(AtomicExpression, ABC):
     def name(self) -> str:
         return self.atom
 
+    def __str__(self) -> str:
+        return f'"{self.name}"'
+
 
 class Constant(AtomicExpression, ABC):
     @property
@@ -138,13 +290,24 @@ class Constant(AtomicExpression, ABC):
     def value(self) -> Any:
         return self.atom
 
+    def __str__(self) -> str:
+        return f"{self.value}: {self.type}"
+
 
 class FunctionApplication(Expression, ABC):
-    __match_args__ = ("function", "arguments")
+    __match_args__ = ("function", "arguments", "number_of_arguments")
 
     @property
     @abstractmethod
     def function(self) -> Expression:
+        pass
+
+    @property
+    @abstractmethod
+    def number_of_arguments(self) -> int:
+        # in some implementation getting number_of_arguments without calling arguments is useful,
+        # e.g., a lazy implementation where arguments are only evaluated when used
+        # Note: this is not `arity`, which is a property of a function, not a function application.
         pass
 
     @property
@@ -157,24 +320,18 @@ class FunctionApplication(Expression, ABC):
     def subexpressions(self) -> List[Expression]:
         pass
 
-    def __eq__(self, other):
-        match other:
-            case FunctionApplication(function=function, arguments=arguments):
-                return self.subexpressions == [function] + arguments
-            case _:
-                return False
-
     def set(self, i: int, new_expression: Expression) -> Expression:
         if i == 0:
             return self.new_function_application(new_expression, self.arguments)
 
-        arity = len(self.arguments)  # evaluate len after i != 0, if i == 0 we can be lazy
-        if i-1 < arity:
+        # evaluate len after i != 0, if i == 0 we can be lazy
+        if i-1 < self.number_of_arguments:
             arguments = self.arguments
             arguments[i-1] = new_expression
             return self.new_function_application(self.function, arguments)
         else:
-            raise IndexError(f"Out of scope. Function only has arity {arity} but you are setting {i-1}th arguments.")
+            raise IndexError(f"Out of scope. Function application only has {self.number_of_arguments} arguments "
+                             f"but you are setting {i-1}th arguments.")
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         # recursively do the replacement
@@ -183,3 +340,19 @@ class FunctionApplication(Expression, ABC):
             for e in self.subexpressions
         ]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
+
+    def __str__(self) -> str:
+        argument_str = ",".join([str(arg) for arg in self.arguments])
+        return f"{self.function}({argument_str})"
+
+
+class NotTypedError(ValueError, TypeError):
+    pass
+
+
+class VariableNotTypedError(NotTypedError):
+    pass
+
+
+class FunctionNotTypedError(NotTypedError):
+    pass

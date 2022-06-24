@@ -4,7 +4,7 @@ Test of Z3Py. Most parts are covered in `https://ericpony.github.io/z3py-tutoria
 import pytest
 import z3.z3types
 from z3 import Solver, Not, sat, unsat, Int, Implies, Or, simplify, Ints, And, Reals, BitVecVal, Function, IntSort, \
-    ForAll, Exists, ExprRef, Sum, Context
+    ForAll, Exists, ExprRef, Sum, Context, Array, BoolSort
 from copy import copy
 
 
@@ -193,3 +193,68 @@ def test_z3_solver():
     s3.append(s2.assertions())
     assert s3.check() == unsat
 
+
+def test_z3_sort():
+    x = Int('x')
+    assert x.sort() == IntSort()
+    array = Array('a', IntSort(), IntSort())
+    assert array.sort() == z3.ArraySort(IntSort(), IntSort())
+    function = Function('f', IntSort(), IntSort(), BoolSort())
+    with pytest.raises(AttributeError):
+        function.sort()  # function has no attribute 'sort'
+
+    add = x + 1  # function application has sort (which is return type)
+    assert add.sort() == IntSort()
+    assert function(x, x).sort() == BoolSort()
+    # z3 function cannot be partially applied
+    with pytest.raises(z3.Z3Exception):
+        function(x)
+
+    # to get the "type" of a function
+    assert function.arity() == 2
+    assert function.domain(0) == IntSort()  # args[0]
+    assert function.domain(1) == IntSort()  # args[1]
+    assert function.range() == BoolSort()  # return type
+    with pytest.raises(z3.Z3Exception):
+        function.domain(2)
+
+    assert isinstance(function, z3.FuncDeclRef)
+    assert isinstance(function(x, x), z3.ExprRef)
+    with pytest.raises(TypeError):
+        # z3.FPSort() requires two arguments ebits and sbits (Single = FPSort(8, 24), Double = FPSort(11, 53))
+        z3.FPSort()
+    assert z3.FPVal(1.33).sort() == z3.FPSort(11, 53)  # double
+    assert isinstance(z3.FPVal(1.33).sort(), z3.FPSortRef)
+
+    # a bit weird behavior from z3's arity() call
+    assert z3.And(True, True).decl().arity() == 2
+    assert z3.And(True, False, True).decl().arity() == 2
+    assert z3.And(True, True, True, True).decl().arity() == 2
+    assert z3.And(True, True, True, True).decl() == z3.And(True, True).decl()
+
+    # but it does distinguish an int add and a real add.
+    y = z3.Real("y")
+    assert (y+y).decl().kind() == (x+x).decl().kind()
+    assert (y+y).decl() != (x+x).decl()
+    assert (y+y).decl().domain(0) == z3.RealSort()
+    assert (x+x).decl().domain(0) == z3.IntSort()
+
+
+def test_z3_fp_sort():
+    for sort in [z3.RealSort(), z3.IntSort()]:
+        x, y = z3.Consts("x y", sort)
+        fp_add = (x + y).decl()
+        assert fp_add.arity() == 2
+        assert fp_add.domain(0) == sort
+        assert fp_add.domain(1) == sort
+        assert fp_add.range() == sort
+
+    # fp in z3 is a bit more complicated..
+    double_sort = z3.FPSort(11, 53)
+    x, y = z3.Consts("x y", double_sort)
+    fp_add = (x + y).decl()
+    assert fp_add.arity() == 3  # instead of 2
+    assert isinstance(fp_add.domain(0), z3.FPRMSortRef)
+    assert fp_add.domain(1) == double_sort
+    assert fp_add.domain(2) == double_sort
+    assert fp_add.range() == double_sort

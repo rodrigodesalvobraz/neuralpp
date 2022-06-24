@@ -2,7 +2,7 @@ import math
 import os
 import random
 from itertools import tee
-from typing import List, Iterable, Any, Set, TypeVar
+from typing import List, Iterable, Any, Set, TypeVar, Dict
 
 import torch
 
@@ -613,3 +613,20 @@ def list_for_each(
         if post_index_result is not None:
             post_index_result(index, result)
     return result
+
+
+def check_consistency_of_two_dicts(dict1: Dict, dict2: Dict):
+    intersection_keys = dict1.keys() & dict2.keys()
+    for key in intersection_keys:
+        if dict1[key] != dict2[key]:
+            raise ValueError(f"inconsistent dicts on {key}: {dict1[key]} and {dict2[key]}.")
+
+
+def update_consistent_dict(dict1: Dict, dict2: Dict):
+    """
+    Assumes two dictionaries are consistent (i.e., for all k, if k in dict1 and k in dict2: dict1[k] == dict2[k])
+    E.g., suppose dict1 = {1:2, 2:3}, after update_consistent_dict(dict1, {2:3, 3:5}), dict1 = {1:2, 2:3, 3:5};
+          update_consistent_dict({1:2, 2:3}, {2:4, 3:5}) raises error.
+    """
+    check_consistency_of_two_dicts(dict1, dict2)
+    dict1.update(dict2)
