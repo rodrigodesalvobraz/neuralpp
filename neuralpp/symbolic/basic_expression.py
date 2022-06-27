@@ -3,7 +3,7 @@ from __future__ import annotations
 import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
-    VariableNotTypedError, ExpressionType
+    VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types
 from abc import ABC
 from typing import Any, List, Optional, Type, Callable, Tuple
 
@@ -13,23 +13,41 @@ class AmbiguousTypeError(TypeError, ValueError):
         super().__init__(f"{python_callable} is ambiguous.")
 
 
-def infer_python_callable_type(python_callable: Callable) -> ExpressionType:
+def boolean_function_of_arity(arity: int) -> Callable:
+    return Callable[[bool for i in range(arity)], bool]
+
+
+def infer_python_callable_type(python_callable: Callable, argument_types: List[ExpressionType] | None = None) -> \
+        Callable:
     match python_callable:
         # boolean operation
         case operator.and_ | operator.or_ | operator.xor:
-            raise AmbiguousTypeError(python_callable)  # this is also ambiguous because the arity could be arbitrary
-            # return Callable[[bool, bool], bool]
-        case operator.not_:
+            if argument_types is None:
+                raise AmbiguousTypeError(python_callable)  # this is also ambiguous because the arity could be arbitrary
+            if not all([argument_type == bool for argument_type in argument_types]):
+                raise TypeError(f"Argument types to boolean function {python_callable} should all be booleans. "
+                                f"Got {argument_types}.")
+            return Callable[argument_types, bool]
+        case operator.invert:
+            if argument_types is not None and argument_types != [bool]:
+                raise TypeError(f"Invert expect only one boolean argument. Got {argument_types}.")
             return Callable[[bool], bool]
         # comparison
         case operator.le | operator.lt | operator.ge | operator.gt | operator.eq:
-            raise AmbiguousTypeError(python_callable)
-        # arithmetic
-        case operator.add | operator.mul | operator.pow:
-            raise AmbiguousTypeError(python_callable)
-        # min/max
-        case builtins.min | builtins.max:
-            raise AmbiguousTypeError(python_callable)
+            if argument_types is None:
+                raise AmbiguousTypeError(python_callable)
+            return Callable[argument_types, bool]
+        # arithmetic and min/max
+        case operator.add | operator.mul | operator.pow | operator.sub | builtins.min | builtins.max:
+            if argument_types is None:
+                raise AmbiguousTypeError(python_callable)
+            return get_arithmetic_function_type_from_argument_types(argument_types)
+        case operator.neg:
+            if argument_types is None:
+                raise AmbiguousTypeError(python_callable)
+            if len(argument_types) != 1:
+                raise TypeError(f"Neg only expects one argument.")
+            return Callable[argument_types, argument_types[0]]
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -53,10 +71,9 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
         if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
             if isinstance(atom, Callable):
-                internal_type = infer_python_callable_type(atom)
+                expression_type = infer_python_callable_type(atom)
             else:
-                internal_type = type(atom)
-            expression_type = BasicConstant(internal_type, None)
+                expression_type = type(atom)
         super().__init__(expression_type)
         self._atom = atom
 

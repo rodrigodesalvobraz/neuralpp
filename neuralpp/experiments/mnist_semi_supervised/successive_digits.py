@@ -1,38 +1,31 @@
-from types import SimpleNamespace
-
 import torch
 
 from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import default_parameters, \
     solve_learning_problem_from_parameters, make_digits_and_all_true_constraints_values_batches_generator
-from neuralpp.inference.graphical_model.learn.learning_problem_solver import solve_learning_problem, LearningProblem
-from neuralpp.inference.graphical_model.learn.uniform_training import UniformTraining
-from neuralpp.inference.graphical_model.representation.factor.fixed.fixed_pytorch_factor import (
-    FixedPyTorchTableFactor,
-)
-from neuralpp.inference.graphical_model.representation.factor.neural.neural_factor import (
-    NeuralFactor,
-)
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
-    PyTorchTableFactor,
-)
-from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
-    PyTorchLogTable,
-)
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
-from neuralpp.inference.neural_net.ConvNet import ConvNet
-from neuralpp.inference.neural_net.MLP import MLP
-from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
-    FromLogToProbabilitiesAdapter,
-)
-from neuralpp.util.data_loader_from_random_data_point_thunk import (
-    data_loader_from_batch_generator,
-)
-from neuralpp.util.generic_sgd_learner import default_after_epoch
-from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
-from neuralpp.util.util import join, set_seed
 
-# Trains a digit recognizer with the following factor graph:
+
+# Trains a digit recognizer with the generative model:
+#
+# Digit[0] ~ Uniform(0..8)
+# Digit[1] = Digit[0] + 1
+# Image[i] ~ Image_generation(Digit[i]), for i in {0, 1}
+#
+# dataset: pairs of (Image[0], Image[0])   (no digit labels).
+#
+# To use negative examples as well, we use a more general model:
+#
+# # tuples of n digits
+# Digit[i] ~ uniform(0..9), for i in 0..(n-1)
+# Constraint_i = Digit[i + 1] == Digit[i] + 1
+# Image[i] ~ Image_generation(digit[i]), for i in {0, 1}
+#
+# with dataset in which each example is (Image[0..n-1], Constraint[0..n-1])
+#
+# It turns out that, during inference, we actually only need
+# the *inverse* of image_generation,
+# which is provided by a digit recognizer ConvNet.
+#
+# The corresponding factor graph is:
 #
 #                                 Constraint0                                   Constraint1
 #                                      |                                             |
@@ -104,11 +97,11 @@ chain_of_successive_digits_and_all_true_constraints_batch_generator = \
 parameters = default_parameters()
 parameters.chain_length = 4
 parameters.number_of_constraints = parameters.chain_length - 1
-parameters.number_of_constraint_values = 2  # boolean constraints
+parameters.number_of_constraint_values = 2  # constraints are boolean
 parameters.indices_of_digit_arguments_of_constraint = indices_of_digit_arguments_of_constraint
 parameters.constraint_function = constraint_function
 
-parameters.custom_digits_and_constraints_values_batches_generator = None
-#parameters.custom_digits_and_constraints_values_batches_generator = chain_of_successive_digits_and_all_true_constraints_batch_generator
+parameters.custom_digits_and_constraints_values_batches_generator = None  # allows negative examples (false constraints)
+# parameters.custom_digits_and_constraints_values_batches_generator = chain_of_successive_digits_and_all_true_constraints_batch_generator
 
 solve_learning_problem_from_parameters(parameters)

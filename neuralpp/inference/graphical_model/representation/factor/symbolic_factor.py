@@ -145,4 +145,4 @@ class SymbolicFactor(AtomicFactor):
             else:
                 arity += 1
 
-        return Callable[[[Any] * arity], Any]
+        return Callable[[Any] * arity, Any]
