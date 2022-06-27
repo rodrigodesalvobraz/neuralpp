@@ -65,7 +65,7 @@ def infer_sympy_function_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.B
 
 sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x-abc.y)
 sympy_Neg = sympy.Lambda((abc.x,), -abc.x)  # "lambda x: (-1)*x"
-sympy_Div = sympy.Lambda((abc.x, abc.y), abc.x / abc.y)),
+sympy_Div = sympy.Lambda((abc.x, abc.y), abc.x / abc.y)
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
     # boolean operation
@@ -83,7 +83,7 @@ python_callable_and_sympy_function_relation = [
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),
     (operator.pow, sympy.Pow),
-    (operator.truedive, sympy_Div)
+    (operator.truediv, sympy_Div),
     (operator.sub, sympy_Sub),
     (operator.neg, sympy_Neg),
     # min/max

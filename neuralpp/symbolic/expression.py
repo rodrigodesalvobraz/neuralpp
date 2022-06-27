@@ -215,6 +215,9 @@ class Expression(ABC):
     def __rmul__(self, other: Any) -> Expression:
         return self._new_binary_operation(other, operator.mul, reverse=True)
 
+    def __truediv__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.truediv)
+
     def __sub__(self, other: Any) -> Expression:
         return self._new_binary_operation(other, operator.sub)
 
@@ -223,6 +226,9 @@ class Expression(ABC):
 
     def __neg__(self) -> Expression:
         return self.new_function_application(self.new_constant(operator.neg, Callable[[self.type], self.type]), [self])
+
+    def __eq__(self, other: Any) -> Expression:
+        return self._new_binary_operation(other, operator.eq, Callable[[sef.type, other.type], bool])
 
     def __and__(self, other: Any) -> Expression:
         return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool])
