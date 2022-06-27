@@ -6,7 +6,7 @@ from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import def
 
 # Trains a digit recognizer with the generative model:
 #
-# Digit[i] ~ Uniform(0..9)
+# Digit[i] ~ Uniform(0..9), for i in {0, 1}
 # Image[i] ~ Image_generation(Digit[i]), for i in {0, 1}
 # Sum = Digit[0] + Digit[1]
 #
@@ -19,11 +19,12 @@ from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import def
 # The corresponding factor graph is:
 #
 #
-#                      Constraint0
+#                          Sum
 #                           |
 #        +------------------------------------+
-#        |    Constraint0 = Digit0 + Digit1   |
+#        |       Sum = Digit0 + Digit1        |
 #        +------------------------------------+
+#               |                      |
 #               |                      |
 #            Digit0                  Digit1
 #               |                      |

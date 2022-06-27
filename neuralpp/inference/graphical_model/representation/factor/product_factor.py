@@ -59,8 +59,11 @@ class ProductFactor(Factor):
             return result_of_summing_out_variable_from_product_of_factors_with_variable
 
     @staticmethod
-    def make(factor):
-        return ProductFactor(ProductFactor.factors(factor))
+    def multiply(factors: List[Factor]) -> Factor:
+        if len(factors) == 1:
+            return factors[0]
+        else:
+            return ProductFactor(factors)
 
     @staticmethod
     def factors(product_of_factors):
