@@ -14,6 +14,7 @@ from neuralpp.util.util import join, split
 class ProductFactor(Factor):
     def __init__(self, factors: List[Factor]):
         # collect all variables
+        factors = [f for f in factors if f is not Group.identity]
         variables = itertools.chain.from_iterable(f.variables for f in factors)
         # getting unique variables while keeping the order (dict maintain insertion
         # order by default)
