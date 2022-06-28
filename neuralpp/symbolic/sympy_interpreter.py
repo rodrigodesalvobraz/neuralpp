@@ -5,7 +5,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Consta
 from neuralpp.symbolic.basic_expression import TrueContext
 from neuralpp.symbolic.simplifier import Simplifier
 from neuralpp.symbolic.interpreter import Interpreter
-from neuralpp.symbolic.sympy_expression import SymPyExpression, is_sympy_value, infer_sympy_object_type
+from neuralpp.symbolic.sympy_expression import SymPyExpression, _is_sympy_value, _infer_sympy_object_type
 from neuralpp.symbolic.expression import ExpressionType
 from typing import Dict, Any
 
@@ -25,7 +25,7 @@ class SymPyInterpreter(Interpreter, Simplifier):
 
     def eval(self, expression: SymPyExpression, context: Context = TrueContext()):
         result = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
-        if is_sympy_value(result):
+        if _is_sympy_value(result):
             return result
         else:
             raise RuntimeError(f"cannot evaluate to a value. The best effort result is {result}.")

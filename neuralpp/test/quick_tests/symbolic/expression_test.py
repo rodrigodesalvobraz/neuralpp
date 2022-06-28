@@ -11,9 +11,9 @@ from typing import Callable, Any
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
     BasicExpression
-from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, python_callable_to_sympy_function, \
-    sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable, infer_sympy_function_type, \
-    infer_sympy_object_type
+from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, _python_callable_to_sympy_function, \
+    _sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable, _infer_sympy_function_type, \
+    _infer_sympy_object_type
 from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression
 
 
@@ -150,11 +150,11 @@ def sympy_func(request):
 
 
 def test_python_callable_and_sympy_function_conversion(sympy_func):
-    assert python_callable_to_sympy_function(sympy_function_to_python_callable(sympy_func)) == sympy_func
+    assert _python_callable_to_sympy_function(_sympy_function_to_python_callable(sympy_func)) == sympy_func
 
 
 def test_python_callable_and_sympy_function_conversion2(python_callable):
-    assert sympy_function_to_python_callable(python_callable_to_sympy_function(python_callable)) == python_callable
+    assert _sympy_function_to_python_callable(_python_callable_to_sympy_function(python_callable)) == python_callable
 
 
 def test_function_application(expression_factory):
@@ -340,5 +340,5 @@ def test_multiply_bug():
 def test_type_inference():
     from sympy.abc import a, b
     sympy_expr: sympy.Basic = (a > b) | (a <= -b)
-    assert infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]
-    assert infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
+    assert _infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]
+    assert _infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
