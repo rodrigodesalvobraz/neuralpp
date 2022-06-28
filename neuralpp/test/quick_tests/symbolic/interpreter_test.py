@@ -230,3 +230,20 @@ def test_sympy_interpreter_simplify_operator_overload():
     y_2_context = dict_to_sympy_context({"y": 2})
     print(f"y=2 context:{y_2_context}")
     assert si.simplify(b_x_plus_y, y_2_context).sympy_object == x + 2
+
+
+def test_sympy_context():
+    y_2_context = dict_to_sympy_context({"y": 2})
+    assert y_2_context.satisfiability_is_known
+    assert not y_2_context.unsatisfiable
+
+    x = sympy.symbols("x")
+    unsat_context = SymPyContext(sympy.Eq(x, 3) & sympy.Eq(x, 2), {x: int})
+    assert unsat_context.satisfiability_is_known
+    assert unsat_context.unsatisfiable
+    assert unsat_context.dict == {}
+
+    unknown_context = SymPyContext(sympy.Eq(x, 3) & sympy.Gt(x, 2), {x: int})
+    assert not unknown_context.satisfiability_is_known
+    with pytest.raises(SymPyContext.UnknownError):
+        unknown_context.unsatisfiable

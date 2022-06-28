@@ -383,6 +383,11 @@ class Context(Expression, ABC):
         pass
 
     @property
+    @abstractmethod
+    def satisfiability_is_known(self) -> bool:
+        pass
+
+    @property
     def and_priority(self) -> int:
         """ So that conjoining anything with a context object `c` causes c.__and__ to be called. """
         return 1

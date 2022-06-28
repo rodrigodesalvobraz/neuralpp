@@ -406,7 +406,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def __eq__(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
 
-    def __init__(self, z3_solver: z3.Solver, value_dict: Dict[str, Any] | None = None):
+    def __init__(self, z3_solver: z3.Solver, value_dict: Dict[str, Any] | None = None, unknown: bool = False):
         """
         Assume z3_solver is satisfiable, otherwise user should use Z3UnsatContext() instead.
         Also assumes value_dict is not contradictory to z3_solver. Formally, the following statement is valid:
@@ -421,6 +421,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             self._dict = value_dict
         else:  # figure out ourselves
             self._dict = _extract_key_value_from_assertions(z3_solver.assertions())
+        self._unknown = unknown
 
     @cached_property
     def assertions(self) -> z3.AstVector:
@@ -441,7 +442,14 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
 
     @property
     def unsatisfiable(self) -> bool:  # self should always be satisfiable
-        return False
+        if not self._unknown:
+            return False
+        else:
+            raise Context.UnknownError()
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return not self._unknown
 
     @property
     def number_of_arguments(self) -> int:
@@ -459,7 +467,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             case z3.sat:
                 return Z3SolverExpression(solver, dict_)
             case z3.unknown:
-                raise Context.UnknownError(f"{solver} is unknown.")
+                return Z3SolverExpression(solver, dict_, unknown=True)
 
     def __and__(self, other: Any) -> Context:
         if self.unsatisfiable:

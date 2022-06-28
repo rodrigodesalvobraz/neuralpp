@@ -110,6 +110,10 @@ class TrueContext(BasicConstant, Context):
     def unsatisfiable(self) -> bool:
         return False
 
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return True
+
     def __init__(self):
         BasicConstant.__init__(self, True, bool)
 
@@ -121,6 +125,10 @@ class FalseContext(BasicConstant, Context):
 
     @property
     def unsatisfiable(self) -> bool:
+        return True
+
+    @property
+    def satisfiability_is_known(self) -> bool:
         return True
 
     def __init__(self):
