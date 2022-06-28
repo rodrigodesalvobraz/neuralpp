@@ -1,10 +1,10 @@
-from neuralpp.symbolic.expression import Expression
+from neuralpp.symbolic.expression import Expression, Context
 from abc import ABC, abstractmethod
 
 
 class Interpreter(ABC):
     @abstractmethod
-    def eval(self, expression: Expression, context: Expression):
+    def eval(self, expression: Expression, context: Context):
         """
         Evaluations the `expression` under the constraint of `context` being true.
         Either returns a value s.t., context -> expression == value

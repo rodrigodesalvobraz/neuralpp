@@ -10,8 +10,9 @@ import operator
 import builtins
 import fractions
 
+from functools import cached_property
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
-    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType
+    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
 
@@ -20,7 +21,7 @@ from neuralpp.util.util import update_consistent_dict
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
 
 
-def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
+def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
     """
     type_dict can be, for example, {a: int, b: int, c: float, f: int->int}.
     """
@@ -44,23 +45,23 @@ def infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Bas
                 """
                 if len(sympy_object.args) == 0:  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
                     raise TypeError("expect function application")
-                _, return_type = typing.get_args(infer_sympy_function_type(sympy_object, type_dict))
+                _, return_type = typing.get_args(_infer_sympy_function_type(sympy_object, type_dict))
                 return return_type
 
 
-def infer_sympy_function_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> Callable:
+def _infer_sympy_function_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> Callable:
     """
     Assume sympy_object is a function application, return the function type of the function application.
     Note this is different from infer_sympy_object_type, which returns the type of function application.
     E.g.,
     >>> from sympy.abc import a, b
-    >>> infer_sympy_function_type(a+b, {a:int, b:int})
+    >>> _infer_sympy_function_type(a+b, {a:int, b:int})
     Callable[[int, int], int]
-    >>> infer_sympy_object_type(a+b, {a:int, b:int})
+    >>> _infer_sympy_object_type(a+b, {a:int, b:int})
     int
     """
-    return infer_python_callable_type(sympy_function_to_python_callable(sympy_object.func),
-                                      [infer_sympy_object_type(arg, type_dict) for arg in sympy_object.args])
+    return infer_python_callable_type(_sympy_function_to_python_callable(sympy_object.func),
+                                      [_infer_sympy_object_type(arg, type_dict) for arg in sympy_object.args])
 
 
 sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x-abc.y)
@@ -96,37 +97,37 @@ python_callable_sympy_function_dict = \
      for python_callable, sympy_function in python_callable_and_sympy_function_relation}
 
 
-def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
+def _sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
     try:
         return sympy_function_python_callable_dict[sympy_function]
     except KeyError:
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
-def python_callable_to_sympy_function(python_callable: Callable) -> sympy.Basic:
+def _python_callable_to_sympy_function(python_callable: Callable) -> sympy.Basic:
     try:
         return python_callable_sympy_function_dict[python_callable]
     except KeyError:
         raise ValueError(f"Python callable {python_callable} is not recognized.")
 
 
-def is_sympy_value(sympy_object: sympy.Basic) -> bool:
+def _is_sympy_value(sympy_object: sympy.Basic) -> bool:
     return isinstance(sympy_object, sympy.Number) or \
            isinstance(sympy_object, sympy.logic.boolalg.BooleanAtom)
 
 
-def build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]) -> None:
+def _build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]) -> None:
     update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
 
-def build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]) -> Dict[sympy.Basic, ExpressionType]:
+def _build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]) -> Dict[sympy.Basic, ExpressionType]:
     """
     Assumption: each element in sympy_arguments has a proper type_dict.
     Returns: a proper type_dict with these arguments joint
     """
     result = {}
     for sympy_argument in sympy_arguments:
-        build_type_dict(sympy_argument, result)
+        _build_type_dict(sympy_argument, result)
     return result
 
 
@@ -158,7 +159,7 @@ class SymPyExpression(Expression, ABC):
                 raise FunctionNotTypedError
         else:
             try:
-                sympy_object = python_callable_to_sympy_function(value)
+                sympy_object = _python_callable_to_sympy_function(value)
             except Exception:
                 raise ValueError(f"SymPyConstant does not support {type(value)}: "
                                  f"unable to turn into a sympy representation internally")
@@ -184,7 +185,7 @@ class SymPyExpression(Expression, ABC):
             # if function is not of SymPyConstant but of Constant, then it is assumed to be a python callable
             case Constant(value=python_callable):
                 # during the call, ValueError will be implicitly raised if we cannot convert
-                sympy_function = python_callable_to_sympy_function(python_callable)
+                sympy_function = _python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
             case Variable(name=name):
                 raise ValueError(f"Cannot create a SymPyExpression from uninterpreted function {name}")
@@ -207,7 +208,7 @@ class SymPyExpression(Expression, ABC):
             return str(value)  # uninterpreted function
         else:
             try:
-                return sympy_function_to_python_callable(value)
+                return _sympy_function_to_python_callable(value)
             except Exception:
                 raise ValueError(f"Cannot pythonize {value}.")
 
@@ -231,8 +232,8 @@ class SymPyExpression(Expression, ABC):
         # Here we just try to find a type of expression for sympy object.
         if isinstance(sympy_object, sympy.Symbol):
             return SymPyVariable(sympy_object, type_dict[sympy_object])
-        elif is_sympy_value(sympy_object):
-            return SymPyConstant(sympy_object, infer_sympy_object_type(sympy_object, type_dict))
+        elif _is_sympy_value(sympy_object):
+            return SymPyConstant(sympy_object, _infer_sympy_object_type(sympy_object, type_dict))
         else:
             return SymPyFunctionApplication(sympy_object, type_dict)
 
@@ -253,7 +254,7 @@ class SymPyVariable(SymPyExpression, Variable):
 class SymPyConstant(SymPyExpression, Constant):
     def __init__(self, sympy_object: sympy.Basic, expression_type: Optional[ExpressionType] = None):
         if expression_type is None:
-            expression_type = infer_sympy_object_type(sympy_object, {})
+            expression_type = _infer_sympy_object_type(sympy_object, {})
         SymPyExpression.__init__(self, sympy_object, expression_type, {})  # type_dict only records variables
 
     @property
@@ -272,7 +273,7 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
         if not sympy_object.args:
             raise TypeError("not a function application.")
 
-        self._function_type = infer_sympy_function_type(sympy_object, type_dict)
+        self._function_type = _infer_sympy_function_type(sympy_object, type_dict)
         return_type = return_type_after_application(self._function_type, len(sympy_object.args))
         SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
 
@@ -302,7 +303,7 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
     def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression]) -> \
             SymPyFunctionApplication:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
-        type_dict = build_type_dict_from_sympy_arguments(sympy_arguments)
+        type_dict = _build_type_dict_from_sympy_arguments(sympy_arguments)
 
         # Stop evaluation, otherwise Add(1,1) will be 2 in sympy.
         if sympy_function == sympy.Min or sympy_function == sympy.Max:
@@ -314,3 +315,42 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
             with sympy.evaluate(False):
                 sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
                 return SymPyFunctionApplication(sympy_object, type_dict)
+
+
+def _context_to_variable_value_dict_helper(context: FunctionApplication,
+                                           variable_to_value: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    variable_to_value: the mutable argument also serves as a return value.
+    If the context has multiple assignments (e.g., x==3 and x==5), we just pick the last one.
+    This does not violate our specification, since ex falso quodlibet, "from falsehood, anything follows".
+    """
+    match context:
+        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
+            # the conjunctive case
+            for sub_context in arguments:
+                variable_to_value = _context_to_variable_value_dict_helper(sub_context, variable_to_value)
+        case FunctionApplication(function=Constant(value=operator.eq),
+                                 arguments=[Variable(name=lhs), Constant(value=rhs)]):
+            # the leaf case
+            variable_to_value[lhs] = rhs
+        # all other cases are ignored
+    return variable_to_value
+
+
+def _context_to_variable_value_dict(context: FunctionApplication) -> Dict[str, Any]:
+    return _context_to_variable_value_dict_helper(context, {})
+
+
+class SymPyContext(SymPyFunctionApplication, Context):
+    """
+    SymPyContext is just a SymPyFunctionApplication, which always raises when asked for satisfiability
+    since we don't know.
+    We create a dictionary from the function application at the first time `dict()` property is called. """
+    @property
+    def unsatisfiable(self) -> bool:
+        raise Context.UnknownError()
+
+    @cached_property
+    def dict(self) -> Dict[str, Any]:
+        return _context_to_variable_value_dict(self)
+
