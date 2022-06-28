@@ -12,6 +12,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
 from neuralpp.symbolic.basic_expression import FalseContext
 from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal
 from functools import cached_property
+import neuralpp.symbolic.functions as functions
 
 
 def _get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> ExpressionType:
@@ -110,6 +111,9 @@ def _python_callable_to_z3_function(python_callable: Callable, type_: Optional[E
             # return z3.If(arguments[0] > arguments[1], arguments[0], arguments[1])
             raise NotImplementedError("Cannot convert min to a z3 function declaration."
                                       "However we can create z3.If(x>y, x, y) for max(x,y).")
+        # if then else
+        case functions.cond:
+            return z3.If(x > y, x, y).decl()  # "x>y" is just a placeholder boolean.
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -147,6 +151,9 @@ def _z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.mul
         case z3.Z3_OP_POWER:
             return operator.pow
+        # if then else
+        case z3.Z3_OP_ITE:
+            return functions.cond
         case _:
             raise ValueError(f"Z3 function {z3_function} is not recognized.")
 

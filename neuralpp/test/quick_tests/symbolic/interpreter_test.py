@@ -4,6 +4,7 @@ import pytest
 import operator
 import sympy
 import builtins
+import z3
 
 from typing import Callable
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicConstant, BasicFunctionApplication, \
@@ -12,6 +13,8 @@ from neuralpp.symbolic.basic_interpreter import BasicInterpreter
 from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication, \
     SymPyExpression, SymPyContext
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
+from neuralpp.symbolic.z3_expression import Z3FunctionApplication
+import neuralpp.symbolic.functions as functions
 
 
 int_to_int_to_int = Callable[[int, int], int]
@@ -230,6 +233,23 @@ def test_sympy_interpreter_simplify_operator_overload():
     y_2_context = dict_to_sympy_context({"y": 2})
     print(f"y=2 context:{y_2_context}")
     assert si.simplify(b_x_plus_y, y_2_context).sympy_object == x + 2
+
+    # if then else:
+    # convert from basic
+    x_2_y_2_context = dict_to_sympy_context({"x": 2, "y": 2})
+    x_3_y_2_context = dict_to_sympy_context({"x": 3, "y": 2})
+    f = BasicConstant(functions.cond, Callable[[bool, int, int], int])
+    fa = BasicFunctionApplication(f, [b_x <= 2, b_x * 100, b_y])
+    assert si.simplify(fa).sympy_object == sympy.Piecewise((x*100, x <= 2), (y, True))
+    assert si.simplify(fa, x_2_y_2_context).value == 200
+    assert si.simplify(fa, x_3_y_2_context).value == 2
+
+    # convert from z3
+    z3_x, z3_y = z3.Ints("x y")
+    fa1 = Z3FunctionApplication(z3.If(z3_x <= 2, z3_x * 100, z3_y))
+    assert si.simplify(fa1).sympy_object == sympy.Piecewise((x*100, x <= 2), (y, True))
+    assert si.simplify(fa1, x_2_y_2_context).value == 200
+    assert si.simplify(fa1, x_3_y_2_context).value == 2
 
 
 def test_sympy_context():
