@@ -89,7 +89,7 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def atom(self) -> str:
         return self._atom
 
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         match other:
             case BasicAtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
                 return other_base_type == self.base_type and self.type == other_type and self.atom == other_atom
@@ -165,9 +165,10 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def number_of_arguments(self) -> int:
         return len(self.arguments)
 
-    def __eq__(self, other):
+    def syntactic_eq(self, other) -> bool:
         match other:
             case BasicFunctionApplication(function=function, arguments=arguments, type=other_type):
-                return self.subexpressions == [function] + arguments and self.type == other_type
+                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, [function] + arguments)) and \
+                       self.type == other_type
             case _:
                 return False

@@ -116,7 +116,7 @@ class Expression(ABC):
         return False
 
     @abstractmethod
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         pass
 
     @classmethod
@@ -294,8 +294,11 @@ class Expression(ABC):
     def __ge__(self, other) -> Expression:
         return self._new_binary_comparison(other, operator.ge)
 
-    # def __ne__(self, other) -> Expression:
-    #     return self._new_binary_comparison(other, operator.ne)
+    def __ne__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.ne)
+
+    def __eq__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.eq)
 
 
 class AtomicExpression(Expression, ABC):
@@ -314,7 +317,7 @@ class AtomicExpression(Expression, ABC):
         return []
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
-        if from_expression == self:
+        if from_expression.syntactic_eq(self):
             return to_expression
         else:
             return self
@@ -323,7 +326,7 @@ class AtomicExpression(Expression, ABC):
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
     def contains(self, target: Expression) -> bool:
-        return self == target
+        return self.syntactic_eq(target)
 
 
 class Variable(AtomicExpression, ABC):
@@ -394,7 +397,7 @@ class FunctionApplication(Expression, ABC):
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         # recursively do the replacement
         new_subexpressions = [
-            to_expression if e == from_expression else e.replace(from_expression, to_expression)
+            to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)
             for e in self.subexpressions
         ]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])

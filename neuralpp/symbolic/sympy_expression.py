@@ -224,7 +224,7 @@ class SymPyExpression(Expression, ABC):
     def type_dict(self) -> Dict[sympy.Basic, ExpressionType]:
         return self._type_dict
 
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         match other:
             case SymPyExpression(sympy_object=other_sympy_object, type_dict=other_type_dict):
                 return self.sympy_object == other_sympy_object and self.type_dict == other_type_dict

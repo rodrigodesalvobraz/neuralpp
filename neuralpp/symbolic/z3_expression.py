@@ -321,7 +321,7 @@ class Z3ObjectExpression(Z3Expression, ABC):
     def z3_object(self):
         return self._z3_object
 
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         match other:
             case Z3ObjectExpression(z3_object=other_z3_object):
                 return self.z3_object.eq(other_z3_object)
@@ -410,7 +410,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def dict(self) -> Dict[str, Any]:
         return self._dict
 
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
 
     def __init__(self, z3_solver: z3.Solver, value_dict: Dict[str, Any] | None = None):
