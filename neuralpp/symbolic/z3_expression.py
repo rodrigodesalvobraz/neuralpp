@@ -459,7 +459,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             case z3.sat:
                 return Z3SolverExpression(solver, dict_)
             case z3.unknown:
-                raise RuntimeError(f"{solver} is unknown.")
+                raise Context.UnknownError(f"{solver} is unknown.")
 
     def __and__(self, other: Any) -> Context:
         if self.unsatisfiable:

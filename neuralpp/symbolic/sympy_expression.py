@@ -343,12 +343,12 @@ def _context_to_variable_value_dict(context: FunctionApplication) -> Dict[str, A
 
 class SymPyContext(SymPyFunctionApplication, Context):
     """
-    SymPyContext is just a SymPyFunctionApplication, which is always satisfiable (treating unsatisfiable statement
-    as satisfiable does not affect correctness). And we create a dictionary from the function application at the
-    first time `dict()` property is called. """
+    SymPyContext is just a SymPyFunctionApplication, which always raises when asked for satisfiability
+    since we don't know.
+    We create a dictionary from the function application at the first time `dict()` property is called. """
     @property
     def unsatisfiable(self) -> bool:
-        return False
+        raise Context.UnknownError()
 
     @cached_property
     def dict(self) -> Dict[str, Any]:

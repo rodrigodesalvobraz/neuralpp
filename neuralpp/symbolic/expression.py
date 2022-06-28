@@ -374,6 +374,9 @@ class FunctionApplication(Expression, ABC):
 
 
 class Context(Expression, ABC):
+    class UnknownError(ValueError, RuntimeError):
+        pass
+
     @property
     @abstractmethod
     def unsatisfiable(self) -> bool:
