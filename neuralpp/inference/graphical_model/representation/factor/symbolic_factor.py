@@ -8,7 +8,7 @@ from neuralpp.inference.graphical_model.variable.integer_variable import Integer
 from neuralpp.symbolic.basic_expression import BasicConstant, BasicVariable, BasicFunctionApplication
 from neuralpp.symbolic.expression import Expression, FunctionApplication
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
-from neuralpp.util.util import union
+from neuralpp.util.util import union, join
 
 class SymbolicFactor(AtomicFactor):
     def __init__(self, variables: List[Variable], expression: Expression):
@@ -20,6 +20,27 @@ class SymbolicFactor(AtomicFactor):
 
     def assignments(self):
         return DiscreteVariable.assignments_product(self.variables)
+
+    def _variable_type(self, variable: Variable) -> type:
+        if (isinstance(variable, IntegerVariable)):
+            return int
+        else:
+            return float
+
+    def _dict_to_context(self, assignment_dict: dict) -> Expression:
+        result = BasicConstant(True)
+        type_dict = {}
+        for k, v in assignment_dict.items():
+            symbol = BasicVariable(k.name, self._variable_type(v))
+            eq_operator = BasicConstant(operator.eq, Callable[[type(v), type(v)], bool])
+            eq_expression = BasicFunctionApplication(eq_operator, [symbol, BasicConstant(v, type(v))])
+
+            and_operator = BasicConstant(operator.and_, Callable[[bool, bool], bool])
+            result = BasicFunctionApplication(and_operator, [result, eq_expression])
+        return result
+
+    def dict_to_context_result(self,  assignment_dict: dict) -> Expression:
+        return self._dict_to_context(assignment_dict)
 
     def condition_on_non_empty_dict(self, assignment_dict: Dict[Variable, Any]):
         # TODO: handle batch cases
@@ -51,9 +72,7 @@ class SymbolicFactor(AtomicFactor):
                 f"Got {type(other)}"
             )
         combined_variables = union([self.variables, other.variables])
-
-        mul_operator = BasicConstant(operator.mul, Callable[[Any, Any], Any])
-        combined_expression = BasicFunctionApplication(mul_operator,[self.expression, other.expression])
+        combined_expression = self.expression * other.expression
 
         return self.new_instance(combined_variables, combined_expression)
 
@@ -71,8 +90,7 @@ class SymbolicFactor(AtomicFactor):
             if result_expression == None:
                 result_expression = simplified_expression
             else:
-                add_operator = BasicConstant(operator.add, Callable[[Any, Any], Any])
-                result_expression = BasicFunctionApplication(add_operator, [result_expression, simplified_expression])
+                result_expression = result_expression + simplified_expression
 
         result_expression = interpreter.simplify(result_expression)
         return self.new_instance(result_variables, result_expression)
@@ -84,8 +102,7 @@ class SymbolicFactor(AtomicFactor):
         interpreter = SymPyInterpreter()
         sum_expression = self.sum_out_variables(self.variables).expression
 
-        div_operator = BasicConstant(operator.truediv, self._any_function_of_arity([self.expression, sum_expression]))
-        result_expression = BasicFunctionApplication(div_operator, [self.expression, sum_expression])
+        result_expression = self.expression / sum_expression
         result_expression = interpreter.simplify(result_expression)
         return self.new_instance(self.variables, result_expression)
 
@@ -114,35 +131,3 @@ class SymbolicFactor(AtomicFactor):
 
     def __str__(self):
         return "Factor on (" + join(self.variables) + "): " + str(self.expression)
-
-    def _variable_type(self, variable: Variable) -> type:
-        if (isinstance(variable, IntegerVariable)):
-            return int
-        else:
-            return float
-
-    def _dict_to_context(self, assignment_dict: dict) -> Expression:
-        result = BasicConstant(True)
-        type_dict = {}
-        for k, v in assignment_dict.items():
-            symbol = BasicVariable(k.name, self._variable_type(v))
-            eq_operator = BasicConstant(operator.eq, Callable[[type(v), type(v)], bool])
-            eq_expression = BasicFunctionApplication(eq_operator, [symbol, BasicConstant(v, type(v))])
-
-            and_operator = BasicConstant(operator.and_, Callable[[bool, bool], bool])
-            result = BasicFunctionApplication(and_operator, [result, eq_expression])
-        return result
-
-    def _any_function_of_arity(self, expressions: List[Expression]) -> Callable:
-        """
-        This is currently used because there is a bug in FunctionApplication callable for mul and div.
-        Will be removed once the bug is fixed.
-        """
-        arity = 0
-        for expression in expressions:
-            if isinstance(expression, FunctionApplication):
-                arity += expression.number_of_arguments
-            else:
-                arity += 1
-
-        return Callable[[[Any] * arity], Any]

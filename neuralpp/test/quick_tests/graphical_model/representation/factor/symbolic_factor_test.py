@@ -13,7 +13,7 @@ def test_sympy_condition():
     y = IntegerVariable("y", 2)
 
     x_sympy, y_sympy = sympy.symbols("x y")
-    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
 
     symbolic = SymbolicFactor([x, y], expression1)
     conditioned = symbolic.condition({x: 1})
@@ -25,8 +25,8 @@ def test_mul_by_non_identity():
     z = IntegerVariable("z", 3)
 
     x_sympy, y_sympy, z_sympy = sympy.symbols("x y z")
-    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
-    expression2 = SymPyFunctionApplication(x_sympy + z_sympy, {x_sympy: int, z_sympy: int}, int_to_int_to_int)
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
+    expression2 = SymPyFunctionApplication(x_sympy + z_sympy, {x_sympy: int, z_sympy: int})
 
     symbolic1 = SymbolicFactor([x, y], expression1)
     symbolic2 = SymbolicFactor([x, z], expression2)
@@ -43,7 +43,7 @@ def test_sum_out_variable():
     y = IntegerVariable("y", 2)
 
     x_sympy, y_sympy = sympy.symbols("x y")
-    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
 
     symbolic = SymbolicFactor([x, y], expression1)
     sum_out_x = symbolic.sum_out_variable(x)
@@ -54,7 +54,7 @@ def test_normalize():
     y = IntegerVariable("y", 2)
 
     x_sympy, y_sympy = sympy.symbols("x y")
-    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int}, int_to_int_to_int)
+    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
 
     symbolic = SymbolicFactor([x, y], expression1)
     sum_variables = symbolic.sum_out_variables([x, y])

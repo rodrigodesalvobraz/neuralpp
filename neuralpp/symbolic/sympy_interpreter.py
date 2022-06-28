@@ -58,20 +58,16 @@ class SymPyInterpreter(Interpreter, Simplifier):
             raise RuntimeError(f"cannot evaluate to a value. The best effort result is {result}.")
 
     @staticmethod
-    def _updated_type_dict_by_context(type_dict: Dict[sympy.Basic, ExpressionType], context: Expression) -> \
+    def purge_type_dict(type_dict: Dict[sympy.Basic, ExpressionType], sympy_object: sympy.Basic) -> \
             Dict[sympy.Basic, ExpressionType]:
-        """ argument type_dict is not modified, instead, a new dict is created as a return value"""
+        """
+        Assumes all variables (including uninterpreted functions) used in sympy_object is in type_dict.
+        Returns a new type dict that only contains the keys that's used in sympy_object.
+        """
         result = {}
-        for k, v in type_dict.items():
-            new_key = SymPyInterpreter._simplify_expression(k, context)
-            if new_key == k or new_key not in type_dict:
-                # skip the update if not(new_key == k or new_key not in type_dict), i.e,
-                # if (i) new_key is a new key (has been simplified()) and (ii) new_key exists in type_dict.
-                # From (i) and (ii), k must be a function application (if k is a variable and simpified, new_key would
-                # be constant and will not be in type_dict). Based on the type of new_key, there's two cases:
-                # #1 if new_key is a variable: then new_key should be discarded as v is of function type.
-                # #2 if new_key is a function application: old and new types should be same. just discard the new_key.
-                result[new_key] = v
+        for key, value in type_dict.items():
+            if sympy_object.has(key):
+                result[key] = value
         return result
 
     def simplify(self, expression: Expression, context: Expression = BasicConstant(True)) -> SymPyExpression:
@@ -81,18 +77,9 @@ class SymPyInterpreter(Interpreter, Simplifier):
         if not isinstance(expression, SymPyExpression):
             expression = SymPyExpression.convert(expression)
 
-        result = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
-        # if "x+y" is simplified to "x+2", how do we find out the type of that "+"? We need to update the type_dict
-        # by also doing the replacement. If we have "x+(y+y)", the type_dict would be
-        #   {x:int, y:int, y+y:int->int->int, x+(y+y):int->int->int}
-        # by a context of {y:2}, we'd have
-        #   {x:int, 2:int, 4:int->int->int, x+4:int->int->int} (entry 2 and 4 will be GCed)
-        type_dict = SymPyInterpreter._updated_type_dict_by_context(expression.type_dict, context)
-        type_ = type_dict[result]
-        result_expression = SymPyExpression.from_sympy_object(result, type_, type_dict)
+        simplified_sympy_expression = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
         # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still
-        # keeps the type of `y`. Say the old `y` is of int type, adding that `0` to another `y` of float type will
-        # cause an error. That's why we need garbage_collect_type_dict() for cleaning the old, unreachable type
-        # information.
-        result_expression.garbage_collect_type_dict()
+        # keeps the type of `y`. Delete these redundant types.
+        type_dict = SymPyInterpreter.purge_type_dict(expression.type_dict, simplified_sympy_expression)
+        result_expression = SymPyExpression.from_sympy_object(simplified_sympy_expression, type_dict)
         return result_expression
