@@ -14,6 +14,7 @@ class SymbolicFactor(AtomicFactor):
     def __init__(self, variables: List[Variable], expression: Expression):
         super().__init__(variables)
         self.expression = expression
+        self.interpreter = SymPyInterpreter()
 
     def new_instance(self, variables: List[Variable], expression: Expression):
         return type(self)(variables, expression)
@@ -39,9 +40,6 @@ class SymbolicFactor(AtomicFactor):
             result = BasicFunctionApplication(and_operator, [result, eq_expression])
         return result
 
-    def dict_to_context_result(self,  assignment_dict: dict) -> Expression:
-        return self._dict_to_context(assignment_dict)
-
     def condition_on_non_empty_dict(self, assignment_dict: Dict[Variable, Any]):
         # TODO: handle batch cases
         non_conditioned_variables = [
@@ -50,18 +48,15 @@ class SymbolicFactor(AtomicFactor):
             if v not in assignment_dict or isinstance(assignment_dict[v], slice)
         ]
 
-        interpreter = SymPyInterpreter()
         context = self._dict_to_context(assignment_dict)
-        conditioned_expression = interpreter.simplify(self.expression, context)
+        conditioned_expression = self.interpreter.simplify(self.expression, context)
 
         return self.new_instance(non_conditioned_variables, conditioned_expression)
 
 
     def call_after_validation(self, assignment_dict, assignment_values):
-        interpreter = SymPyInterpreter()
         context = self._dict_to_context(assignment_dict)
-
-        return interpreter.eval(self.expression, context)
+        return self.interpreter.eval(self.expression, context)
 
     def mul_by_non_identity(self, other):
         """Multiplies factors so that (f1 * f2)(assignment) = f1(assignment)*f2(assignment)
@@ -78,32 +73,29 @@ class SymbolicFactor(AtomicFactor):
 
     def sum_out_variable(self, variable: Variable):
         result_variables = [v for v in self.variables if v != variable]
-
-        interpreter = SymPyInterpreter()
         result_expression = None
         for a in variable.assignments():
             symbol = BasicVariable(variable.name, type(a))
             eq_operator = BasicConstant(operator.eq, Callable[[type(a), type(a)], bool])
             context = BasicFunctionApplication(eq_operator, [symbol, BasicConstant(a, type(a))])
-            simplified_expression = interpreter.simplify(self.expression, context)
+            simplified_expression = self.interpreter.simplify(self.expression, context)
 
             if result_expression == None:
                 result_expression = simplified_expression
             else:
                 result_expression = result_expression + simplified_expression
 
-        result_expression = interpreter.simplify(result_expression)
+        result_expression = self.interpreter.simplify(result_expression)
         return self.new_instance(result_variables, result_expression)
 
     def argmax(self):
         raise NotImplementedError("TODO")
 
     def normalize(self):
-        interpreter = SymPyInterpreter()
         sum_expression = self.sum_out_variables(self.variables).expression
 
         result_expression = self.expression / sum_expression
-        result_expression = interpreter.simplify(result_expression)
+        result_expression = self.interpreter.simplify(result_expression)
         return self.new_instance(self.variables, result_expression)
 
     def randomize(self):
