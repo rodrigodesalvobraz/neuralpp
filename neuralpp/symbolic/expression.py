@@ -161,6 +161,26 @@ class Expression(ABC):
 
     @property
     def and_priority(self) -> int:
+        """ This property is by default set to 0. Any subclass wishing to 'overshadow' in `and` operator may
+        set this value higher. For example: if a and b are Expressions, both having __and__() overloaded:
+        >>> a: Expression
+        >>> b: Expression
+        then
+        >>> a & b
+        would mean
+        >>> a.__and__(b)
+        However, if b is a subclass that overload `and_property` to a >0 value. Then
+        >>> a & b
+        would mean
+        >>> b.__and__(a)
+
+        In particualr, this is useful in `Context`, sicne we want `Context` object to always `overshadow` its neighbors.
+        So that
+        >>> literal & context
+        would cause
+        >>> context.__and__(literal)
+        thus adding literal to the context (instead of creating a new expression where we lost the context information).
+        """
         return 0
 
     def get_function_type(self) -> ExpressionType:
