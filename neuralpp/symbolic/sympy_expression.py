@@ -40,7 +40,7 @@ def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Ba
             try:
                 return type_dict[sympy_object]
             except KeyError:  # if it's not in type_dict, try figure out ourselves
-                """ 
+                """
                 Here, sympy_object must be function applications like 'x+y'
                 """
                 if len(sympy_object.args) == 0:  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
@@ -66,6 +66,7 @@ def _infer_sympy_function_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.
 
 sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x - abc.y)
 sympy_Neg = sympy.Lambda((abc.x,), -abc.x)  # "lambda x: (-1)*x"
+sympy_Div = sympy.Lambda((abc.x, abc.y), abc.x / abc.y)
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
     # boolean operation
@@ -85,6 +86,7 @@ python_callable_and_sympy_function_relation = [
     (operator.pow, sympy.Pow),
     (operator.sub, sympy_Sub),
     (operator.neg, sympy_Neg),
+    (operator.truediv, sympy_Div),
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
