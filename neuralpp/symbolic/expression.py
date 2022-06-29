@@ -256,8 +256,10 @@ class Expression(ABC):
         return self._new_binary_arithmetic(other, operator.mul, reverse=True)
 
     def __truediv__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.truediv)
+        return self._new_binary_arithmetic(other, operator.truediv)
 
+    def __rtruediv__(self, other: Any) -> Expression:
+        return self._new_binary_arithmetic(other, operator.truediv, reverse=True)
 
     def __sub__(self, other: Any) -> Expression:
         return self._new_binary_arithmetic(other, operator.sub)
@@ -303,6 +305,11 @@ class Expression(ABC):
 
     def __eq__(self, other) -> Expression:
         return self._new_binary_comparison(other, operator.eq)
+
+    def __call__(self, *args, **kwargs) -> Expression:
+        return self.new_function_application(self,
+                                             [arg if isinstance(arg, Expression) else self.new_constant(arg, None)
+                                              for arg in args])
 
 
 class AtomicExpression(Expression, ABC):

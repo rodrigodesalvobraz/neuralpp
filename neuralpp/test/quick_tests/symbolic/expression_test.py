@@ -198,7 +198,8 @@ def test_function_application(expression_factory):
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
 
-    # operator overloading
+
+def test_operator_overloading(expression_factory):
     x = expression_factory.new_variable("x", int)
     x_plus_one = x + 1
     assert x_plus_one.function.type == int_to_int_to_int
@@ -229,6 +230,26 @@ def test_function_application(expression_factory):
         # (Even if we don't raise at creation, we cannot get e.g. expr1.argument[1]
         with pytest.raises(TypeError):
             expr1 = b1 & True
+
+
+def test_constants_operators():
+    from neuralpp.symbolic.constants import int_add, real_le, int_if_then_else
+    fa0 = int_add(1, 3)
+    assert fa0.arguments[0].value == 1
+    assert fa0.arguments[1].value == 3
+
+    fa1 = real_le(fractions.Fraction(1, 3), 3)
+    assert fa1.arguments[0].value == fractions.Fraction(1, 3)
+    assert fa1.arguments[1].value == 3
+
+    fa2 = int_add(fa0, Z3Expression.new_constant(z3.IntVal(101)))
+    assert fa2.arguments[0].function.value == operator.add
+    assert fa2.arguments[1].value == 101
+
+    i = int_if_then_else(fa1, fa0, fa2)
+    assert i.arguments[0].function.value == operator.le
+    assert i.arguments[1].function.value == operator.add
+    assert i.arguments[2].function.value == operator.add
 
 
 def test_sympy_function_application():
