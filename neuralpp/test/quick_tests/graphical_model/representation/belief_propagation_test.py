@@ -73,8 +73,8 @@ def test_ebp_with_loop():
     ]
 
     expected_w = VariableElimination().run(w, model)
-    assert (ExactBeliefPropagation(model, True).run(w) == expected_w)
-    assert (ExactBeliefPropagation(model, False).run(w) == expected_w)
+    assert(ExactBeliefPropagation(model, True).run(w) == expected_w)
+    assert(ExactBeliefPropagation(model, False).run(w) == expected_w)
 
     # observe cloudiness at highest level
     observations = {c: 2}
@@ -83,4 +83,4 @@ def test_ebp_with_loop():
     # this should result in increased chances of rain
     expected_w_with_conditions = VariableElimination().run(w, conditioned_model)
     assert(ExactBeliefPropagation(conditioned_model, True).run(w) == expected_w_with_conditions)
-    assert (ExactBeliefPropagation(conditioned_model, False).run(w) == expected_w_with_conditions)
+    assert(ExactBeliefPropagation(conditioned_model, False).run(w) == expected_w_with_conditions)
