@@ -492,6 +492,6 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             # Always treat `other` as a literal. Will raise if it cannot be converted to a boolean in Z3.
             new_solver = z3_add_solver_and_literal(self._solver, other.z3_object)
             new_dict = self._dict | _extract_key_value_from_assertions([other.z3_object])
-        return Z3SolverExpression(new_solver, new_dict)
+        return Z3SolverExpression.make(new_solver, new_dict)
 
     __rand__ = __and__
