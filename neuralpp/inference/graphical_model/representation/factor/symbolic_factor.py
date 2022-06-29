@@ -1,14 +1,14 @@
-from typing import List, Any, Optional, Type, Callable, Dict
-import operator
-
+import sympy
+from typing import Dict, List, Union
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
 from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.symbolic.basic_expression import BasicConstant, BasicVariable, BasicFunctionApplication
-from neuralpp.symbolic.expression import Expression, FunctionApplication
+from neuralpp.symbolic.expression import Expression
+from neuralpp.symbolic.sympy_expression import SymPyContext
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.util.util import union, join
+
 
 class SymbolicFactor(AtomicFactor):
     def __init__(self, variables: List[Variable], expression: Expression):
@@ -28,19 +28,19 @@ class SymbolicFactor(AtomicFactor):
         else:
             return float
 
-    def _dict_to_context(self, assignment_dict: dict) -> Expression:
-        result = BasicConstant(True)
+    def _dict_to_context(self, assignment_dict: dict[Variable, Union[int, float]]) -> Expression:
+        conjunction = sympy.S.true
         type_dict = {}
         for k, v in assignment_dict.items():
-            symbol = BasicVariable(k.name, self._variable_type(v))
-            eq_operator = BasicConstant(operator.eq, Callable[[type(v), type(v)], bool])
-            eq_expression = BasicFunctionApplication(eq_operator, [symbol, BasicConstant(v, type(v))])
+            symbol = sympy.symbols(k.name)
+            eq_expression = sympy.Eq(symbol, v, evaluate=False)
+            conjunction = conjunction & eq_expression
 
-            and_operator = BasicConstant(operator.and_, Callable[[bool, bool], bool])
-            result = BasicFunctionApplication(and_operator, [result, eq_expression])
-        return result
+            type_dict[symbol] = type(v)
 
-    def condition_on_non_empty_dict(self, assignment_dict: Dict[Variable, Any]):
+        return SymPyContext(conjunction, type_dict)
+
+    def condition_on_non_empty_dict(self, assignment_dict: Dict[Variable, Union[int, float]]):
         # TODO: handle batch cases
         non_conditioned_variables = [
             v
@@ -75,9 +75,7 @@ class SymbolicFactor(AtomicFactor):
         result_variables = [v for v in self.variables if v != variable]
         result_expression = None
         for a in variable.assignments():
-            symbol = BasicVariable(variable.name, type(a))
-            eq_operator = BasicConstant(operator.eq, Callable[[type(a), type(a)], bool])
-            context = BasicFunctionApplication(eq_operator, [symbol, BasicConstant(a, type(a))])
+            context = self._dict_to_context({variable: a})
             simplified_expression = self.interpreter.simplify(self.expression, context)
 
             if result_expression == None:
