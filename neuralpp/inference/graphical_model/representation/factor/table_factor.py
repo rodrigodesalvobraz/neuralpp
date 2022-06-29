@@ -179,7 +179,7 @@ class TableFactor(AtomicFactor):
                 return False
         else:
             raise Exception(
-                f"Comparison of PyTorchFactor to factors other than PyTorchFactor is not implemented. "
+                f"Comparison of TableFactor to factors other than TableFactor is not implemented. "
                 f"Got {type(other)}"
             )
 
