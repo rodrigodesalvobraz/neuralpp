@@ -64,7 +64,7 @@ def _infer_sympy_function_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.
                                       [_infer_sympy_object_type(arg, type_dict) for arg in sympy_object.args])
 
 
-sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x-abc.y)
+sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x - abc.y)
 sympy_Neg = sympy.Lambda((abc.x,), -abc.x)  # "lambda x: (-1)*x"
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
@@ -318,26 +318,41 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
 
 
 def _context_to_variable_value_dict_helper(context: FunctionApplication,
-                                           variable_to_value: Dict[str, Any]) -> Dict[str, Any]:
+                                           variable_to_value: Dict[str, Any],
+                                           unknown: bool = False,
+                                           unsatisfiable: bool = False,
+                                           ) -> Tuple[Dict[str, Any], bool, bool]:
     """
     variable_to_value: the mutable argument also serves as a return value.
-    If the context has multiple assignments (e.g., x==3 and x==5), we just pick the last one.
-    This does not violate our specification, since ex falso quodlibet, "from falsehood, anything follows".
+    By default, we assume the context's satisfiability can be known and is True.
+    If the context has multiple assignments (e.g., x==3 and x==5), the context is unsatisfiable.
+    If the context is anything other than a conjunction of equalities, the context's satisfiability is unknown.
     """
     match context:
         case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
             # the conjunctive case
             for sub_context in arguments:
-                variable_to_value = _context_to_variable_value_dict_helper(sub_context, variable_to_value)
+                variable_to_value, unknown, unsatisfiable = \
+                    _context_to_variable_value_dict_helper(sub_context, variable_to_value, unknown, unsatisfiable)
         case FunctionApplication(function=Constant(value=operator.eq),
-                                 arguments=[Variable(name=lhs), Constant(value=rhs)]):
+                                 arguments=[Variable(name=variable), Constant(value=value)]) | \
+                FunctionApplication(function=Constant(value=operator.eq),
+                                    arguments=[Constant(value=value), Variable(name=variable)]):
             # the leaf case
-            variable_to_value[lhs] = rhs
-        # all other cases are ignored
-    return variable_to_value
+            if variable in variable_to_value and variable_to_value[variable] != value:
+                unsatisfiable = True
+            variable_to_value[variable] = value
+        # all other cases makes the satisfiability unknown
+        case _:
+            unknown = True
+    return variable_to_value, unknown, unsatisfiable
 
 
-def _context_to_variable_value_dict(context: FunctionApplication) -> Dict[str, Any]:
+def _context_to_variable_value_dict(context: FunctionApplication) -> Tuple[Dict[str, Any], bool, bool]:
+    """
+    Returns a dictionary, and two booleans: first indicating whether its satisfiability is unknown, second indicating
+    whether it is unsatisfiable (if its satisfiability is known)
+    """
     return _context_to_variable_value_dict_helper(context, {})
 
 
@@ -345,12 +360,26 @@ class SymPyContext(SymPyFunctionApplication, Context):
     """
     SymPyContext is just a SymPyFunctionApplication, which always raises when asked for satisfiability
     since we don't know.
-    We create a dictionary from the function application at the first time `dict()` property is called. """
+    We create a dictionary from the function application at initialization. """
+    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
+        SymPyFunctionApplication.__init__(self, sympy_object, type_dict)
+        self._dict, self._unknown, self._unsatisfiable = _context_to_variable_value_dict(self)
+        if self._unsatisfiable:
+            # if unsat, looking up dict for value does not make sense, as any value can be detailed
+            self._dict = {}
+
     @property
     def unsatisfiable(self) -> bool:
-        raise Context.UnknownError()
+        if self._unknown:
+            raise Context.UnknownError()
+        else:
+            return self._unsatisfiable
 
-    @cached_property
+    @property
     def dict(self) -> Dict[str, Any]:
-        return _context_to_variable_value_dict(self)
+        """ User should not write to the return value. """
+        return self._dict
 
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return not self._unknown

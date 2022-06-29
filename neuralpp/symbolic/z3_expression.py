@@ -422,6 +422,14 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         else:  # figure out ourselves
             self._dict = _extract_key_value_from_assertions(z3_solver.assertions())
 
+        match z3_solver.check():
+            case z3.unsat:
+                raise TypeError("Solver is unsat. Should use FalseContext() instead.")
+            case z3.sat:
+                self._unknown = False
+            case z3.unknown:
+                self._unknown = True
+
     @cached_property
     def assertions(self) -> z3.AstVector:
         return self._solver.assertions()
@@ -441,7 +449,14 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
 
     @property
     def unsatisfiable(self) -> bool:  # self should always be satisfiable
-        return False
+        if not self._unknown:
+            return False
+        else:
+            raise Context.UnknownError()
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return not self._unknown
 
     @property
     def number_of_arguments(self) -> int:
@@ -456,10 +471,8 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         match solver.check():
             case z3.unsat:
                 return FalseContext()
-            case z3.sat:
+            case z3.sat | z3.unknown:
                 return Z3SolverExpression(solver, dict_)
-            case z3.unknown:
-                raise Context.UnknownError(f"{solver} is unknown.")
 
     def __and__(self, other: Any) -> Context:
         if self.unsatisfiable:
