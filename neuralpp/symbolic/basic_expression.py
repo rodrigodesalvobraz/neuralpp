@@ -3,9 +3,9 @@ from __future__ import annotations
 import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
-    VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types
+    VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types, Context
 from abc import ABC
-from typing import Any, List, Optional, Type, Callable, Tuple
+from typing import Any, List, Optional, Callable, Dict
 
 
 class AmbiguousTypeError(TypeError, ValueError):
@@ -99,6 +99,32 @@ class BasicVariable(BasicAtomicExpression, Variable):
 class BasicConstant(BasicAtomicExpression, Constant):
     def __init__(self, value: Any, type_: Optional[ExpressionType] = None):
         BasicAtomicExpression.__init__(self, value, type_)
+
+
+class TrueContext(BasicConstant, Context):
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return {}
+
+    @property
+    def unsatisfiable(self) -> bool:
+        return False
+
+    def __init__(self):
+        BasicConstant.__init__(self, True, bool)
+
+
+class FalseContext(BasicConstant, Context):
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return {}
+
+    @property
+    def unsatisfiable(self) -> bool:
+        return True
+
+    def __init__(self):
+        BasicConstant.__init__(self, False, bool)
 
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):

@@ -10,7 +10,7 @@ from neuralpp.symbolic.basic_expression import BasicVariable, BasicConstant, Bas
     boolean_function_of_arity
 from neuralpp.symbolic.basic_interpreter import BasicInterpreter
 from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication, \
-    SymPyExpression
+    SymPyExpression, SymPyContext
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 
 
@@ -58,7 +58,7 @@ def test_basic_interpreter():
     assert bi.eval(nested_add) == 3
 
 
-def dict_to_sympy_context(kv_map: dict) -> SymPyExpression:
+def dict_to_sympy_context(kv_map: dict) -> SymPyContext:
     conjunction = sympy.S.true
     type_dict = {}
     for k, v in kv_map.items():
@@ -67,9 +67,9 @@ def dict_to_sympy_context(kv_map: dict) -> SymPyExpression:
         conjunction = sympy.And(conjunction, eq_expression, evaluate=False)
         type_dict[symbol] = int  # it's fine for test, we only use int
     if len(kv_map) > 1:
-        return SymPyFunctionApplication(conjunction, type_dict)
+        return SymPyContext(conjunction, type_dict)
     else:  # And(True, Eq(x,1,evaluate=False), evaluate=False) is still Eq(x,1,evaluate=False)
-        return SymPyFunctionApplication(conjunction, type_dict)
+        return SymPyContext(conjunction, type_dict)
 
 
 def test_sympy_interpreter():
@@ -93,7 +93,7 @@ def test_sympy_interpreter():
     # more interesting cases where there is a context
     x, y, z = sympy.symbols("x y z")
     assert si.eval(SymPyFunctionApplication(x * 3, {x: int}),
-                   SymPyFunctionApplication(sympy.Eq(x, 10, evaluate=False), {x: int})) \
+                   SymPyContext(sympy.Eq(x, 10, evaluate=False), {x: int})) \
            == 30
 
     dict1 = {"x": 3, "y": 5}

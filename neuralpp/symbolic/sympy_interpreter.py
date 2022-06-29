@@ -1,58 +1,31 @@
 import operator
 import sympy
 
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable
-from neuralpp.symbolic.basic_expression import BasicConstant
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable, Context
+from neuralpp.symbolic.basic_expression import TrueContext
 from neuralpp.symbolic.simplifier import Simplifier
 from neuralpp.symbolic.interpreter import Interpreter
-from neuralpp.symbolic.sympy_expression import SymPyExpression, is_sympy_value, infer_sympy_object_type
+from neuralpp.symbolic.sympy_expression import SymPyExpression, _is_sympy_value, _infer_sympy_object_type
 from neuralpp.symbolic.expression import ExpressionType
 from typing import Dict, Any
 
 
-def context_to_variable_value_dict_helper(context: Expression,
-                                          variable_to_value: Dict[sympy.Symbol, Any]) \
-        -> Dict[sympy.Symbol, Any]:
-    """
-    variable_to_value: the mutable argument also serves as a return value.
-    If the context has multiple assignments (e.g., x==3 and x==5), we just pick the last one.
-    This does not violate our specification, since ex falso quodlibet, "from falsehood, anything follows".
-    """
-    match context:
-        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
-            # the conjunctive case
-            for sub_context in arguments:
-                variable_to_value = context_to_variable_value_dict_helper(sub_context, variable_to_value)
-        case FunctionApplication(function=Constant(value=operator.eq),
-                                 arguments=[Variable(name=lhs), Constant(value=rhs)]):
-            # the leaf case
-            variable_to_value[sympy.symbols(lhs)] = rhs
-        # all other cases are ignored
-    return variable_to_value
-
-
-def context_to_variable_value_dict(context: Expression) -> \
-        Dict[sympy.Symbol, int | sympy.Integer]:
-    return context_to_variable_value_dict_helper(context, {})
-
-
 class SymPyInterpreter(Interpreter, Simplifier):
     @staticmethod
-    def _simplify_expression(expression: sympy.Basic, context: Expression) -> sympy.Basic:
-        variable_value_dict = context_to_variable_value_dict(context)
-        # in creation of function application, we set evaluate=False, so 1 + 2 will not evaluate
-        # call simplify() evaluates that
+    def _simplify_expression(expression: sympy.Basic, context: Context) -> sympy.Basic:
         result = expression
-        if not variable_value_dict:
+        if not context.dict:
+            # in creation of function application, we set evaluate=False, so 1 + 2 will not evaluate
+            # call simplify() evaluates that
             result = result.simplify()
         else:
-            for variable, value in variable_value_dict.items():
-                result = result.replace(variable, value)
+            for variable, value in context.dict.items():
+                result = result.replace(sympy.symbols(variable), value)
         return result
 
-    def eval(self, expression: SymPyExpression, context: Expression = BasicConstant(True)):
+    def eval(self, expression: SymPyExpression, context: Context = TrueContext()):
         result = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
-        if is_sympy_value(result):
+        if _is_sympy_value(result):
             return result
         else:
             raise RuntimeError(f"cannot evaluate to a value. The best effort result is {result}.")
@@ -70,7 +43,7 @@ class SymPyInterpreter(Interpreter, Simplifier):
                 result[key] = value
         return result
 
-    def simplify(self, expression: Expression, context: Expression = BasicConstant(True)) -> SymPyExpression:
+    def simplify(self, expression: Expression, context: Context = TrueContext()) -> SymPyExpression:
         """
         The function calls simplify() from sympy library and wrap the result in SymPyExpression.
         """
