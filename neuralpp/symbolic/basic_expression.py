@@ -50,7 +50,7 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
                 raise TypeError(f"Neg only expects one argument.")
             return Callable[argument_types, argument_types[0]]
         # if then else
-        case functions.cond:
+        case functions.conditional:
             if argument_types is None:
                 raise AmbiguousTypeError(python_callable)
             if len(argument_types) != 3 or argument_types[0] != bool or argument_types[1] != argument_types[2]:

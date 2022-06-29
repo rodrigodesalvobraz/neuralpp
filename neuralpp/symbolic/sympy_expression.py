@@ -92,8 +92,8 @@ python_callable_and_sympy_function_relation = [
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
-    # cond
-    (functions.cond, sympy_Cond),
+    # conditional
+    (functions.conditional, sympy_Cond),
 ]
 sympy_function_python_callable_dict = \
     {sympy_function: python_callable
@@ -296,7 +296,7 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def __new__(cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         if sympy_object.func == sympy.Piecewise:
-            return SymPyCondFunctionApplication(sympy_object, type_dict)
+            return SymPyConditionalFunctionApplication(sympy_object, type_dict)
         else:
             return super().__new__(cls)
 
@@ -348,7 +348,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
 
 
 def sympy_piecewise_from_if_then_else(if_: sympy.Basic, then_: sympy.Basic, else_: sympy.Basic) -> sympy.Piecewise:
-    """ In Piecewise, cond comes after clause. """
+    """ In Piecewise, conditional comes after clause. """
     return sympy.Piecewise((then_, if_), (else_, True))
 
 
@@ -360,22 +360,21 @@ def fold_sympy_piecewise(piecewise_args: List[Tuple[sympy.Basic, sympy.Basic]]) 
     """ `fold` any sympy piecewise to 2-entry piecewise. E.g.,
     Piecewise((s0, c0), (s1, c1), (s2, True)) will be folded into
     Piecewise((s0, c0), (Piecewise((s1, c1), (s2, True)), True)
-    Note the last condition must be True, otherwise it cannot be transformed into if-then-else
     """
     if len(piecewise_args) < 2:
         raise TypeError("piecewise is expected to have at least two entries")
     elif len(piecewise_args) == 2:
-        if not piecewise_args[1][1]:
-            raise TypeError("No else clause: missing default value.")
         return sympy.Piecewise(*piecewise_args)
     else:
         return sympy.Piecewise(piecewise_args[0], (fold_sympy_piecewise(piecewise_args[1:]), True))
 
 
-class SymPyCondFunctionApplication(SymPyFunctionApplicationInterface):
+class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         if sympy_object.func != sympy.Piecewise:
-            raise TypeError("Can only create cond function application when function is sympy.Piecewise.")
+            raise TypeError("Can only create conditional function application when function is sympy.Piecewise.")
+        if not sympy_object.args[-1][1]:  # the clause condition must be True otherwise it's not an if-then-else
+            raise TypeError("Missing else clause.")
         sympy_object = fold_sympy_piecewise(sympy_object.args)
         self._then_type = sympy_object.args[0][0]
         SymPyExpression.__init__(self, sympy_object, self._then_type, type_dict)

@@ -112,7 +112,7 @@ def _python_callable_to_z3_function(python_callable: Callable, type_: Optional[E
             raise NotImplementedError("Cannot convert min to a z3 function declaration."
                                       "However we can create z3.If(x>y, x, y) for max(x,y).")
         # if then else
-        case functions.cond:
+        case functions.conditional:
             return z3.If(x > y, x, y).decl()  # "x>y" is just a placeholder boolean.
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
@@ -153,7 +153,7 @@ def _z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.pow
         # if then else
         case z3.Z3_OP_ITE:
-            return functions.cond
+            return functions.conditional
         case _:
             raise ValueError(f"Z3 function {z3_function} is not recognized.")
 

@@ -1,1 +1,1 @@
-from .functions import (cond,)
+from .functions import (conditional, )
