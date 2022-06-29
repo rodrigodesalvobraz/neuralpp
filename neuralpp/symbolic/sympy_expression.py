@@ -326,7 +326,7 @@ def _context_to_variable_value_dict_helper(context: FunctionApplication,
     variable_to_value: the mutable argument also serves as a return value.
     By default, we assume the context's satisfiability can be known and is True.
     If the context has multiple assignments (e.g., x==3 and x==5), the context is unsatisfiable.
-    If the context is anything other than a conjunction of equalities, the context is unknown.
+    If the context is anything other than a conjunction of equalities, the context's satisfiability is unknown.
     """
     match context:
         case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
