@@ -1,18 +1,34 @@
 import fractions
 import operator
-from typing import Callable, Type
+from typing import Callable, Type, Any
 from .basic_expression import BasicConstant
 from .functions import conditional
 
 
-def if_then_else(type_: Type):
+def if_then_else_function(type_: Type):
     return BasicConstant(conditional, Callable[[bool, type_, type_], type_])
 
 
-bool_if_then_else = if_then_else(bool)
-int_if_then_else = if_then_else(int)
-float_if_then_else = if_then_else(float)
-real_if_then_else = if_then_else(fractions.Fraction)
+bool_if_then_else_function = if_then_else_function(bool)
+int_if_then_else_function = if_then_else_function(int)
+float_if_then_else_function = if_then_else_function(float)
+real_if_then_else_function = if_then_else_function(fractions.Fraction)
+
+
+def if_then_else(if_: Any, then_: Any, else_: Any):
+    if not type(then_) == type(else_):
+        raise TypeError(f"Expect then-clause ({type(then_)}) and else-clause ({type(else_)}) have the same type.")
+    match then_:
+        case bool():
+            return bool_if_then_else_function(if_, then_, else_)
+        case int():
+            return int_if_then_else_function(if_, then_, else_)
+        case float():
+            return float_if_then_else_function(if_, then_, else_)
+        case fractions.Fraction():
+            return real_if_then_else_function(if_, then_, else_)
+        case _:
+            raise TypeError(f"Unrecognized type {type(then_)}.")
 
 
 def add(type_: Type):
