@@ -3,9 +3,10 @@ import operator
 from typing import Callable, Type, Any
 from .basic_expression import BasicConstant
 from .functions import conditional
+from .expression import Expression
 
 
-def if_then_else_function(type_: Type):
+def if_then_else_function(type_: Type) -> Expression:
     return BasicConstant(conditional, Callable[[bool, type_, type_], type_])
 
 
@@ -15,7 +16,7 @@ float_if_then_else_function = if_then_else_function(float)
 real_if_then_else_function = if_then_else_function(fractions.Fraction)
 
 
-def if_then_else(if_: Any, then_: Any, else_: Any):
+def if_then_else(if_: Any, then_: Any, else_: Any) -> Expression:
     if not type(then_) == type(else_):
         raise TypeError(f"Expect then-clause ({type(then_)}) and else-clause ({type(else_)}) have the same type.")
     match then_:
@@ -31,7 +32,7 @@ def if_then_else(if_: Any, then_: Any, else_: Any):
             raise TypeError(f"Unrecognized type {type(then_)}.")
 
 
-def add(type_: Type):
+def add(type_: Type) -> Expression:
     return BasicConstant(operator.add, Callable[[type_, type_], type_])
 
 
@@ -40,7 +41,7 @@ float_add = add(float)
 real_add = add(fractions.Fraction)
 
 
-def multiply(type_: Type):
+def multiply(type_: Type) -> Expression:
     return BasicConstant(operator.mul, Callable[[type_, type_], type_])
 
 
@@ -49,7 +50,7 @@ float_multiply = multiply(float)
 real_multiply = multiply(fractions.Fraction)
 
 
-def minus(type_: Type):
+def minus(type_: Type) -> Expression:
     return BasicConstant(operator.sub, Callable[[type_, type_], type_])
 
 
@@ -58,7 +59,7 @@ float_minus = minus(float)
 real_minus = minus(fractions.Fraction)
 
 
-def div(type_: Type):
+def div(type_: Type) -> Expression:
     return BasicConstant(operator.truediv, Callable[[type_, type_], type_])
 
 
@@ -67,7 +68,7 @@ float_div = div(float)
 real_div = div(fractions.Fraction)
 
 
-def lt(type_: Type):
+def lt(type_: Type) -> Expression:
     return BasicConstant(operator.lt, Callable[[type_, type_], bool])
 
 
@@ -76,7 +77,7 @@ float_lt = lt(float)
 real_lt = lt(fractions.Fraction)
 
 
-def le(type_: Type):
+def le(type_: Type) -> Expression:
     return BasicConstant(operator.le, Callable[[type_, type_], bool])
 
 
@@ -85,7 +86,7 @@ float_le = le(float)
 real_le = le(fractions.Fraction)
 
 
-def gt(type_: Type):
+def gt(type_: Type) -> Expression:
     return BasicConstant(operator.gt, Callable[[type_, type_], bool])
 
 
@@ -94,7 +95,7 @@ float_gt = gt(float)
 real_gt = gt(fractions.Fraction)
 
 
-def ge(type_: Type):
+def ge(type_: Type) -> Expression:
     return BasicConstant(operator.ge, Callable[[type_, type_], bool])
 
 
@@ -103,7 +104,7 @@ float_ge = ge(float)
 real_ge = ge(fractions.Fraction)
 
 
-def eq(type_: Type):
+def eq(type_: Type) -> Expression:
     return BasicConstant(operator.eq, Callable[[type_, type_], bool])
 
 
@@ -112,7 +113,7 @@ float_eq = eq(float)
 real_eq = eq(fractions.Fraction)
 
 
-def ne(type_: Type):
+def ne(type_: Type) -> Expression:
     return BasicConstant(operator.ne, Callable[[type_, type_], bool])
 
 
