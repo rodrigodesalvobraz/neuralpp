@@ -1,9 +1,16 @@
 import fractions
 import operator
 from typing import Callable, Type, Any
+
+import z3
+import sympy
+
+from .expression import Expression
 from .basic_expression import BasicConstant
 from .functions import conditional
 from .expression import Expression
+from .z3_expression import Z3Constant
+from .sympy_expression import SymPyConstant
 
 
 def if_then_else_function(type_: Type) -> Expression:
@@ -16,20 +23,18 @@ float_if_then_else_function = if_then_else_function(float)
 real_if_then_else_function = if_then_else_function(fractions.Fraction)
 
 
-def if_then_else(if_: Any, then_: Any, else_: Any) -> Expression:
-    if not type(then_) == type(else_):
-        raise TypeError(f"Expect then-clause ({type(then_)}) and else-clause ({type(else_)}) have the same type.")
-    match then_:
-        case bool():
-            return bool_if_then_else_function(if_, then_, else_)
-        case int():
-            return int_if_then_else_function(if_, then_, else_)
-        case float():
-            return float_if_then_else_function(if_, then_, else_)
-        case fractions.Fraction():
-            return real_if_then_else_function(if_, then_, else_)
-        case _:
-            raise TypeError(f"Unrecognized type {type(then_)}.")
+def if_then_else(if_: Any, then_: Any, else_: Any):
+    def _type_of(expression: Any):
+        match expression:
+            case Expression(type=type_):
+                return type_
+            case _:
+                return type(expression)
+    then_type = _type_of(then_)
+    else_type = _type_of(else_)
+    if then_type != else_type:
+        raise TypeError(f"Expect then-clause ({then_type}) and else-clause ({else_type}) have the same type.")
+    return if_then_else_function(then_type)(if_, then_, else_)
 
 
 def add(type_: Type) -> Expression:
@@ -120,3 +125,11 @@ def ne(type_: Type) -> Expression:
 int_ne = ne(int)
 float_ne = ne(float)
 real_ne = ne(fractions.Fraction)
+
+
+basic_true = BasicConstant(True, bool)
+basic_false = BasicConstant(False, bool)
+z3_true = Z3Constant(z3.BoolVal(True))
+z3_false = Z3Constant(z3.BoolVal(False))
+sympy_true = SymPyConstant(sympy.S.true, bool)
+sympy_false = SymPyConstant(sympy.S.false, bool)

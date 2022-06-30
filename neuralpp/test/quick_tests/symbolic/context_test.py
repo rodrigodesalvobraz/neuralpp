@@ -2,7 +2,7 @@ import pytest
 import z3
 import sympy
 
-from neuralpp.symbolic.z3_expression import Z3SolverExpression, _extract_key_value_from_assertions
+from neuralpp.symbolic.z3_expression import Z3SolverExpression, _extract_key_to_value_from_assertions
 from .interpreter_test import dict_to_sympy_context
 from z3 import Solver, Ints
 
@@ -16,7 +16,7 @@ def test_context():
     assert not z3.is_var(y)  # z3.is_var means vars in quantifier
     assert not z3.is_var((y == 2).arg(0))
     assert z3.is_int_value((y == 2).arg(1))
-    assert _extract_key_value_from_assertions([y == 2]) == {'y': 2}
+    assert _extract_key_to_value_from_assertions([y == 2]) == {'y': 2}
     context1 = Z3SolverExpression(s1)
     with pytest.raises(KeyError):
         context1.dict[y]

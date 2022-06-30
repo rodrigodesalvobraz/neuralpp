@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import fractions
 import typing
-from typing import List, Any, Callable, Tuple, Optional, Type, Dict
+from typing import List, Any, Callable, Tuple, Optional, Type, Dict, FrozenSet
 from abc import ABC, abstractmethod
 
 import z3
@@ -11,7 +11,7 @@ import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context
 from neuralpp.symbolic.basic_expression import FalseContext
 from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal
-from functools import cached_property
+from functools import cached_property, total_ordering
 import neuralpp.symbolic.functions as functions
 
 
@@ -189,7 +189,7 @@ def _apply_python_callable_on_z3_arguments(python_callable: Callable,
         case operator.or_:
             return z3.Or(arguments)
         case operator.invert:
-            return z3.Not(arguments)
+            return z3.Not(arguments[0])
         case operator.xor:
             return z3.Xor(arguments[0], arguments[1])
         # comparison
@@ -219,6 +219,9 @@ def _apply_python_callable_on_z3_arguments(python_callable: Callable,
             return z3.If(arguments[0] < arguments[1], arguments[0], arguments[1])
         case builtins.max:
             return z3.If(arguments[0] > arguments[1], arguments[0], arguments[1])
+        # our functions
+        case functions.conditional:
+            return z3.If(arguments[0], arguments[1], arguments[2])
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -332,6 +335,9 @@ class Z3ObjectExpression(Z3Expression, ABC):
     def z3_expression(self) -> z3.AstRef:
         return self.z3_object
 
+    def __hash__(self):
+        return self.z3_object.__hash__()
+
 
 class Z3Variable(Z3ObjectExpression, Variable):
     @property
@@ -377,31 +383,39 @@ class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
 z3_false = z3.BoolVal(False)
 
 
-def _extract_key_value_from_assertions_helper(assertions: List[z3.ExprRef] | z3.AstVector, dict_: Dict[str, Any]):
-    def is_value(v):
-        return z3.is_int_value(v) or z3.is_rational_value(v) or z3.is_algebraic_value(v) or z3.is_fp_value(v)
-
-    def is_key(k):
-        return z3.is_const(k) and not is_value(k)
-
+def _traverse_equalities(assertions: List[z3.ExprRef], accumulator: Callable[[z3.ExprRef, z3.ExprRef], type(None)]):
+    """
+    A high-order function that takes a function accumulator as an argument.
+    Traverse all the equalities that are leaves of conjunctions and apply accumulator on each of them.
+    The accumulator takes the both sides of the equalities as two of its arguments (with lhs comes first).
+    """
     for assertion in assertions:
         if z3.is_eq(assertion):
-            lhs, rhs = assertion.arg(0), assertion.arg(1)
-            if is_key(lhs) and is_value(rhs):
-                dict_[str(lhs)] = rhs
-            elif is_key(rhs) and is_value(lhs):
-                dict_[str(rhs)] = lhs
+            accumulator(assertion.arg(0), assertion.arg(1))
         elif z3.is_and(assertion):
-            _extract_key_value_from_assertions_helper(assertion.children(), dict_)
+            _traverse_equalities(assertion.children(), accumulator)
 
 
-def _extract_key_value_from_assertions(assertions: List[z3.ExprRef] | z3.AstVector) -> Dict[str, Any]:
+def _is_z3_value(v):
+    return z3.is_int_value(v) or z3.is_rational_value(v) or z3.is_algebraic_value(v) or z3.is_fp_value(v)
+
+
+def _is_z3_variable(k):
+    return z3.is_const(k) and not _is_z3_value(k)
+
+
+def _extract_key_to_value_from_assertions(assertions: List[z3.ExprRef] | z3.AstVector) -> Dict[str, Any]:
     """
     Extract all key-value pairs if it's in the form of "k1 == v1 & k2 == v2 & ..". `And` can be nested:
     we can extract all 4 pairs in And(k1 == v1, k2 == v2, And(k3 == v3, k4 == v4)).
     """
+    def key_to_value_accumulator(lhs: z3.ExprRef, rhs: z3.ExprRef):
+        if _is_z3_variable(lhs) and _is_z3_value(rhs):
+            result[str(lhs)] = rhs
+        elif _is_z3_variable(rhs) and _is_z3_value(lhs):
+            result[str(rhs)] = lhs
     result = {}
-    _extract_key_value_from_assertions_helper(assertions, result)
+    _traverse_equalities(assertions, key_to_value_accumulator)
     return result
 
 
@@ -413,25 +427,25 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def syntactic_eq(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
 
-    def __init__(self, z3_solver: z3.Solver, value_dict: Dict[str, Any] | None = None):
+    def __init__(self, z3_solver: z3.Solver = z3.Solver(), value_dict: Dict[str, Any] | None = None):
         """
         Assume z3_solver is satisfiable, otherwise user should use Z3UnsatContext() instead.
         Also assumes value_dict is not contradictory to z3_solver. Formally, the following statement is valid:
             for all k,v in value_dict.item(), z3_solver.assertions implies k == v
         """
         if not z3_solver.check() == z3.sat:
-            raise ValueError(f"Expect a solver that is satisifable. Got {z3_solver.check()}.")
+            raise ValueError(f"Expect a solver that is satisfiable. Got {z3_solver.check()}.")
 
         super().__init__(z3_false)
         self._solver = z3_solver
         if value_dict is not None:
             self._dict = value_dict
         else:  # figure out ourselves
-            self._dict = _extract_key_value_from_assertions(z3_solver.assertions())
+            self._dict = _extract_key_to_value_from_assertions(z3_solver.assertions())
 
         match z3_solver.check():
             case z3.unsat:
-                raise TypeError("Solver is unsat. Should use FalseContext() instead.")
+                raise TypeError("Solver is unsatisfiable. Should use FalseContext() instead.")
             case z3.sat:
                 self._unknown = False
             case z3.unknown:
@@ -498,7 +512,115 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
                 other = Z3Expression.convert(other)
             # Always treat `other` as a literal. Will raise if it cannot be converted to a boolean in Z3.
             new_solver = z3_add_solver_and_literal(self._solver, other.z3_object)
-            new_dict = self._dict | _extract_key_value_from_assertions([other.z3_object])
+            new_dict = self._dict | _extract_key_to_value_from_assertions([other.z3_object])
         return Z3SolverExpression.make(new_solver, new_dict)
 
     __rand__ = __and__
+
+    @cached_property
+    def variable_replacement_dict(self):
+        """
+        Since equality is transitive, a set of equalities would create a set of elements who are equal to each other.
+        We refer to such a set as an "equivalence class". If we have a total order "<=" on the elements of the
+        equivalence class, we can compute a minimum of that class. Note this total order "<=" has nothing to do with
+        the equivalence relation.
+        The elements in an equivalence class can be variables and at most one value (if two distinct value a and b
+        exist in an equivalence class, then the context is unsatisfiable). A value is always smaller than all variables.
+
+        A variable_replacement_dict is a Variable -> (Variable | Value) dictionary that maps a variable in the context
+        to the minimum of its equivalence class. E.g., suppose the total order of variables is the alphabetical order,
+        and the context has the following assertions: { x == y, y > 1, z == y, a == 3, b == a },
+        then variable_replacement_dict would be { x: x, y: x, z: x, a: 3, b: 3}.
+        """
+        return {_z3_object_to_expression(key): _z3_object_to_expression(value)
+                for key, value in self.z3_variable_replacement_dict.items()}
+
+    @cached_property
+    def z3_variable_replacement_dict(self):
+        """
+        `variable_replacement_dict`, except in z3's native representation
+        """
+        result = {}
+        equivalence_classes = _extract_equivalence_classes_from_assertions(self.assertions)
+        for equivalence_class in equivalence_classes:
+            for element in equivalence_class:
+                result[element] = equivalence_class.minimum
+        return result
+
+
+class EquivalenceClass(frozenset):
+    def __eq__(self, other):  # either same instance or not equal, no need to use more expensive `==`.
+        return self is other
+
+    __hash__ = frozenset.__hash__  # otherwise it's set to None by default
+
+    @cached_property
+    def minimum(self) -> Any:
+        """ Assumes len(self) > 0. """
+        min_value = None
+        for element in self:
+            min_value = element if min_value is None else min(element, min_value)
+        return min_value
+
+
+@total_ordering
+class OrderedZ3Expression(z3.ExprRef):
+    @cached_property
+    def expression_level(self):
+        if _is_z3_value(self):
+            return 0
+        elif _is_z3_variable(self):
+            return 1
+        else:
+            return 2
+
+    def __init__(self, expr: z3.ExprRef):
+        super().__init__(expr.ast)
+
+    def __eq__(self, other: OrderedZ3Expression) -> bool:
+        return self.eq(other)
+
+    __hash__ = z3.ExprRef.__hash__  # otherwise it's set to None by default
+
+    def __lt__(self, other: OrderedZ3Expression) -> bool:
+        """
+        Instead of creating a new symbolic expression, this `lt` returns a boolean
+        """
+        if not isinstance(other, OrderedZ3Expression):
+            raise TypeError("Can only compare two OrderedZ3Expressions.")
+        if self.expression_level < other.expression_level:
+            return True
+        elif other.expression_level < self.expression_level:
+            return False
+        else:  # same level
+            return str(self) < str(other)
+
+
+def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | z3.AstVector) \
+        -> FrozenSet[EquivalenceClass]:
+    """
+    Equivalence class is a set, see its definition in Z3SolverExpression.variable_replacement_dict.__doc__
+    """
+    def key_to_equivalence_class_accumulator(lhs: z3.ExprRef, rhs: z3.ExprRef):
+        assert isinstance(lhs, z3.ExprRef)
+        assert isinstance(rhs, z3.ExprRef)
+        if lhs in result and rhs in result:
+            if result[lhs] == result[rhs]:
+                pass  # they are already the same set, don't need to connect them
+            else:
+                new_set = result[lhs] | result[rhs]
+                result[lhs] = new_set
+                result[rhs] = new_set
+        elif lhs in result and rhs not in result:
+            result[rhs] = result[lhs]
+        elif lhs not in result and rhs in result:
+            result[lhs] = result[rhs]
+        else:  # lhs not in result and rhs not in result
+            new_set = EquivalenceClass([OrderedZ3Expression(lhs), OrderedZ3Expression(rhs)])
+            result[lhs] = new_set
+            result[rhs] = new_set
+    result: Dict[z3.ExprRef, EquivalenceClass] = {}
+    _traverse_equalities(assertions, key_to_equivalence_class_accumulator)
+    return frozenset(result.values())
+
+

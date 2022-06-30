@@ -15,6 +15,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
+from neuralpp.symbolic.parameters import global_parameters
 import neuralpp.symbolic.functions as functions
 
 
@@ -35,15 +36,16 @@ def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Ba
             return fractions.Fraction
         case sympy.logic.boolalg.BooleanAtom():
             return bool
+        # TODO: delete me
+        case sympy.Piecewise():  # piecewise is not mapped in python_callable_and_sympy_function_relation
+            return _infer_sympy_object_type(sympy_object.args[0][0], type_dict)
         case _:
             # We can look up type_dict for variable like `symbol("x")`.
             # A variable can also be an uninterpreted function `sympy.core.function.UndefinedFunction('f')`
             try:
                 return type_dict[sympy_object]
             except KeyError:  # if it's not in type_dict, try figure out ourselves
-                """
-                Here, sympy_object must be function applications like 'x+y'
-                """
+                # Here, sympy_object must be function applications like 'x+y'
                 if len(sympy_object.args) == 0:  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
                     raise TypeError("expect function application")
                 _, return_type = typing.get_args(_infer_sympy_function_type(sympy_object, type_dict))
@@ -107,6 +109,8 @@ def _sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
     try:
         return sympy_function_python_callable_dict[sympy_function]
     except KeyError:
+        if sympy_function == sympy.Piecewise:
+            return functions.conditional
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
@@ -247,6 +251,9 @@ class SymPyExpression(Expression, ABC):
     def convert(cls, from_expression: Expression) -> SymPyExpression:
         return cls._convert(from_expression)
 
+    def __hash__(self):
+        return self.sympy_object.__hash__()
+
 
 class SymPyVariable(SymPyExpression, Variable):
     def __init__(self, sympy_object: sympy.Basic, expression_type: ExpressionType):
@@ -329,7 +336,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
 
     @staticmethod
     def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression]) -> \
-            SymPyFunctionApplication:
+            SymPyExpression:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = _build_type_dict_from_sympy_arguments(sympy_arguments)
 
@@ -337,14 +344,20 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         if sympy_function == sympy.Min or sympy_function == sympy.Max:
             # see test/sympy_test.py: test_sympy_bug()
             sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
-                                          evaluate=False)
+                                          evaluate=global_parameters.sympy_evaluate)
         elif sympy_function == sympy.Piecewise:
             sympy_object = sympy_piecewise_from_if_then_else(
                 *[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
         else:
-            with sympy.evaluate(False):
+            with sympy.evaluate(global_parameters.sympy_evaluate):
                 sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
-        return SymPyFunctionApplication(sympy_object, type_dict)
+
+        if global_parameters.sympy_evaluate:
+            # if sympy_evaluate is True, we don't necessarily return a FunctionApplication.
+            # E.g., sympy_object = (a + y) - y would be a.
+            return SymPyExpression.from_sympy_object(sympy_object, type_dict)
+        else:
+            return SymPyFunctionApplication(sympy_object, type_dict)
 
 
 def sympy_piecewise_from_if_then_else(if_: sympy.Basic, then_: sympy.Basic, else_: sympy.Basic) -> sympy.Piecewise:
@@ -376,7 +389,7 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
         if not sympy_object.args[-1][1]:  # the clause condition must be True otherwise it's not an if-then-else
             raise TypeError("Missing else clause.")
         sympy_object = fold_sympy_piecewise(sympy_object.args)
-        self._then_type = sympy_object.args[0][0]
+        self._then_type = _infer_sympy_object_type(sympy_object.args[0][0], type_dict)
         SymPyExpression.__init__(self, sympy_object, self._then_type, type_dict)
 
     @property
