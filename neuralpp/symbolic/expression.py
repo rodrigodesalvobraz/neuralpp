@@ -116,7 +116,7 @@ class Expression(ABC):
         return False
 
     @abstractmethod
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         pass
 
     @classmethod
@@ -210,7 +210,16 @@ class Expression(ABC):
             raise TypeError(f"{self}'s function is not of function type.")
         return return_type_after_application(function_type, number_of_arguments)
 
-    def _new_binary_operation(self, other, operator_, function_type=None, reverse=False) -> Expression:
+    def _new_binary_arithmetic(self, other, operator_, function_type=None, reverse=False) -> Expression:
+        return self._new_binary_operation(other, operator_, function_type, reverse, arithmetic=True)
+
+    def _new_binary_boolean(self, other, operator_, reverse=False) -> Expression:
+        return self._new_binary_operation(other, operator_, Callable[[bool, bool], bool], reverse, arithmetic=False)
+
+    def _new_binary_comparison(self, other, operator_, function_type=None, reverse=False) -> Expression:
+        return self._new_binary_operation(other, operator_, function_type, reverse, arithmetic=False)
+
+    def _new_binary_operation(self, other, operator_, function_type=None, reverse=False, arithmetic=True) -> Expression:
         """
         Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
         an Expression.
@@ -218,36 +227,45 @@ class Expression(ABC):
         By default, self is the 1st argument and other is the 2nd.
         If reverse is set to True, it is reversed, so e.g., if operator_ is `-` and reverse is True, then return
         `other - self`.
+        If `arithmetic` is True, the return type is inferred from the argument types. Otherwise, it's assumed to
+        be bool.
         """
         if not isinstance(other, Expression):
             other = self.new_constant(other, None)  # we can only try to create constant, for variable we need type.
         arguments = [self, other] if not reverse else [other, self]
         if function_type is None:
-            function_type = get_arithmetic_function_type_from_argument_types([arguments[0].type, arguments[1].type])
+            if arithmetic:
+                function_type = get_arithmetic_function_type_from_argument_types([arguments[0].type, arguments[1].type])
+            else:
+                if arguments[0].type != arguments[1].type:
+                    raise TypeError(f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}.")
+                function_type = Callable[[arguments[0].type, arguments[1].type], bool]
         return self.new_function_application(self.new_constant(operator_, function_type), arguments)
 
     def __add__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.add)
+        return self._new_binary_arithmetic(other, operator.add)
 
     # We can also write __radd__ = __add__. But it may be better to keep the order?
     def __radd__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.add, reverse=True)
+        return self._new_binary_arithmetic(other, operator.add, reverse=True)
 
     def __mul__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.mul)
+        return self._new_binary_arithmetic(other, operator.mul)
 
     def __rmul__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.mul, reverse=True)
+        return self._new_binary_arithmetic(other, operator.mul, reverse=True)
 
     def __truediv__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.truediv)
+        return self._new_binary_arithmetic(other, operator.truediv)
 
+    def __rtruediv__(self, other: Any) -> Expression:
+        return self._new_binary_arithmetic(other, operator.truediv, reverse=True)
 
     def __sub__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.sub)
+        return self._new_binary_arithmetic(other, operator.sub)
 
     def __rsub__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.sub, reverse=True)
+        return self._new_binary_arithmetic(other, operator.sub, reverse=True)
 
     def __neg__(self) -> Expression:
         return self.new_function_application(self.new_constant(operator.neg, Callable[[self.type], self.type]), [self])
@@ -256,19 +274,42 @@ class Expression(ABC):
         if isinstance(other, Expression) and other.and_priority > self.and_priority:
             return other.__and__(self)
         else:
-            return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool])
+            return self._new_binary_boolean(other, operator.and_)
 
     def __rand__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.and_, Callable[[bool, bool], bool], reverse=True)
+        return self._new_binary_boolean(other, operator.and_, reverse=True)
 
     def __or__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.or_, Callable[[bool, bool], bool])
+        return self._new_binary_boolean(other, operator.or_)
 
     def __ror__(self, other: Any) -> Expression:
-        return self._new_binary_operation(other, operator.or_, Callable[[bool, bool], bool], reverse=True)
+        return self._new_binary_boolean(other, operator.or_, reverse=True)
 
     def __invert__(self) -> Expression:
         return self.new_function_application(self.new_constant(operator.invert, Callable[[bool], bool]), [self])
+
+    def __lt__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.lt)
+
+    def __le__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.le)
+
+    def __gt__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.gt)
+
+    def __ge__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.ge)
+
+    def __ne__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.ne)
+
+    def __eq__(self, other) -> Expression:
+        return self._new_binary_comparison(other, operator.eq)
+
+    def __call__(self, *args, **kwargs) -> Expression:
+        return self.new_function_application(self,
+                                             [arg if isinstance(arg, Expression) else self.new_constant(arg, None)
+                                              for arg in args])
 
 
 class AtomicExpression(Expression, ABC):
@@ -287,7 +328,7 @@ class AtomicExpression(Expression, ABC):
         return []
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
-        if from_expression == self:
+        if from_expression.syntactic_eq(self):
             return to_expression
         else:
             return self
@@ -296,7 +337,7 @@ class AtomicExpression(Expression, ABC):
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
     def contains(self, target: Expression) -> bool:
-        return self == target
+        return self.syntactic_eq(target)
 
 
 class Variable(AtomicExpression, ABC):
@@ -367,7 +408,7 @@ class FunctionApplication(Expression, ABC):
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         # recursively do the replacement
         new_subexpressions = [
-            to_expression if e == from_expression else e.replace(from_expression, to_expression)
+            to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)
             for e in self.subexpressions
         ]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])

@@ -6,6 +6,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
     VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types, Context
 from abc import ABC
 from typing import Any, List, Optional, Callable, Dict
+import neuralpp.symbolic.functions as functions
 
 
 class AmbiguousTypeError(TypeError, ValueError):
@@ -48,6 +49,13 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
             if len(argument_types) != 1:
                 raise TypeError(f"Neg only expects one argument.")
             return Callable[argument_types, argument_types[0]]
+        # if then else
+        case functions.conditional:
+            if argument_types is None:
+                raise AmbiguousTypeError(python_callable)
+            if len(argument_types) != 3 or argument_types[0] != bool or argument_types[1] != argument_types[2]:
+                raise TypeError("Wrong conditional expression type.")
+            return Callable[argument_types, argument_types[1]]
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -81,7 +89,7 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def atom(self) -> str:
         return self._atom
 
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         match other:
             case BasicAtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
                 return other_base_type == self.base_type and self.type == other_type and self.atom == other_atom
@@ -157,9 +165,10 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def number_of_arguments(self) -> int:
         return len(self.arguments)
 
-    def __eq__(self, other):
+    def syntactic_eq(self, other) -> bool:
         match other:
             case BasicFunctionApplication(function=function, arguments=arguments, type=other_type):
-                return self.subexpressions == [function] + arguments and self.type == other_type
+                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, [function] + arguments)) and \
+                       self.type == other_type
             case _:
                 return False

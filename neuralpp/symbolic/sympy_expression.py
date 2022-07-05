@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 from typing import List, Any, Type, Callable, Tuple, Optional, Dict
-from abc import ABC
+from abc import ABC, abstractmethod
 
 import sympy
 from sympy import abc
@@ -15,6 +15,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
+import neuralpp.symbolic.functions as functions
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
@@ -66,6 +67,7 @@ def _infer_sympy_function_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.
 
 sympy_Sub = sympy.Lambda((abc.x, abc.y), abc.x - abc.y)
 sympy_Neg = sympy.Lambda((abc.x,), -abc.x)  # "lambda x: (-1)*x"
+sympy_Cond = sympy.Lambda((abc.i, abc.t, abc.e), sympy.Piecewise((abc.t, abc.i), (abc.e, True)))
 sympy_Div = sympy.Lambda((abc.x, abc.y), abc.x / abc.y)
 # Refer to sympy_simplification_test:test_unevaluate() for this design that uses sympy.Lambda()
 python_callable_and_sympy_function_relation = [
@@ -90,6 +92,8 @@ python_callable_and_sympy_function_relation = [
     # min/max
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
+    # conditional
+    (functions.conditional, sympy_Cond),
 ]
 sympy_function_python_callable_dict = \
     {sympy_function: python_callable
@@ -222,7 +226,7 @@ class SymPyExpression(Expression, ABC):
     def type_dict(self) -> Dict[sympy.Basic, ExpressionType]:
         return self._type_dict
 
-    def __eq__(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         match other:
             case SymPyExpression(sympy_object=other_sympy_object, type_dict=other_type_dict):
                 return self.sympy_object == other_sympy_object and self.type_dict == other_type_dict
@@ -264,7 +268,38 @@ class SymPyConstant(SymPyExpression, Constant):
         return SymPyExpression.pythonize_value(self._sympy_object)
 
 
-class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
+class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
+    @property
+    @abstractmethod
+    def native_arguments(self) -> Tuple[sympy.Basic, ...]:
+        pass
+
+    @property
+    @abstractmethod
+    def function_type(self) -> ExpressionType:
+        pass
+
+    @property
+    def function(self) -> Expression:
+        return SymPyConstant(self._sympy_object.func, self.function_type)
+
+    @property
+    def arguments(self) -> List[Expression]:
+        return [SymPyExpression.from_sympy_object(argument, self.type_dict)
+                for argument in self.native_arguments]
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.function] + self.arguments
+
+
+class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
+    def __new__(cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
+        if sympy_object.func == sympy.Piecewise:
+            return SymPyConditionalFunctionApplication(sympy_object, type_dict)
+        else:
+            return super().__new__(cls)
+
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         """
         Calling by function_type=None asks this function to try to infer the function type.
@@ -280,26 +315,17 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
         SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
 
     @property
+    def function_type(self) -> ExpressionType:
+        return self._function_type
+
+    @property
     def number_of_arguments(self) -> int:
         return len(self.native_arguments)
-
-    @property
-    def function(self) -> Expression:
-        return SymPyConstant(self._sympy_object.func, self._function_type)
-
-    @property
-    def arguments(self) -> List[Expression]:
-        return [SymPyExpression.from_sympy_object(argument, self.type_dict)
-                for argument in self.native_arguments]
 
     @property
     def native_arguments(self) -> Tuple[sympy.Basic, ...]:
         """ faster than arguments """
         return self._sympy_object.args  # sympy f.args returns a tuple
-
-    @property
-    def subexpressions(self) -> List[Expression]:
-        return [self.function] + self.arguments
 
     @staticmethod
     def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression]) -> \
@@ -312,11 +338,62 @@ class SymPyFunctionApplication(SymPyExpression, FunctionApplication):
             # see test/sympy_test.py: test_sympy_bug()
             sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
                                           evaluate=False)
-            return SymPyFunctionApplication(sympy_object, type_dict)
+        elif sympy_function == sympy.Piecewise:
+            sympy_object = sympy_piecewise_from_if_then_else(
+                *[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
         else:
             with sympy.evaluate(False):
                 sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
-                return SymPyFunctionApplication(sympy_object, type_dict)
+        return SymPyFunctionApplication(sympy_object, type_dict)
+
+
+def sympy_piecewise_from_if_then_else(if_: sympy.Basic, then_: sympy.Basic, else_: sympy.Basic) -> sympy.Piecewise:
+    """ In Piecewise, conditional comes after clause. """
+    return sympy.Piecewise((then_, if_), (else_, True))
+
+
+def sympy_piecewise_to_if_then_else(piecewise: sympy.Piecewise) -> Tuple[sympy.Basic, sympy.Basic, sympy.Basic]:
+    return piecewise.args[0][1], piecewise.args[0][0], piecewise.args[1][0]
+
+
+def fold_sympy_piecewise(piecewise_args: List[Tuple[sympy.Basic, sympy.Basic]]) -> sympy.Piecewise:
+    """ `fold` any sympy piecewise to 2-entry piecewise. E.g.,
+    Piecewise((s0, c0), (s1, c1), (s2, True)) will be folded into
+    Piecewise((s0, c0), (Piecewise((s1, c1), (s2, True)), True)
+    """
+    if len(piecewise_args) < 2:
+        raise TypeError("piecewise is expected to have at least two entries")
+    elif len(piecewise_args) == 2:
+        return sympy.Piecewise(*piecewise_args)
+    else:
+        return sympy.Piecewise(piecewise_args[0], (fold_sympy_piecewise(piecewise_args[1:]), True))
+
+
+class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
+    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
+        if sympy_object.func != sympy.Piecewise:
+            raise TypeError("Can only create conditional function application when function is sympy.Piecewise.")
+        if not sympy_object.args[-1][1]:  # the clause condition must be True otherwise it's not an if-then-else
+            raise TypeError("Missing else clause.")
+        sympy_object = fold_sympy_piecewise(sympy_object.args)
+        self._then_type = sympy_object.args[0][0]
+        SymPyExpression.__init__(self, sympy_object, self._then_type, type_dict)
+
+    @property
+    def function_type(self) -> ExpressionType:
+        return Callable[[bool, self._then_type, self._then_type], self._then_type]
+
+    @property
+    def function(self) -> Expression:
+        return SymPyConstant(self._sympy_object.func, self.function_type)
+
+    @property
+    def number_of_arguments(self) -> int:
+        return 3
+
+    @property
+    def native_arguments(self) -> Tuple[sympy.Basic, ...]:
+        return sympy_piecewise_to_if_then_else(self.sympy_object)
 
 
 def _context_to_variable_value_dict_helper(context: FunctionApplication,
