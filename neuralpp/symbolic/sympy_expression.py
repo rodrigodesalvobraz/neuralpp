@@ -36,7 +36,6 @@ def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Ba
             return fractions.Fraction
         case sympy.logic.boolalg.BooleanAtom():
             return bool
-        # TODO: delete me
         case sympy.Piecewise():  # piecewise is not mapped in python_callable_and_sympy_function_relation
             return _infer_sympy_object_type(sympy_object.args[0][0], type_dict)
         case _:
