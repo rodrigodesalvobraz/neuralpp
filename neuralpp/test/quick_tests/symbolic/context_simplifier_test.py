@@ -53,3 +53,16 @@ def test_sympy_bug():
     # This means we cannot create such expressions in SymPy unless it is fixed in the library.
     # However, for simplify() methods, we don't need to stop SymPy from evaluating, so we can set evaluate=True
     # and work around this bug at least for simplify()'s cases.
+
+
+def test_sympy_bug_detail():
+    import sympy.functions.elementary.piecewise
+    x = sympy.symbols('x')
+    with pytest.raises(Exception):
+        with sympy.evaluate(False):
+            sympy_Cond(x < sympy.Piecewise((1, x < 3), (2, True)), 1, 2)
+
+    # the minimum to reproduce the same bug:
+    with pytest.raises(Exception):
+        with sympy.evaluate(False):
+            sympy.functions.elementary.piecewise.ExprCondPair(1, x < sympy.Piecewise((1, x < 3), (2, True)))
