@@ -30,7 +30,7 @@ class PyTorchTableFactor(TableFactor):
         )
 
     def __hash__(self):
-        return id(self)
+        return hash(id(self))
 
     def pytorch_parameters(self):
         return self.table.pytorch_parameters()

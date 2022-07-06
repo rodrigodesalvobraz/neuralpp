@@ -16,7 +16,7 @@ class Factor:
         return self.call_after_validation(assignment_dict, assignment_values)
 
     def __hash__(self):
-        return id(self)
+        return hash(id(self))
 
     def call_after_validation(self, assignment_dict, assignment_values):
         """
