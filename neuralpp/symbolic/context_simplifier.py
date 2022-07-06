@@ -7,7 +7,7 @@ from .z3_expression import Z3SolverExpression
 from .parameters import sympy_evaluate
 
 
-def _implies(context: Context, expression: Expression) -> bool:
+def _is_known_to_imply(context: Context, expression: Expression) -> bool:
     """
     context implies expression iff (context => expression) is valid;
     which means not (context => expression) is unsatisfiable;
@@ -24,9 +24,9 @@ def _implies(context: Context, expression: Expression) -> bool:
 def _simplify_expression(boolean_expression: Expression, context: Z3SolverExpression) -> Optional[Expression]:
     if boolean_expression.type != bool:
         raise TypeError("Can only simplify booleans")
-    if _implies(context, boolean_expression):
+    if _is_known_to_imply(context, boolean_expression):
         return basic_true
-    if _implies(context, ~boolean_expression):
+    if _is_known_to_imply(context, ~boolean_expression):
         return basic_false
     return None
 
@@ -53,9 +53,6 @@ def _collect_subset_expressions(expression: Expression,
 class ContextSimplifier(Simplifier):
     sympy_interpreter = SymPyInterpreter()
 
-    def __init__(self):
-        pass
-
     @staticmethod
     def _simplify_pass(expression: Expression, context: Z3SolverExpression) -> Expression:
         result = ContextSimplifier.sympy_interpreter.simplify(expression, context)
@@ -78,7 +75,7 @@ class ContextSimplifier(Simplifier):
         return result
 
     def simplify(self, expression: Expression, context: Z3SolverExpression) -> Expression:
-        with sympy_evaluate(True):
+        with sympy_evaluate(True):  # To work around a bug in SymPy (see context_simplifier_test.py/test_sympy_bug).
             if not isinstance(context, Z3SolverExpression):
                 raise ValueError("ContextSimplifier expects a Z3SolverExpression context.")
             if not context.satisfiability_is_known:

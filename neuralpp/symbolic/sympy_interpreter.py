@@ -48,7 +48,7 @@ class SymPyInterpreter(Interpreter, Simplifier):
         """
         The function calls simplify() from sympy library and wrap the result in SymPyExpression.
         """
-        with sympy_evaluate(True):
+        with sympy_evaluate(True):  # To work around a bug in SymPy (see context_simplifier_test.py/test_sympy_bug).
             if not isinstance(expression, SymPyExpression):
                 expression = SymPyExpression.convert(expression)
 
