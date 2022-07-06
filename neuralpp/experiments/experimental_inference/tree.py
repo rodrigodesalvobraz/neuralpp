@@ -11,30 +11,22 @@ class Graph:
 
 class FactorGraph(Graph):
 
-    def __init__(self, factors, precompute):
+    def __init__(self, factors):
         self.factors = factors
         self.variable_neighbors = {}
-        self.precompute = precompute
-        if precompute:
-            # Compute variable neighbors in one pass over factors
-            # to avoid looping over all factors for all variables.
-            for f in factors:
-                for v in f.variables:
-                    if self.variable_neighbors.get(v) is None:
-                        self.variable_neighbors[v] = [f]
-                    else:
-                        self.variable_neighbors[v] += [f]
-
-    def get_var_neighbors(self, var: Variable):
-        if self.precompute:
-            return self.variable_neighbors.get(var, [])
-        else:
-            return [f for f in self.factors if var in f.variables]
+        # Compute variable neighbors in one pass over factors
+        # to avoid looping over all factors for all variables.
+        for f in factors:
+            for v in f.variables:
+                if self.variable_neighbors.get(v) is None:
+                    self.variable_neighbors[v] = [f]
+                else:
+                    self.variable_neighbors[v] += [f]
 
     def neighbors(self, node):
         assert(isinstance(node, Factor) or isinstance(node, Variable))
         return (node.variables if (isinstance(node, Factor))
-                else self.get_var_neighbors(node))
+                else self.variable_neighbors.get(node, []))
 
 
 class SpanningTree(Graph):
@@ -52,9 +44,14 @@ class SpanningTree(Graph):
             self.children[node] = neighbors
         return self.children[node]
 
-    def evaluate(self, root, is_leaf=lambda x: False):
+    def evaluate(self, root, stop=lambda x: False):
+        """
+        Computes and stores children/parents of the subtree starting from [root].
+        The optional argument [stop] provides an end condition for the evaluation,
+        in cases where evaluating the entire subtree is not desirable.
+        """
         def _evaluate(node):
-            if not is_leaf(node) and node not in self.children:
+            if not stop(node) and node not in self.children:
                 for n in self.neighbors(node):
                     _evaluate(n)
 

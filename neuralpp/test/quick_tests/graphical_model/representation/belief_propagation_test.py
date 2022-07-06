@@ -31,8 +31,7 @@ def test_ebp_tree():
     ]
 
     expected_w = PyTorchTableFactor([w], [0.192, 0.332, 0.34, 0.136])
-    assert (ExactBeliefPropagation(model, True).run(w) == expected_w)
-    assert (ExactBeliefPropagation(model, False).run(w) == expected_w)
+    assert (ExactBeliefPropagation(model).run(w) == expected_w)
 
     # observe cloudiness at highest level
     observations = {c: 2}
@@ -40,8 +39,7 @@ def test_ebp_tree():
 
     # this should result in increased chances of rain
     expected_w_with_conditions = PyTorchTableFactor([w], [0.12, 0.26, 0.42, 0.2])
-    assert(ExactBeliefPropagation(conditioned_model, True).run(w) == expected_w_with_conditions)
-    assert (ExactBeliefPropagation(conditioned_model, False).run(w) == expected_w_with_conditions)
+    assert(ExactBeliefPropagation(conditioned_model).run(w) == expected_w_with_conditions)
 
 
 def test_ebp_with_loop():
@@ -73,8 +71,7 @@ def test_ebp_with_loop():
     ]
 
     expected_w = VariableElimination().run(w, model)
-    assert(ExactBeliefPropagation(model, True).run(w) == expected_w)
-    assert(ExactBeliefPropagation(model, False).run(w) == expected_w)
+    assert(ExactBeliefPropagation(model).run(w) == expected_w)
 
     # observe cloudiness at highest level
     observations = {c: 2}
@@ -82,5 +79,4 @@ def test_ebp_with_loop():
 
     # this should result in increased chances of rain
     expected_w_with_conditions = VariableElimination().run(w, conditioned_model)
-    assert(ExactBeliefPropagation(conditioned_model, True).run(w) == expected_w_with_conditions)
-    assert(ExactBeliefPropagation(conditioned_model, False).run(w) == expected_w_with_conditions)
+    assert(ExactBeliefPropagation(conditioned_model).run(w) == expected_w_with_conditions)
