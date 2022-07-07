@@ -1,4 +1,4 @@
-from z3 import Solver
+from z3 import Solver, FuncDeclRef, Z3_OP_UNINTERPRETED
 from typing import Any
 from copy import copy
 
@@ -15,3 +15,7 @@ def z3_add_solver_and_literal(solver: Solver, constraint: Any) -> Solver:
     result = copy(solver)
     result.add(constraint)
     return result
+
+
+def is_z3_uninterpreted_function(declaration: FuncDeclRef) -> bool:
+    return declaration.kind() == Z3_OP_UNINTERPRETED

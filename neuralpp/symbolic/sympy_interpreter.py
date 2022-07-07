@@ -7,6 +7,7 @@ from neuralpp.symbolic.simplifier import Simplifier
 from neuralpp.symbolic.interpreter import Interpreter
 from neuralpp.symbolic.sympy_expression import SymPyExpression, _is_sympy_value, _infer_sympy_object_type
 from neuralpp.symbolic.expression import ExpressionType
+from neuralpp.symbolic.parameters import sympy_evaluate
 from typing import Dict, Any
 
 
@@ -20,7 +21,7 @@ class SymPyInterpreter(Interpreter, Simplifier):
             result = result.simplify()
         else:
             for variable, value in context.dict.items():
-                result = result.replace(sympy.symbols(variable), value)
+                result = result.replace(sympy.symbols(variable), sympy.sympify(value))
         return result
 
     def eval(self, expression: SymPyExpression, context: Context = TrueContext()):
@@ -47,12 +48,14 @@ class SymPyInterpreter(Interpreter, Simplifier):
         """
         The function calls simplify() from sympy library and wrap the result in SymPyExpression.
         """
-        if not isinstance(expression, SymPyExpression):
-            expression = SymPyExpression.convert(expression)
+        with sympy_evaluate(True):  # To work around a bug in SymPy (see context_simplifier_test.py/test_sympy_bug).
+            if not isinstance(expression, SymPyExpression):
+                expression = SymPyExpression.convert(expression)
 
-        simplified_sympy_expression = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
-        # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still
-        # keeps the type of `y`. Delete these redundant types.
-        type_dict = SymPyInterpreter.purge_type_dict(expression.type_dict, simplified_sympy_expression)
-        result_expression = SymPyExpression.from_sympy_object(simplified_sympy_expression, type_dict)
-        return result_expression
+            simplified_sympy_expression = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
+            # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still
+            # keeps the type of `y`. Delete these redundant types.
+            type_dict = SymPyInterpreter.purge_type_dict(expression.type_dict, simplified_sympy_expression)
+            result_expression = SymPyExpression.from_sympy_object(simplified_sympy_expression, type_dict)
+            assert result_expression is not None
+            return result_expression

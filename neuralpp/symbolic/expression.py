@@ -406,6 +406,9 @@ class FunctionApplication(Expression, ABC):
                              f"but you are setting {i-1}th arguments.")
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+        if from_expression.syntactic_eq(self):
+            return to_expression
+
         # recursively do the replacement
         new_subexpressions = [
             to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)

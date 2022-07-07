@@ -141,6 +141,7 @@ def test_sympy_interpreter():
 
     max_of_one_three = SymPyExpression.new_function_application(BasicConstant(builtins.max, int_to_int_to_int),
                                                                 [one, three])
+    assert max_of_one_three is not None
     assert si.eval(max_of_one_three) == 3
 
     min_of_three_five = SymPyExpression.new_function_application(BasicConstant(builtins.min, int_to_int_to_int),
