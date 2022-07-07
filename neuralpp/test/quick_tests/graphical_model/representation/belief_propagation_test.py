@@ -1,7 +1,10 @@
+import random
+
 from neuralpp.experiments.experimental_inference.exact_belief_propagation import ExactBeliefPropagation
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
+from neuralpp.inference.graphical_model.representation.random.random_model import generate_model
 from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 
@@ -80,3 +83,13 @@ def test_ebp_with_loop():
     # this should result in increased chances of rain
     expected_w_with_conditions = VariableElimination().run(w, conditioned_factors)
     assert(ExactBeliefPropagation(conditioned_factors, w).run() == expected_w_with_conditions)
+
+
+def test_random_model():
+    for i in range(10):
+        factors = generate_model(
+            number_of_factors=15, number_of_variables=8, cardinality=2
+        )
+        query = random.choice([v for f in factors for v in f.variables])
+        expected = VariableElimination().run(query, factors)
+        assert(ExactBeliefPropagation(factors, query).run() == expected)

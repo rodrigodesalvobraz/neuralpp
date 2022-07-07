@@ -13,7 +13,7 @@ class BeliefPropagation:
         self.tree = tree
 
     def run(self):
-        return self.message_from(self.tree.root)
+        return self.message_from(self.tree.root).normalize()
 
     def product_at(self, node):
         incoming_messages = [self.message_from(n) for n in self.tree.children(node)]
