@@ -29,9 +29,6 @@ class PyTorchTableFactor(TableFactor):
             f"but with table with (non-batch) shape {self.table.non_batch_shape}"
         )
 
-    def __hash__(self):
-        return hash(id(self))
-
     def pytorch_parameters(self):
         return self.table.pytorch_parameters()
 

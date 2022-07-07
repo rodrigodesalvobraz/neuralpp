@@ -39,15 +39,15 @@ class PartialSpanningTree:
         self._parents = {}
 
     def children(self, node):
-        if not self._children.get(node):
-            neighbors = [n for n in self.graph.neighbors(node) if n not in self._parents]
+        if not self._children.get(id(node)):
+            neighbors = [n for n in self.graph.neighbors(node) if id(n) not in self._parents]
             for n in neighbors:
-                self._parents[n] = node
-            self._children[node] = neighbors
-        return self._children[node]
+                self._parents[id(n)] = node
+            self._children[id(node)] = neighbors
+        return self._children[id(node)]
 
     def parent(self, node):
-        return self._parents.get(node, None)
+        return self._parents.get(id(node), None)
 
 
 def node_variables(node):
@@ -62,7 +62,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
         def _evaluate(node):
             for n in self.children(node):
                 _evaluate(n)
-        self._parents[root] = None
+        self._parents[id(root)] = None
         _evaluate(root)  # Currently evaluates a full spanning tree
 
     def variables(self, node) -> Iterable[Variable]:

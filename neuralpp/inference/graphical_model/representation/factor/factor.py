@@ -15,9 +15,6 @@ class Factor:
         assignment_values = self.validate_argument_to_call(assignment_dict)
         return self.call_after_validation(assignment_dict, assignment_values)
 
-    def __hash__(self):
-        return hash(id(self))
-
     def call_after_validation(self, assignment_dict, assignment_values):
         """
         Receives the original assignment_dict passed to __call__ after validation as
