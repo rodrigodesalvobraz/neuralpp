@@ -233,7 +233,7 @@ def test_operator_overloading(expression_factory):
 
 
 def test_constants_operators():
-    from neuralpp.symbolic.constants import int_add, real_le, int_if_then_else_function, if_then_else
+    from neuralpp.symbolic.constants import int_add, real_le, if_then_else
     from neuralpp.symbolic.functions import conditional
     fa0 = int_add(1, 3)
     assert fa0.arguments[0].value == 1
@@ -247,7 +247,7 @@ def test_constants_operators():
     assert fa2.arguments[0].function.value == operator.add
     assert fa2.arguments[1].value == 101
 
-    i = int_if_then_else_function(fa1, fa0, fa2)
+    i = if_then_else(fa1, fa0, fa2)
     assert i.arguments[0].function.value == operator.le
     assert i.arguments[1].function.value == operator.add
     assert i.arguments[2].function.value == operator.add

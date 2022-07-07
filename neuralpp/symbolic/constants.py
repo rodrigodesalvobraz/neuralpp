@@ -17,12 +17,6 @@ def if_then_else_function(type_: Type) -> Expression:
     return BasicConstant(conditional, Callable[[bool, type_, type_], type_])
 
 
-bool_if_then_else_function = if_then_else_function(bool)
-int_if_then_else_function = if_then_else_function(int)
-float_if_then_else_function = if_then_else_function(float)
-real_if_then_else_function = if_then_else_function(fractions.Fraction)
-
-
 def if_then_else(if_: Any, then_: Any, else_: Any):
     def _type_of(expression: Any):
         match expression:

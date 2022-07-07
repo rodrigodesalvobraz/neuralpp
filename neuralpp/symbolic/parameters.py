@@ -39,8 +39,5 @@ def sympy_evaluate(x):
     try:
         global_parameters.sympy_evaluate = x
         yield
-    except Exception as e:
-        print(f"raise: {e}")
-        raise
     finally:
         global_parameters.sympy_evaluate = old

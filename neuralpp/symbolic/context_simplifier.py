@@ -57,12 +57,11 @@ class ContextSimplifier(Simplifier):
     @staticmethod
     def _simplify_pass(expression: Expression, context: Z3SolverExpression) -> Expression:
         result: SymPyExpression = ContextSimplifier.sympy_interpreter.simplify(expression, context)
-        assert result is not None
+        if result is None:
+            raise
 
         # replace boolean expressions
         all_boolean_subexpressions = _collect_subset_expressions(result, lambda expr: expr.type == bool)
-        if result is None:
-            raise
         for boolean_subexpression in all_boolean_subexpressions:
             simplified_subexpression = _simplify_expression(boolean_subexpression, context)
             if simplified_subexpression is not None:

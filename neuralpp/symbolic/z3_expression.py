@@ -431,12 +431,15 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def syntactic_eq(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
 
-    def __init__(self, z3_solver: z3.Solver = z3.Solver(), value_dict: Dict[str, Any] | None = None):
+    def __init__(self, z3_solver: z3.Solver = None, value_dict: Dict[str, Any] | None = None):
         """
         Assume z3_solver is satisfiable, otherwise user should use Z3UnsatContext() instead.
         Also assumes value_dict is not contradictory to z3_solver. Formally, the following statement is valid:
             for all k,v in value_dict.item(), z3_solver.assertions implies k == v
         """
+        if z3_solver is None:
+            z3_solver = z3.Solver()
+
         if not z3_solver.check() == z3.sat:
             raise ValueError(f"Expect a solver that is satisfiable. Got {z3_solver.check()}.")
 
