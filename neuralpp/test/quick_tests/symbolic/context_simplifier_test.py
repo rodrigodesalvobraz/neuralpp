@@ -4,7 +4,7 @@ import z3
 import operator
 from neuralpp.symbolic.context_simplifier import ContextSimplifier
 from neuralpp.symbolic.sympy_expression import SymPyVariable, sympy_Cond
-from neuralpp.symbolic.z3_expression import Z3Variable, Z3SolverExpression
+from neuralpp.symbolic.z3_expression import Z3Variable, Z3SolverExpression, Z3Constant
 from neuralpp.symbolic.constants import if_then_else
 
 
@@ -29,9 +29,30 @@ def test_context_simplifier2():
     context = context & (y > 4)
     expr = if_then_else(y < if_then_else(x < 3, 1, 2), x * y, x + y)
     result = si.simplify(expr, context)
-    assert result.function.value == operator.add
-    assert result.arguments[0].name == 'x'
-    assert result.arguments[1].name == 'y'
+    print(result)
+    assert result.sympy_object == sympy.symbols('x') * 2  # simplified to x + y == x*2
+
+
+def test_context_simplifier3():
+    """
+    More complicated tests.
+    Test1: under context x = y = 3, 'x' -> 3
+    Test2: under context x = y = 3 & f(3,3) = 42, f(x,y) -> 42
+    """
+    si = ContextSimplifier()
+    x = Z3Variable(z3.Int('x'))
+    y = Z3Variable(z3.Int('y'))
+    context = Z3SolverExpression()
+    context = context & (x == y)
+    context = context & (y == 3)
+    result = si.simplify(x, context)
+    assert result.value == 3
+
+    f = Z3Variable(z3.Function('f', z3.IntSort(), z3.IntSort(), z3.IntSort()))  # f: int->int->int
+    fa = f(x, y)
+    context = context & (f(3, 3) == 42)  # context: x=y=3, f(3,3)==42
+    result = si.simplify(fa, context)  # took 2 passes, first pass -> f(3,3), second pass -> 42
+    assert result.value == 42
 
 
 def test_sympy_bug():
@@ -49,7 +70,6 @@ def test_sympy_bug():
     with pytest.raises(Exception):  # non-deterministically TypeError/RecursiveError
         with sympy.evaluate(False):
             sympy.Piecewise((x*y, y < sympy.Piecewise((1, x < 3), (2, True))), (x+y, True))
-
     # This means we cannot create such expressions in SymPy unless it is fixed in the library.
     # However, for simplify() methods, we don't need to stop SymPy from evaluating, so we can set evaluate=True
     # and work around this bug at least for simplify()'s cases.
@@ -66,3 +86,4 @@ def test_sympy_bug_detail():
     with pytest.raises(Exception):
         with sympy.evaluate(False):
             sympy.functions.elementary.piecewise.ExprCondPair(1, x < sympy.Piecewise((1, x < 3), (2, True)))
+

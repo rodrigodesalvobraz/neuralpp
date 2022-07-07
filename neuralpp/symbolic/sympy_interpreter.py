@@ -21,7 +21,7 @@ class SymPyInterpreter(Interpreter, Simplifier):
             result = result.simplify()
         else:
             for variable, value in context.dict.items():
-                result = result.replace(sympy.symbols(variable), value)
+                result = result.replace(sympy.symbols(variable), sympy.sympify(value))
         return result
 
     def eval(self, expression: SymPyExpression, context: Context = TrueContext()):

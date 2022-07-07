@@ -10,7 +10,7 @@ import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context
 from neuralpp.symbolic.basic_expression import FalseContext
-from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal
+from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, is_z3_uninterpreted_function
 from functools import cached_property, total_ordering
 import neuralpp.symbolic.functions as functions
 
@@ -268,13 +268,14 @@ class Z3Expression(Expression, ABC):
     @classmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> Z3FunctionApplication:
         match function:
-            case Z3Constant(z3_object=z3_function_declaration):
+            case Z3Constant(z3_object=z3_function_declaration) | Z3Variable(z3_object=z3_function_declaration):
                 z3_arguments = [cls.convert(argument).z3_expression for argument in arguments]
                 return Z3FunctionApplication(z3_function_declaration(*z3_arguments))
             case Constant(value=python_callable):
                 z3_arguments = [cls.convert(argument).z3_expression for argument in arguments]
                 return Z3FunctionApplication(_apply_python_callable_on_z3_arguments(python_callable, *z3_arguments))
             case Variable(name=name):
+                # TODO: this can be implemented without raising since we know the type of the uninterpreted function.
                 raise ValueError(f"Cannot create a Z3Expression from uninterpreted function {name}")
             case FunctionApplication(_, _):
                 raise ValueError("The function must be a python callable.")
@@ -295,7 +296,7 @@ class Z3Expression(Expression, ABC):
             else:
                 raise TypeError(f"Unrecognized z3 sort {value.sort()}")
         elif isinstance(value, z3.FuncDeclRef):
-            if value.kind() == z3.Z3_OP_UNINTERPRETED:
+            if is_z3_uninterpreted_function(value):
                 return value.name()
 
             try:
@@ -360,7 +361,10 @@ class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
 
     @property
     def function(self) -> Expression:
-        return Z3Constant(self._z3_object.decl())
+        if is_z3_uninterpreted_function(self._z3_object.decl()):
+            return Z3Variable(self._z3_object.decl())
+        else:
+            return Z3Constant(self._z3_object.decl())
 
     @property
     def arguments(self) -> List[Expression]:
@@ -527,8 +531,9 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         The elements in an equivalence class can be variables and at most one value (if two distinct value a and b
         exist in an equivalence class, then the context is unsatisfiable). A value is always smaller than all variables.
 
-        A variable_replacement_dict is a Variable -> (Variable | Value) dictionary that maps a variable in the context
-        to the minimum of its equivalence class. E.g., suppose the total order of variables is the alphabetical order,
+        A variable_replacement_dict is a (Variable | Expression | Value) -> (Variable | Expression | Value) dictionary
+        that maps a variable in the context to the minimum of its equivalence class.
+        E.g., suppose the total order of variables is the alphabetical order,
         and the context has the following assertions: { x == y, y > 1, z == y, a == 3, b == a },
         then variable_replacement_dict would be { x: x, y: x, z: x, a: 3, b: 3}.
         """
@@ -544,43 +549,65 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         equivalence_classes = _extract_equivalence_classes_from_assertions(self.assertions)
         for equivalence_class in equivalence_classes:
             for element in equivalence_class:
-                result[element] = equivalence_class.minimum
+                result[element.as_z3_expression()] = equivalence_class.minimum.as_z3_expression()
         return result
 
 
-class EquivalenceClass(frozenset):
-    def __eq__(self, other):  # either same instance or not equal, no need to use more expensive `==`.
-        return self is other
+class EquivalenceClass:
+    def __init__(self, element: OrderedZ3Expression):
+        self._set = frozenset([element])
 
-    __hash__ = frozenset.__hash__  # otherwise it's set to None by default
+    def __eq__(self, other: FrozenSet):  # either same instance or not equal, no need to use more expensive `==`.
+        if not isinstance(other, EquivalenceClass):
+            return False
+        return self._set is other._set
+
+    def __hash__(self):
+        return self._set.__hash__()
 
     @cached_property
     def minimum(self) -> Any:
         """ Assumes len(self) > 0. """
-        min_value = None
-        for element in self:
-            min_value = element if min_value is None else min(element, min_value)
-        return min_value
+        return min(self._set)
+
+    def __iter__(self):
+        return self._set.__iter__()
+
+    @staticmethod
+    def union_and_update_both(class1: EquivalenceClass, class2: EquivalenceClass):
+        """
+        Given two equivalence classes, C1 and C2, first compute their union U = C1 U C2,
+        then update both C1 and C2 to be U.
+        """
+        union = class1._set | class2._set
+        class1._set = union
+        class2._set = union
 
 
 @total_ordering
-class OrderedZ3Expression(z3.ExprRef):
+class OrderedZ3Expression:
     @cached_property
     def expression_level(self):
-        if _is_z3_value(self):
+        if _is_z3_value(self._expr):
             return 0
-        elif _is_z3_variable(self):
+        elif _is_z3_variable(self._expr):
             return 1
         else:
             return 2
 
+    def as_z3_expression(self):
+        return self._expr
+
     def __init__(self, expr: z3.ExprRef):
-        super().__init__(expr.ast)
+        self._expr = expr
 
     def __eq__(self, other: OrderedZ3Expression) -> bool:
-        return self.eq(other)
+        if not isinstance(other, OrderedZ3Expression):
+            return False
+        return self._expr.eq(other._expr)
 
-    __hash__ = z3.ExprRef.__hash__  # otherwise it's set to None by default
+    def __hash__(self):
+        return self._expr.__hash__()
 
     def __lt__(self, other: OrderedZ3Expression) -> bool:
         """
@@ -593,7 +620,7 @@ class OrderedZ3Expression(z3.ExprRef):
         elif other.expression_level < self.expression_level:
             return False
         else:  # same level
-            return str(self) < str(other)
+            return str(self._expr) < str(other._expr)
 
 
 def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | z3.AstVector) \
@@ -604,21 +631,14 @@ def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | 
     def key_to_equivalence_class_accumulator(lhs: z3.ExprRef, rhs: z3.ExprRef):
         assert isinstance(lhs, z3.ExprRef)
         assert isinstance(rhs, z3.ExprRef)
-        if lhs in result and rhs in result:
-            if result[lhs] == result[rhs]:
-                pass  # they are already the same set, don't need to connect them
-            else:
-                new_set = result[lhs] | result[rhs]
-                result[lhs] = new_set
-                result[rhs] = new_set
-        elif lhs in result and rhs not in result:
-            result[rhs] = result[lhs]
-        elif lhs not in result and rhs in result:
-            result[lhs] = result[rhs]
-        else:  # lhs not in result and rhs not in result
-            new_set = EquivalenceClass([OrderedZ3Expression(lhs), OrderedZ3Expression(rhs)])
-            result[lhs] = new_set
-            result[rhs] = new_set
+        if lhs in result and rhs in result and result[lhs] == result[rhs]:
+            pass  # they are already the same set, don't need to connect them
+        else:
+            if lhs not in result:
+                result[lhs] = EquivalenceClass(OrderedZ3Expression(lhs))
+            if rhs not in result:
+                result[rhs] = EquivalenceClass(OrderedZ3Expression(rhs))
+            EquivalenceClass.union_and_update_both(result[lhs], result[rhs])
     result: Dict[z3.ExprRef, EquivalenceClass] = {}
     _traverse_equalities(assertions, key_to_equivalence_class_accumulator)
     return frozenset(result.values())

@@ -17,6 +17,7 @@ from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
 from neuralpp.symbolic.parameters import global_parameters
 import neuralpp.symbolic.functions as functions
+from neuralpp.util.sympy_util import is_sympy_uninterpreted_function
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
@@ -196,8 +197,10 @@ class SymPyExpression(Expression, ABC):
                 # during the call, ValueError will be implicitly raised if we cannot convert
                 sympy_function = _python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
-            case Variable(name=name):
-                raise ValueError(f"Cannot create a SymPyExpression from uninterpreted function {name}")
+            case Variable(name=name, type=type_):
+                sympy_function = sympy.Function(name)
+                return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments,
+                                                                                          type_)
             case FunctionApplication(_, _):
                 raise ValueError("The function must be a python callable.")
             case _:
@@ -287,7 +290,10 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 
     @property
     def function(self) -> Expression:
-        return SymPyConstant(self._sympy_object.func, self.function_type)
+        if is_sympy_uninterpreted_function(self._sympy_object.func):
+            return SymPyVariable(self._sympy_object.func, self.function_type)
+        else:
+            return SymPyConstant(self._sympy_object.func, self.function_type)
 
     @property
     def arguments(self) -> List[Expression]:
@@ -316,7 +322,11 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         if not sympy_object.args:
             raise TypeError("not a function application.")
 
-        self._function_type = _infer_sympy_function_type(sympy_object, type_dict)
+        if sympy_object.func in type_dict:
+            # this happens iff sympy_object is an uninterpreted function, whose type cannot be inferred
+            self._function_type = type_dict[sympy_object.func]
+        else:
+            self._function_type = _infer_sympy_function_type(sympy_object, type_dict)
         return_type = return_type_after_application(self._function_type, len(sympy_object.args))
         SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
 
@@ -334,12 +344,19 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         return self._sympy_object.args  # sympy f.args returns a tuple
 
     @staticmethod
-    def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression]) -> \
-            SymPyExpression:
+    def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression],
+                                                  uninterpreted_function_type: ExpressionType = None,
+                                                  ) -> SymPyExpression:
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = _build_type_dict_from_sympy_arguments(sympy_arguments)
 
-        # Stop evaluation, otherwise Add(1,1) will be 2 in sympy.
+        if is_sympy_uninterpreted_function(sympy_function):
+            # If the function is uninterpreted, we must also save its type information in type_dict,
+            # since its type cannot be inferred.
+            if uninterpreted_function_type is None:
+                raise ValueError(f"uninterpreted function {sympy_function} has no type!")
+            type_dict[sympy_function] = uninterpreted_function_type
+
         if sympy_function == sympy.Min or sympy_function == sympy.Max:
             # see test/sympy_test.py: test_sympy_bug()
             sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
@@ -349,6 +366,8 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                 *[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
         else:
             with sympy.evaluate(global_parameters.sympy_evaluate):
+                # If we want to preserve the symbolic structure, we need to stop evaluation by setting
+                # global_parameters.sympy_evaluate to False (or Add(1,1) will be 2 in sympy).
                 sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
 
         if global_parameters.sympy_evaluate:

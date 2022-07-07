@@ -1,6 +1,7 @@
 from typing import Optional, Callable, Set
 from .expression import Expression, Context
 from .simplifier import Simplifier
+from .sympy_expression import SymPyExpression
 from .sympy_interpreter import SymPyInterpreter
 from .constants import basic_true, basic_false
 from .z3_expression import Z3SolverExpression
@@ -55,7 +56,7 @@ class ContextSimplifier(Simplifier):
 
     @staticmethod
     def _simplify_pass(expression: Expression, context: Z3SolverExpression) -> Expression:
-        result = ContextSimplifier.sympy_interpreter.simplify(expression, context)
+        result: SymPyExpression = ContextSimplifier.sympy_interpreter.simplify(expression, context)
         assert result is not None
 
         # replace boolean expressions
@@ -71,7 +72,9 @@ class ContextSimplifier(Simplifier):
 
         # replace variables
         for variable, replacement in context.variable_replacement_dict.items():
-            result = result.replace(variable, replacement)
+            # `variable` and `replacement` are Z3Expressions, replace() checks syntactic_eq,
+            # so we need to convert them to SymPyExpressions since result is a SymPyExpression.
+            result = result.replace(SymPyExpression.convert(variable), SymPyExpression.convert(replacement))
         return result
 
     def simplify(self, expression: Expression, context: Z3SolverExpression) -> Expression:
