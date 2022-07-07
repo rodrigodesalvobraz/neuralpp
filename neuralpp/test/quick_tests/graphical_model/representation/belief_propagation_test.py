@@ -23,7 +23,7 @@ def test_ebp_tree():
     s = IntegerVariable("s", 2)
     w = IntegerVariable("w", 4)
 
-    model = [
+    factors = [
         PyTorchTableFactor([c], prob_cloudy),
         PyTorchTableFactor([c, r], prob_rain_given_cloudy),
         PyTorchTableFactor([s], prob_sprinkler),
@@ -31,15 +31,15 @@ def test_ebp_tree():
     ]
 
     expected_w = PyTorchTableFactor([w], [0.192, 0.332, 0.34, 0.136])
-    assert (ExactBeliefPropagation(model).run(w) == expected_w)
+    assert (ExactBeliefPropagation(factors, w).run() == expected_w)
 
     # observe cloudiness at highest level
     observations = {c: 2}
-    conditioned_model = [f.condition(observations) for f in model]
+    conditioned_factors = [f.condition(observations) for f in factors]
 
     # this should result in increased chances of rain
     expected_w_with_conditions = PyTorchTableFactor([w], [0.12, 0.26, 0.42, 0.2])
-    assert(ExactBeliefPropagation(conditioned_model).run(w) == expected_w_with_conditions)
+    assert(ExactBeliefPropagation(conditioned_factors, w).run() == expected_w_with_conditions)
 
 
 def test_ebp_with_loop():
@@ -63,20 +63,20 @@ def test_ebp_with_loop():
     s = IntegerVariable("s", 2)
     w = IntegerVariable("w", 4)
 
-    model = [
+    factors = [
         PyTorchTableFactor([c], prob_cloudy),
         PyTorchTableFactor([c, r], prob_rain_given_cloudy),
         PyTorchTableFactor([c, s], prob_sprinkler_given_cloudy),
         PyTorchTableFactor.from_function([w, r, s], prob_wet_grass),
     ]
 
-    expected_w = VariableElimination().run(w, model)
-    assert(ExactBeliefPropagation(model).run(w) == expected_w)
+    expected_w = VariableElimination().run(w, factors)
+    assert(ExactBeliefPropagation(factors, w).run() == expected_w)
 
     # observe cloudiness at highest level
     observations = {c: 2}
-    conditioned_model = [f.condition(observations) for f in model]
+    conditioned_factors = [f.condition(observations) for f in factors]
 
     # this should result in increased chances of rain
-    expected_w_with_conditions = VariableElimination().run(w, conditioned_model)
-    assert(ExactBeliefPropagation(conditioned_model).run(w) == expected_w_with_conditions)
+    expected_w_with_conditions = VariableElimination().run(w, conditioned_factors)
+    assert(ExactBeliefPropagation(conditioned_factors, w).run() == expected_w_with_conditions)
