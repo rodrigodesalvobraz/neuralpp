@@ -5,7 +5,7 @@ from neuralpp.inference.graphical_model.variable.discrete_variable import Discre
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.symbolic.expression import Expression
-from neuralpp.symbolic.sympy_expression import SymPyContext
+from neuralpp.symbolic.sympy_expression import SymPyContext, SymPyConstant
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.util.util import union, join
 
@@ -35,7 +35,6 @@ class SymbolicFactor(AtomicFactor):
             symbol = sympy.symbols(k.name)
             eq_expression = sympy.Eq(symbol, v, evaluate=False)
             conjunction = conjunction & eq_expression
-
             type_dict[symbol] = type(v)
 
         return SymPyContext(conjunction, type_dict)
@@ -67,21 +66,17 @@ class SymbolicFactor(AtomicFactor):
                 f"Got {type(other)}"
             )
         combined_variables = union([self.variables, other.variables])
-        combined_expression = self.expression * other.expression
 
+        combined_expression = self.expression * other.expression
         return self.new_instance(combined_variables, combined_expression)
 
     def sum_out_variable(self, variable: Variable):
         result_variables = [v for v in self.variables if v != variable]
-        result_expression = None
+        result_expression = SymPyConstant.new_constant(0)
         for a in variable.assignments():
             context = self._dict_to_context({variable: a})
             simplified_expression = self.interpreter.simplify(self.expression, context)
-
-            if result_expression == None:
-                result_expression = simplified_expression
-            else:
-                result_expression = result_expression + simplified_expression
+            result_expression = result_expression + simplified_expression
 
         result_expression = self.interpreter.simplify(result_expression)
         return self.new_instance(result_variables, result_expression)
