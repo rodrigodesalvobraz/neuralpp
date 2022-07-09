@@ -1,13 +1,10 @@
-import functools
 import itertools
 import math
-import operator
 from typing import List
 
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.util import util
 from neuralpp.util.group import Group
-import itertools
 from neuralpp.util.util import join, split
 
 
