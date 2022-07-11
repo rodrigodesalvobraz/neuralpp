@@ -44,7 +44,6 @@ class Normalizer:
         if first_atom is None:
             return simplified_expression
 
-        print(f"first_atom {first_atom}")
         context1 = context & first_atom
         # The following statement can be proved by contradiction:
         # if not isinstance(context1, Z3SolverExpression), then context & first_atom must be False,
