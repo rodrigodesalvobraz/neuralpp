@@ -26,7 +26,8 @@ class BeliefPropagation:
     def variables_summed_out_at(self, node, incoming_variables):
         return util.subtract(
             incoming_variables,
-            self.tree.external_variables(node) | self.tree.variables_in_node_and_ancestors(node))
+            self.tree.external_variables(node)
+        )
 
     def message_from(self, node):
         product_at_node = self.product_at(node).atomic_factor()

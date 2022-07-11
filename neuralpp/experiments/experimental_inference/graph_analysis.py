@@ -32,7 +32,7 @@ class FactorGraph(Graph):
 
 class PartialSpanningTree:
 
-    def __init__(self, graph: Graph, root, stop=lambda _: False):
+    def __init__(self, graph: Graph, root):
         self.graph = graph
         self.root = root
         self._children = {}
@@ -40,10 +40,10 @@ class PartialSpanningTree:
 
     def children(self, node):
         if not self._children.get(id(node)):
-            neighbors = [n for n in self.graph.neighbors(node) if id(n) not in self._parents]
-            for n in neighbors:
+            available_neighbors = [n for n in self.graph.neighbors(node) if id(n) not in self._parents]
+            for n in available_neighbors:
                 self._parents[id(n)] = node
-            self._children[id(node)] = neighbors
+            self._children[id(node)] = available_neighbors
         return self._children[id(node)]
 
     def parent(self, node):
@@ -51,19 +51,19 @@ class PartialSpanningTree:
 
 
 def node_variables(node):
+    """All variables which are used directly by a node"""
     return node.variables if isinstance(node, Factor) else [node]
+
+
+def variable_at(node):
+    return node if isinstance(node, Variable) else None
 
 
 class FactorPartialSpanningTree(PartialSpanningTree):
 
     def __init__(self, graph: FactorGraph, root):
         super().__init__(graph, root)
-
-        def _evaluate(node):
-            for n in self.children(node):
-                _evaluate(n)
         self._parents[id(root)] = None
-        _evaluate(root)  # Currently evaluates a full spanning tree
 
     def variables(self, node) -> Iterable[Variable]:
         """ All variables appearing in the subtree rooted at node. """
@@ -83,20 +83,21 @@ class FactorPartialSpanningTree(PartialSpanningTree):
                                for sibling in self.children(self.parent(node))
                                if sibling is not node])
 
-    def variables_in_node_and_ancestors(self, node) -> Set[Variable]:
-        """ The set of variables defined by the current node and direct ancestors """
-        def _ancestor_variables(n, result_set):
-            if isinstance(n, Variable):
-                result_set.add(n)
-            parent = self.parent(n)
-            if parent is None:
-                return result_set
-            return _ancestor_variables(parent, result_set)
-        return _ancestor_variables(node, set([]))
-
     def external_variables(self, node) -> Set[Variable]:
-        """ Variables appearing outside subtree of node (cousins' variables) """
+        """ Variables appearing outside subtree of node"""
+
+        def local_external_variables(n):
+            result = self.siblings_variables(n)
+            node_variable = node if isinstance(node, Variable) else None
+            if node_variable is not None:
+                result.add(node_variable)
+            return result
+
         if self.parent(node) is None:
-            return set([])
+            var_if_exists = variable_at(node)
+            if var_if_exists is not None:
+                return {var_if_exists}
+            else:
+                return set([])
         else:
-            return self.siblings_variables(node) | self.external_variables(self.parent(node))
+            return local_external_variables(node) | self.external_variables(self.parent(node))
