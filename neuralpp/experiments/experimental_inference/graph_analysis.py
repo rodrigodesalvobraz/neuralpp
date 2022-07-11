@@ -3,6 +3,7 @@ from typing import Iterable, Set
 from neuralpp.inference.graphical_model.representation.factor.product_factor import Factor
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
+from neuralpp.util.cache_by_id import cache_by_id
 
 
 class Graph:
@@ -65,6 +66,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
         super().__init__(graph, root)
         self._parents[id(root)] = None
 
+    @cache_by_id
     def variables(self, node) -> Iterable[Variable]:
         """ All variables appearing in the subtree rooted at node. """
         return util.union(
@@ -74,6 +76,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
                             for child in self.children(node)])
             ])
 
+    @cache_by_id
     def siblings_variables(self, node) -> Set[Variable]:
         """ Variables appearing in the subtree of at least one sibling of node """
         if self.parent(node) is None:
@@ -83,6 +86,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
                                for sibling in self.children(self.parent(node))
                                if sibling is not node])
 
+    @cache_by_id
     def external_variables(self, node) -> Set[Variable]:
         """ Variables appearing outside subtree of node"""
 
