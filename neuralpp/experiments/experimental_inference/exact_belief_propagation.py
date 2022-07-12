@@ -1,10 +1,7 @@
 from neuralpp.experiments.experimental_inference.graph_analysis import FactorPartialSpanningTree, FactorGraph
-from neuralpp.inference.graphical_model.representation.factor.product_factor import (
-    Factor, ProductFactor
-)
+from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
-from neuralpp.util.group import Group
 
 
 class BeliefPropagation:
@@ -30,9 +27,7 @@ class BeliefPropagation:
         )
 
     def message_from(self, node):
-        product_at_node = self.product_at(node).atomic_factor()
-        if product_at_node is Group.identity:
-            return product_at_node
+        product_at_node = self.product_at(node)
         vars_summed_out = self.variables_summed_out_at(node, product_at_node.variables)
         return product_at_node ^ vars_summed_out
 

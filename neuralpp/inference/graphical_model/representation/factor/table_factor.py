@@ -1,6 +1,7 @@
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
     AtomicFactor,
 )
+from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.inference.graphical_model.representation.table.table_util import (
     index_of,
     permutation_from_to,
@@ -177,6 +178,8 @@ class TableFactor(AtomicFactor):
                 )
             else:
                 return False
+        elif not isinstance(other, Factor):
+            return False
         else:
             raise Exception(
                 f"Comparison of TableFactor to factors other than TableFactor is not implemented. "
