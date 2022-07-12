@@ -26,7 +26,7 @@ def test_normalizer1():
 def test_normalizer2():
     """
     f: bool -> bool -> int -> int
-    f(a > b, b > c, 5)
+    f(a < b, b > c, 5)
     """
     normalizer = Normalizer()
     f = Z3Variable(z3.Function('f', z3.BoolSort(), z3.BoolSort(), z3.IntSort(), z3.IntSort()))
@@ -47,7 +47,24 @@ def test_normalizer2():
 def test_normalizer3():
     """
     f: bool -> int -> int
-    f(c, f((a > b) | c, 3))
+    f(c, f((a > b) | c, 3)), context: f(True,3)==66, f(False,3)==3, f(True,66)==45
+
+    The normalization process:
+    f(c, f((a>b) | c, 3))
+        --(split on c)-->
+    if c then f(True, f(True,3)) else f(False, f(a>b,3))
+        --(simplify by f(True, 3) == 66)-->
+    if c then f(True, 66) else f(False, f(a>b,3))
+        --(simplify by f(True, 66) == 45)-->
+    if c then 45 else f(False, f(a>b,3))
+        --(split on a>b)-->
+    if c then 45 else if a>b then f(False, f(True,3)) else f(False, f(False,3))
+        --(simplify by f(True, 3) == 66)-->
+    if c then 45 else if a>b then f(False, 66) else f(False, f(False,3))
+        --(simplify by f(False, 3) == 3)-->
+    if c then 45 else if a>b then f(False, 66) else f(False, 3)
+        --(simplify by f(False, 3) == 3)-->
+    if c then 45 else if a>b then f(False, 66) else 3
     """
     normalizer = Normalizer()
     f = Z3Variable(z3.Function('f', z3.BoolSort(), z3.IntSort(), z3.IntSort()))
