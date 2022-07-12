@@ -10,7 +10,7 @@ import math
 from typing import Callable, Any
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
-    BasicExpression
+    BasicExpression, BasicQuantifierExpression, BasicSummation
 from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, _python_callable_to_sympy_function, \
     _sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable, _infer_sympy_function_type, \
     _infer_sympy_object_type
@@ -135,6 +135,21 @@ def test_basic_function_application():
     fa7 = fa4.replace(constant_one, constant_two)
     assert fa7.syntactic_eq(BasicFunctionApplication(
         func3, [constant_two, BasicFunctionApplication(func2, [constant_two, constant_two])]))
+
+
+def test_basic_quantifier_expressions():
+    i = BasicVariable('i', int)
+    i_range = (0 < i) & (i < 10)
+    sum_ = BasicSummation(int, i, i_range, i)
+    assert sum_.subexpressions[0].syntactic_eq(BasicConstant(operator.add, Callable[[int, int], int]))
+    assert sum_.subexpressions[1].syntactic_eq(i)
+    assert sum_.subexpressions[2].syntactic_eq(i_range)
+    assert sum_.subexpressions[3].syntactic_eq(i)
+    assert len(sum_.subexpressions) == 4
+    a = BasicVariable('a', int)
+    new_sum = sum_.replace(i, a)
+    assert sum_.syntactic_eq(BasicSummation(int, i, (0 < i) & (i < 10), i))
+    assert new_sum.syntactic_eq(BasicSummation(int, a, (0 < a) & (a < 10), a))
 
 
 @pytest.fixture(params=[operator.and_, operator.or_, operator.invert, operator.xor, operator.le,

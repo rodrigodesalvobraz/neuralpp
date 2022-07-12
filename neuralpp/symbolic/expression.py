@@ -137,10 +137,11 @@ class Expression(ABC):
             case AtomicExpression(base_type=self_base_type, atom=self_atom, type=self_type),\
                     AtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
                 return self_base_type == other_base_type and self_type == other_type and self_atom == other_atom
-            case FunctionApplication(subexpressions=self_subexpressions, type=self_type), \
-                    FunctionApplication(subexpressions=other_subexpressions, type=other_type):
-                return all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions)) and \
-                       self_type == other_type
+            case (FunctionApplication(subexpressions=self_subexpressions),
+                  FunctionApplication(subexpressions=other_subexpressions)) | \
+                 (QuantifierExpression(subexpressions=self_subexpressions),
+                  QuantifierExpression(subexpressions=other_subexpressions)):
+                return all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
             case _:
                 return False
 
@@ -163,6 +164,12 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> FunctionApplication:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+                                  ) -> QuantifierExpression:
         pass
 
     @classmethod
@@ -469,6 +476,51 @@ class Context(Expression, ABC):
     @abstractmethod
     def dict(self) -> Dict[str, Any]:
         pass
+
+
+class QuantifierExpression(Expression, ABC):
+    @property
+    @abstractmethod
+    def operation(self) -> Constant:
+        """ operation is a Constant wrapping a function.
+        E.g., integer Summation's operation is Constant(operator.add, Callable[[int,int],int]). """
+        pass
+
+    @property
+    @abstractmethod
+    def index(self) -> Variable:
+        pass
+
+    @property
+    @abstractmethod
+    def constrain(self) -> Expression:
+        """ User can expect the returning `expression` to be a Boolean Expression, i.e., expression.type == bool. """
+        pass
+
+    @property
+    @abstractmethod
+    def body(self) -> Expression:
+        pass
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.operation, self.index, self.constrain, self.body]
+
+    def set(self, i: int, new_expression: Expression) -> Expression:
+        subexpressions = self.subexpressions
+        subexpressions[i] = new_expression
+        return self.new_quantifier_expression(*subexpressions)
+
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+        if from_expression.syntactic_eq(self):
+            return to_expression
+
+        # recursively do the replacement
+        new_subexpressions = [
+            to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)
+            for e in self.subexpressions
+        ]
+        return self.new_quantifier_expression(*new_subexpressions)
 
 
 class NotTypedError(ValueError, TypeError):
