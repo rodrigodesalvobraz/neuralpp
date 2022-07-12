@@ -141,7 +141,8 @@ class Expression(ABC):
                   FunctionApplication(subexpressions=other_subexpressions)) | \
                  (QuantifierExpression(subexpressions=self_subexpressions),
                   QuantifierExpression(subexpressions=other_subexpressions)):
-                return all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
+                return len(self_subexpressions) == len(other_subexpressions) and \
+                       all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
             case _:
                 return False
 

@@ -174,7 +174,8 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def syntactic_eq(self, other) -> bool:
         match other:
             case BasicFunctionApplication(subexpressions=other_subexpressions):
-                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                return len(self.subexpressions) == len(other_subexpressions) and \
+                       all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
 

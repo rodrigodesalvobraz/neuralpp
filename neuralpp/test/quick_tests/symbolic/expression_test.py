@@ -389,3 +389,12 @@ def test_type_inference():
     sympy_expr: sympy.Basic = (a > b) | (a <= -b)
     assert _infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]
     assert _infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
+
+
+def test_function_application_eq():
+    from neuralpp.symbolic.constants import int_add
+    a = BasicVariable('a', int)
+    fa = a + 1
+    fa2 = BasicFunctionApplication(int_add, [a])
+    assert not fa.syntactic_eq(fa2)
+    assert not fa.structure_eq(fa2)
