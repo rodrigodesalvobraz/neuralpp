@@ -3,9 +3,10 @@ from __future__ import annotations
 import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
-    VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types, Context
+    VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types, Context, \
+    QuantifierExpression
 from abc import ABC
-from typing import Any, List, Optional, Callable, Dict
+from typing import Any, List, Optional, Callable, Dict, get_args
 import neuralpp.symbolic.functions as functions
 
 
@@ -72,6 +73,11 @@ class BasicExpression(Expression, ABC):
     @classmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
         return BasicFunctionApplication(function, arguments)
+
+    @classmethod
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+                                  ) -> QuantifierExpression:
+        return BasicQuantifierExpression(operation, index, constrain, body)
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
@@ -167,8 +173,53 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
 
     def syntactic_eq(self, other) -> bool:
         match other:
-            case BasicFunctionApplication(function=function, arguments=arguments, type=other_type):
-                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, [function] + arguments)) and \
-                       self.type == other_type
+            case BasicFunctionApplication(subexpressions=other_subexpressions):
+                return len(self.subexpressions) == len(other_subexpressions) and \
+                       all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
+
+
+class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
+    def __init__(self, operation: Constant, index: Variable, constrain: Expression, body: Expression):
+        self._operation = operation
+        self._index = index
+        self._constrain = constrain
+        self._body = body
+        argument_types, return_type = get_args(operation.type)
+        if len(argument_types) != 2 or not (argument_types[0] == argument_types [1] == return_type):
+            raise ValueError(f"Wrong operation type {operation.type}.")
+        super().__init__(return_type)
+
+    @property
+    def operation(self) -> Constant:
+        return self._operation
+
+    @property
+    def index(self) -> Variable:
+        return self._index
+
+    @property
+    def constrain(self) -> Expression:
+        return self._constrain
+
+    @property
+    def body(self) -> Expression:
+        return self._body
+
+    def syntactic_eq(self, other) -> bool:
+        match other:
+            case BasicQuantifierExpression(subexpressions=other_subexpressions):
+                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+            case _:
+                return False
+
+
+class BasicSummation(BasicQuantifierExpression):
+    def __init__(self, type_: type, index: Variable, constrain: Expression, body: Expression):
+        """
+        Expect type_ to be the argument type/return type of the summation.
+        E.g., the type_ of Summation{i in [0,100]}(i) should be `int`.
+        """
+        summation_operation = BasicConstant(operator.add, Callable[[type_, type_], type_])
+        super().__init__(summation_operation, index, constrain, body)

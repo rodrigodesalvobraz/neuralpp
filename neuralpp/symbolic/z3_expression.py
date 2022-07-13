@@ -8,7 +8,8 @@ from abc import ABC, abstractmethod
 import z3
 import operator
 import builtins
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context, \
+    QuantifierExpression
 from neuralpp.symbolic.basic_expression import FalseContext
 from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, is_z3_uninterpreted_function
 from functools import cached_property, total_ordering
@@ -281,6 +282,11 @@ class Z3Expression(Expression, ABC):
                 raise ValueError("The function must be a python callable.")
             case _:
                 raise ValueError(f"Unknown case: {function}")
+
+    @classmethod
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+                                  ) -> QuantifierExpression:
+        raise NotImplementedError()
 
     @classmethod
     def pythonize_value(cls, value: z3.ExprRef | z3.FuncDeclRef) -> Any:

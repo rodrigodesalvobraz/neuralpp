@@ -12,7 +12,7 @@ import fractions
 
 from functools import cached_property
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
-    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context
+    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression
 from neuralpp.symbolic.basic_expression import infer_python_callable_type
 from neuralpp.util.util import update_consistent_dict
 from neuralpp.symbolic.parameters import global_parameters
@@ -205,6 +205,11 @@ class SymPyExpression(Expression, ABC):
                 raise ValueError("The function must be a python callable.")
             case _:
                 raise ValueError("Unknown case.")
+
+    @classmethod
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+                                  ) -> QuantifierExpression:
+        raise NotImplementedError()
 
     @classmethod
     def pythonize_value(cls, value: sympy.Basic) -> Any:
