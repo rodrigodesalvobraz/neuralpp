@@ -138,18 +138,27 @@ def test_basic_function_application():
 
 
 def test_basic_quantifier_expressions():
+    from neuralpp.symbolic.constants import int_add, int_multiply
     i = BasicVariable('i', int)
     i_range = (0 < i) & (i < 10)
     sum_ = BasicSummation(int, i, i_range, i)
-    assert sum_.subexpressions[0].syntactic_eq(BasicConstant(operator.add, Callable[[int, int], int]))
+    assert sum_.subexpressions[0].syntactic_eq(int_add)
     assert sum_.subexpressions[1].syntactic_eq(i)
     assert sum_.subexpressions[2].syntactic_eq(i_range)
     assert sum_.subexpressions[3].syntactic_eq(i)
     assert len(sum_.subexpressions) == 4
+
     a = BasicVariable('a', int)
     new_sum = sum_.replace(i, a)
     assert sum_.syntactic_eq(BasicSummation(int, i, (0 < i) & (i < 10), i))
     assert new_sum.syntactic_eq(BasicSummation(int, a, (0 < a) & (a < 10), a))
+
+    assert sum_.set(0, int_multiply).syntactic_eq(BasicQuantifierExpression(int_multiply, i, (0 < i) & (i < 10), i))
+
+    sum_ia = new_sum.set(3, i * a)
+    nested_sum = sum_.set(3, sum_ia)
+    assert nested_sum.syntactic_eq(BasicSummation(int, i, (0 < i) & (i < 10),
+                                                  BasicSummation(int, a, (0 < a) & (a < 10), i * a)))
 
 
 @pytest.fixture(params=[operator.and_, operator.or_, operator.invert, operator.xor, operator.le,

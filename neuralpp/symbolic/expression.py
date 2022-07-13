@@ -443,10 +443,7 @@ class FunctionApplication(Expression, ABC):
             return to_expression
 
         # recursively do the replacement
-        new_subexpressions = [
-            to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)
-            for e in self.subexpressions
-        ]
+        new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
 
     def __str__(self) -> str:
@@ -517,10 +514,7 @@ class QuantifierExpression(Expression, ABC):
             return to_expression
 
         # recursively do the replacement
-        new_subexpressions = [
-            to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)
-            for e in self.subexpressions
-        ]
+        new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
         return self.new_quantifier_expression(*new_subexpressions)
 
 
