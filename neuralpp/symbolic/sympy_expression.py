@@ -208,7 +208,7 @@ class SymPyExpression(Expression, ABC):
 
     @classmethod
     def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
-                                  ) -> QuantifierExpression:
+                                  ) -> Expression:
         raise NotImplementedError()
 
     @classmethod
