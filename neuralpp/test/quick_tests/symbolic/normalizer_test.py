@@ -93,6 +93,8 @@ def test_quantifier_normalizer():
     assert normalizer.normalize(sum_, context).structure_eq(sum_)
 
     context = empty_context & (i < 5)
+    # raises ValueError because the context should not contain index (in this case i),
+    # since the index of the quantifier expression is not a free variable and not visible to the context.
     with pytest.raises(ValueError):
         normalizer.normalize(sum_, context)
 
