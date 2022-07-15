@@ -117,7 +117,34 @@ class Expression(ABC):
 
     @abstractmethod
     def syntactic_eq(self, other) -> bool:
+        """
+        Returns if self and other are syntactically equal, i.e.,
+        that they are of subclass of Expression and their internal representation are equal.
+        This method usually depends on subclass-specific library calls,
+        e.g., Z3Expression.syntactic_eq() would leverage z3.eq().
+        This method should be considered as a cheap way to check syntactic equality of two symbolic expressions.
+        """
         pass
+
+    def structure_eq(self, other) -> bool:
+        """
+        Returns if self and other are "structurally" equivalent, i.e., that they have the same Expression interfaces.
+        E.g, a Z3Expression of "a + b" does not syntactic_eq() a SymPyExpression of "a + b", but a call of
+        structure_eq() on the two should return True.
+        This method is general and more expensive than syntactic_eq()
+        """
+        match self, other:
+            case AtomicExpression(base_type=self_base_type, atom=self_atom, type=self_type),\
+                    AtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
+                return self_base_type == other_base_type and self_type == other_type and self_atom == other_atom
+            case (FunctionApplication(subexpressions=self_subexpressions),
+                  FunctionApplication(subexpressions=other_subexpressions)) | \
+                 (QuantifierExpression(subexpressions=self_subexpressions),
+                  QuantifierExpression(subexpressions=other_subexpressions)):
+                return len(self_subexpressions) == len(other_subexpressions) and \
+                       all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
+            case _:
+                return False
 
     @classmethod
     @abstractmethod
@@ -138,6 +165,12 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> FunctionApplication:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+                                  ) -> QuantifierExpression:
         pass
 
     @classmethod
@@ -363,7 +396,7 @@ class Constant(AtomicExpression, ABC):
         return self.atom
 
     def __str__(self) -> str:
-        return f"{self.value}: {self.type}"
+        return f"{self.value}"
 
 
 class FunctionApplication(Expression, ABC):
@@ -397,23 +430,20 @@ class FunctionApplication(Expression, ABC):
             return self.new_function_application(new_expression, self.arguments)
 
         # evaluate len after i != 0, if i == 0 we can be lazy
-        if i-1 < self.number_of_arguments:
+        if i - 1 < self.number_of_arguments:
             arguments = self.arguments
-            arguments[i-1] = new_expression
+            arguments[i - 1] = new_expression
             return self.new_function_application(self.function, arguments)
         else:
             raise IndexError(f"Out of scope. Function application only has {self.number_of_arguments} arguments "
-                             f"but you are setting {i-1}th arguments.")
+                             f"but you are setting {i - 1}th arguments.")
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
 
         # recursively do the replacement
-        new_subexpressions = [
-            to_expression if e.syntactic_eq(from_expression) else e.replace(from_expression, to_expression)
-            for e in self.subexpressions
-        ]
+        new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
 
     def __str__(self) -> str:
@@ -444,6 +474,48 @@ class Context(Expression, ABC):
     @abstractmethod
     def dict(self) -> Dict[str, Any]:
         pass
+
+
+class QuantifierExpression(Expression, ABC):
+    @property
+    @abstractmethod
+    def operation(self) -> Constant:
+        """ operation is a Constant wrapping a function.
+        E.g., integer Summation's operation is Constant(operator.add, Callable[[int,int],int]). """
+        pass
+
+    @property
+    @abstractmethod
+    def index(self) -> Variable:
+        pass
+
+    @property
+    @abstractmethod
+    def constrain(self) -> Expression:
+        """ User can expect the returning `expression` to be a Boolean Expression, i.e., expression.type == bool. """
+        pass
+
+    @property
+    @abstractmethod
+    def body(self) -> Expression:
+        pass
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.operation, self.index, self.constrain, self.body]
+
+    def set(self, i: int, new_expression: Expression) -> Expression:
+        subexpressions = self.subexpressions
+        subexpressions[i] = new_expression
+        return self.new_quantifier_expression(*subexpressions)
+
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+        if from_expression.syntactic_eq(self):
+            return to_expression
+
+        # recursively do the replacement
+        new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
+        return self.new_quantifier_expression(*new_subexpressions)
 
 
 class NotTypedError(ValueError, TypeError):

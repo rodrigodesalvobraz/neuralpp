@@ -562,14 +562,13 @@ def list_for_each(
 
     Optionally, it can receive other functions that are used at different points:
     - pre(index) is run before body if present.
-    - filter_index(index)
-    It is invoked before body is applied to index.
+    - filter_index(index) is invoked before body is applied to index.
     If present and returns a false value, this index value is skipped.
-    - filter_element(element) where element is body(index).
-    It is invoked after body(index) but before the element is included in the resulting list.
+    - filter_element(element) where element is body(index),
+    is invoked after body(index) but before the element is included in the resulting list.
     If present and returns a false value, the element is skipped (not included in the resulting list).
-    - post(result): if present, is ran after element is added to result.
-    - post_index_result(index, result): if present, is ran after element is added to result.
+    - post(result): if present, runs after element is added to result.
+    - post_index_result(index, result): if present, runs after element is added to result.
     """
     if function1 is None:
         if function2 is None:
