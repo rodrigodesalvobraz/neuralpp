@@ -447,9 +447,10 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         to_expression = Z3Expression.convert(to_expression)
 
         if not isinstance(from_expression, Z3ObjectExpression):
-            raise ValueError()  # only possible when from_expression is Z3SolverExpression
+            # only possible when from_expression is Z3SolverExpression
+            raise ValueError(f"{from_expression}({type(from_expression)}) does not have a z3_object.")
         if not isinstance(to_expression, Z3ObjectExpression):
-            raise ValueError()
+            raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
 
         new_solver = z3_replace_in_solver(self._solver, from_expression.z3_object, to_expression.z3_object)
         return Z3SolverExpression(new_solver)

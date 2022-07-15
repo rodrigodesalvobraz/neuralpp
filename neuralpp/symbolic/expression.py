@@ -497,7 +497,8 @@ class Context(Expression, ABC):
 
 class AbelianOperation(Constant, ABC):
     """
-    An Abelian operation is a commutative, associative binary operation with an identity element.
+    An Abelian operation is a commutative, associative binary operation with an identity element:
+    https://en.wikipedia.org/wiki/Abelian_group
     """
     @property
     @abstractmethod
@@ -518,8 +519,10 @@ class QuantifierExpression(Expression, ABC):
     @property
     @abstractmethod
     def operation(self) -> AbelianOperation:
-        """ operation is a Constant wrapping a function.
-        E.g., integer Summation's operation is Constant(operator.add, Callable[[int,int],int]). """
+        """
+        operation is a Constant wrapping a function.
+        E.g., integer Summation's operation is Constant(operator.add, Callable[[int,int],int]).
+        """
         pass
 
     @property
