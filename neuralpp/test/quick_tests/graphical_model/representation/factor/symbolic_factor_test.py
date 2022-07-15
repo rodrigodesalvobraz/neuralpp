@@ -6,6 +6,8 @@ from neuralpp.symbolic.sympy_expression import SymPyVariable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
+from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
+from neuralpp.inference.graphical_model.brute_force import BruteForce
 
 def test_sympy_condition():
     x = IntegerVariable("x", 3)
@@ -160,3 +162,35 @@ def test_if_then_else_normalize():
     result = SymPyInterpreter().simplify(if_then_else(x_sympy > y_sympy, 2, 3) / 15)
 
     assert normalized.expression.syntactic_eq(result)
+
+def test_with_variable_elimination():
+    x = IntegerVariable("x", 3)
+    y = IntegerVariable("y", 2)
+    z = IntegerVariable("z", 2)
+
+    x_symbol, y_symbol, z_symbol = sympy.symbols("x y z")
+    x_sympy = SymPyVariable(x_symbol, int)
+    y_sympy = SymPyVariable(y_symbol, int)
+    z_sympy = SymPyVariable(z_symbol, int)
+
+    model = [
+        SymbolicFactor(
+            [x, y],
+            if_then_else(x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0))
+        ),
+        SymbolicFactor(
+            [y, z],
+            if_then_else(y_sympy == z_sympy, 1.0, 0.0)
+        ),
+    ]
+
+    query = z
+
+    for (i, factor) in enumerate(model):
+        print(f"Factor {i}", model[i])
+
+    ve_result = VariableElimination().run(query, model)
+    print(f"\nVE marginal on {query}:", ve_result)
+    brute_result = BruteForce().run(query, model)
+    print(f"\nBrute force marginal on {query}:", brute_result)
+    assert ve_result == brute_result
