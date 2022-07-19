@@ -3,7 +3,7 @@ from typing import Iterable, Set
 from neuralpp.inference.graphical_model.representation.factor.product_factor import Factor
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
-from neuralpp.util.cache_by_id import lru_cache_by_id
+from neuralpp.util.cache_by_id import cache_by_id
 
 
 class Graph:
@@ -53,7 +53,7 @@ class PartialSpanningTree:
 
 def node_variables(node):
     """All variables which are used directly by a node"""
-    return node.variables if isinstance(node, Factor) else [node]
+    return set(node.variables) if isinstance(node, Factor) else {node}
 
 
 def variable_at(node):
@@ -66,7 +66,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
         super().__init__(graph, root)
         self._parents[id(root)] = None
 
-    @lru_cache_by_id(1000)
+    @cache_by_id
     def variables(self, node) -> Iterable[Variable]:
         """ All variables appearing in the subtree rooted at node. """
         return util.union(
@@ -76,7 +76,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
                             for child in self.children(node)])
             ])
 
-    @lru_cache_by_id(1000)
+    @cache_by_id
     def siblings_variables(self, node) -> Set[Variable]:
         """ Variables appearing in the subtree of at least one sibling of node """
         if self.parent(node) is None:
@@ -86,22 +86,14 @@ class FactorPartialSpanningTree(PartialSpanningTree):
                                for sibling in self.children(self.parent(node))
                                if sibling is not node])
 
-    @lru_cache_by_id(1000)
+    @cache_by_id
     def external_variables(self, node) -> Set[Variable]:
         """ Variables appearing outside subtree of node"""
 
         def local_external_variables(n):
-            result = self.siblings_variables(n)
-            node_variable = node if isinstance(node, Variable) else None
-            if node_variable is not None:
-                result.add(node_variable)
-            return result
+            return self.siblings_variables(n) | node_variables(n)
 
         if self.parent(node) is None:
-            var_if_exists = variable_at(node)
-            if var_if_exists is not None:
-                return {var_if_exists}
-            else:
-                return set([])
+            return node_variables(node)
         else:
             return local_external_variables(node) | self.external_variables(self.parent(node))
