@@ -1,7 +1,8 @@
 import pytest
 import z3
 
-from neuralpp.symbolic.normalizer import Normalizer
+from neuralpp.symbolic.quantifier_free_normalizer import QuantifierFreeNormalizer
+from neuralpp.symbolic.general_normalizer import GeneralNormalizer
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation, BasicConstant
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Variable
@@ -11,7 +12,7 @@ def test_normalizer1():
     """
     if a > b then a + b else 3
     """
-    normalizer = Normalizer()
+    normalizer = QuantifierFreeNormalizer()
     a = BasicVariable('a', int)
     b = BasicVariable('b', int)
     expr = if_then_else(a > b, a + b, 3)
@@ -29,7 +30,7 @@ def test_normalizer2():
     f: bool -> bool -> int -> int
     f(a < b, b > c, 5)
     """
-    normalizer = Normalizer()
+    normalizer = QuantifierFreeNormalizer()
     f = Z3Variable(z3.Function('f', z3.BoolSort(), z3.BoolSort(), z3.IntSort(), z3.IntSort()))
     a = BasicVariable('a', int)
     b = BasicVariable('b', int)
@@ -67,7 +68,7 @@ def test_normalizer3():
         --(simplify by f(False, 3) == 3)-->
     if c then 45 else if a>b then f(False, 66) else 3
     """
-    normalizer = Normalizer()
+    normalizer = QuantifierFreeNormalizer()
     f = Z3Variable(z3.Function('f', z3.BoolSort(), z3.IntSort(), z3.IntSort()))
     a = BasicVariable('a', int)
     b = BasicVariable('b', int)
@@ -89,7 +90,7 @@ def test_quantifier_normalizer():
     sum_ = BasicSummation(int, i, i_range, i)
 
     context = empty_context
-    normalizer = Normalizer()
+    normalizer = GeneralNormalizer()
     assert normalizer.normalize(sum_, context).syntactic_eq(sum_)
 
     context = empty_context & (i < 5)
@@ -123,8 +124,15 @@ def test_quantifier_normalizer():
                      BasicSummation(int, i, empty_context & (j < i) & (i > 5), i + j) +
                      BasicSummation(int, i, empty_context & (j < i) & (i <= 5), i))
 
-    # Normalization of nested quantifier expression is not supported, yet.
+    print('===')
+    sum1 = if_then_else(j > 5, i + j, sum_)
+    print(f'result={normalizer.normalize(sum1, empty_context)}')
+
+    # Normalization of nested quantifier expression
+    print('---')
     sum_ = BasicSummation(int, j, empty_context & (j < 10), if_then_else(j > 5, i + j, sum_))
-    # because SymPyQuantifierExpression is not implemented.
-    with pytest.raises(NotImplementedError):
-        normalizer.normalize(sum_, empty_context)
+    print(f'result={normalizer.normalize(sum_, empty_context)}')
+    assert normalizer.normalize(sum_, empty_context).structure_eq(
+        BasicSummation(int, j, empty_context & (j < 10) & (j > 5), i + j) +
+        BasicSummation(int, j, empty_context & (j < 10) & ~(j > 5),
+                       BasicSummation(int, i, empty_context & (j < i), if_then_else(i > 5, i + j, i))))

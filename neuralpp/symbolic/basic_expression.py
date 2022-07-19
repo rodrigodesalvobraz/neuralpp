@@ -95,6 +95,9 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
         super().__init__(expression_type)
         self._atom = atom
 
+    def __hash__(self):
+        return self.atom.__hash__()
+
     @property
     def atom(self) -> str:
         return self._atom
@@ -159,6 +162,9 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
         super().__init__(function_type)
         self._subexpressions = [function] + arguments
 
+    def __hash__(self):
+        return hash(tuple(self.subexpressions))
+
     @property
     def function(self) -> Expression:
         return self._subexpressions[0]
@@ -195,20 +201,27 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
             raise ValueError(f"Wrong operation type {operation.type}.")
         super().__init__(return_type)
 
+    def __hash__(self):
+        return hash(tuple(self.subexpressions))
+
     @property
     def operation(self) -> Constant:
+        assert isinstance(self._operation, Constant)
         return self._operation
 
     @property
     def index(self) -> Variable:
+        assert isinstance(self._index, Variable)
         return self._index
 
     @property
     def constraint(self) -> Expression:
+        assert isinstance(self._constraint, Context)
         return self._constraint
 
     @property
     def body(self) -> Expression:
+        assert isinstance(self._body, Expression)
         return self._body
 
     def internal_object_eq(self, other) -> bool:
@@ -221,10 +234,11 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
 
 class BasicAbelianOperation(BasicConstant, AbelianOperation):
     @property
-    def identity(self) -> Expression:
+    def identity(self) -> Constant:
+        assert isinstance(self._identity, Constant)
         return self._identity
 
-    def __init__(self, operation: Callable, identity: Expression):
+    def __init__(self, operation: Callable, identity: Constant):
         # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
         self._identity = identity
         element_type = identity.type

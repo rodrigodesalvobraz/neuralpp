@@ -12,8 +12,9 @@ import fractions
 
 from functools import cached_property
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
-    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression
-from neuralpp.symbolic.basic_expression import infer_python_callable_type
+    FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression, \
+    AbelianOperation
+from neuralpp.symbolic.basic_expression import infer_python_callable_type, basic_add_operation
 from neuralpp.util.util import update_consistent_dict
 from neuralpp.symbolic.parameters import global_parameters
 import neuralpp.symbolic.functions as functions
@@ -498,3 +499,26 @@ class SymPyContext(SymPyFunctionApplication, Context):
     @property
     def satisfiability_is_known(self) -> bool:
         return not self._unknown
+
+
+class SymPySummation(SymPyExpression, QuantifierExpression):
+    def __init__(self, sympy_object: sympy.Basic, expression_type: ExpressionType,
+                 type_dict: Dict[sympy.Basic, ExpressionType]):
+        super().__init__(sympy_object, expression_type, type_dict)
+
+    @property
+    def operation(self) -> AbelianOperation:
+        return basic_add_operation(self.type)
+
+    @property
+    def index(self) -> SymPyVariable:
+        variable = self.sympy_object.limits[0]
+        return SymPyVariable(variable, self.type_dict[variable])
+
+    @property
+    def constrain(self) -> Context:
+        pass
+
+    @property
+    def body(self) -> Expression:
+        return self.sympy_object.function

@@ -1,7 +1,7 @@
 import operator
 import sympy
 
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable, Context
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable, Context, ConversionError
 from neuralpp.symbolic.basic_expression import TrueContext
 from neuralpp.symbolic.simplifier import Simplifier
 from neuralpp.symbolic.interpreter import Interpreter
@@ -50,7 +50,10 @@ class SymPyInterpreter(Interpreter, Simplifier):
         """
         with sympy_evaluate(True):  # To work around a bug in SymPy (see context_simplifier_test.py/test_sympy_bug).
             if not isinstance(expression, SymPyExpression):
-                expression = SymPyExpression.convert(expression)
+                try:
+                    expression = SymPyExpression.convert(expression)
+                except Exception:
+                    raise ConversionError()
 
             simplified_sympy_expression = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
             # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still

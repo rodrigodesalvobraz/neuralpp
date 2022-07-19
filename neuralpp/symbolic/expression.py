@@ -38,6 +38,8 @@ from abc import ABC, abstractmethod
 #
 # It should be noted that our usage of `Callable` here means the first, i.e., "the type of all function types"
 # And in our code we use `isinstance()` for cases like `isinstance(Callable[[int],int], Callable)`.
+import z3
+
 ExpressionType = Callable | Type
 
 
@@ -185,6 +187,14 @@ class Expression(ABC):
             case FunctionApplication(function=function, arguments=arguments):
                 return cls.new_function_application(function, arguments)
             case QuantifierExpression(subexpressions=subexpressions):
+                # There is no general solution to convert a QuantifierExpression to a SymPy-backed one.
+                # Unlike for FunctionApplication where the non-constructable is the exception,
+                # here only a few SymPy-backed quantifier expression can be constructed from a general interface.
+                # operation is limited to Sum&Product, and constrain can only be a range.
+                # We have similar problem in Z3Expression.new_quantifier_expression,
+                # where operation is limited to Forall&Exists.
+                # So generally, we shouldn't convert quantifier expressions, only use BasicQuantifierExpression,
+                # and avoid ending up here.
                 return cls.new_quantifier_expression(*subexpressions)
             case _:
                 raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
@@ -345,6 +355,22 @@ class Expression(ABC):
                                              [arg if isinstance(arg, Expression) else self.new_constant(arg, None)
                                               for arg in args])
 
+    def __bool__(self):
+        """
+        We've overloaded our __eq__() to return symbolic expression, if that result cannot be converted to a boolean,
+        __hash__() will not work correctly. (https://docs.python.org/3/reference/datamodel.html#object.__hash__)
+        Refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_eq_bool() for how Z3 deals with a similar problem.
+        """
+        match self:
+            case Constant(value=True):
+                return True
+            case Constant(value=False):
+                return False
+            case FunctionApplication(function=Constant(value=operator.eq), arguments=[lhs, rhs]):
+                return lhs.syntactic_eq(rhs)
+            case _:
+                raise NotImplementedError("Expression cannot be converted to Boolean")
+
 
 class AtomicExpression(Expression, ABC):
     @property
@@ -381,7 +407,7 @@ class Variable(AtomicExpression, ABC):
         return self.atom
 
     def __str__(self) -> str:
-        return f'"{self.name}"'
+        return f'{self.name}'
 
 
 class Constant(AtomicExpression, ABC):
@@ -473,6 +499,19 @@ class Context(Expression, ABC):
     def dict(self) -> Dict[str, Any]:
         pass
 
+    def is_known_to_imply(self, expression: Expression) -> bool:
+        """
+        context implies expression iff (context => expression) is valid;
+        which means not (context => expression) is unsatisfiable;
+        which means not (not context or expression) is unsatisfiable;
+        which means context and not expression is unsatisfiable.
+        """
+        new_context = self & ~expression
+        if new_context.satisfiability_is_known:
+            return new_context.unsatisfiable
+        else:
+            return False
+
 
 class AbelianOperation(Constant, ABC):
     """
@@ -495,6 +534,15 @@ class AbelianOperation(Constant, ABC):
 
 
 class QuantifierExpression(Expression, ABC):
+    """
+    A more appropriate (but too long) name would be GeneralizedQuantifierExpression.
+    Here the word "quantifier" does not only refer to logical quantifiers as in "forall" or "exists",
+    but rather, the expression of an
+    iterated binary operation (https://en.wikipedia.org/wiki/Iterated_binary_operation).
+
+    This, in a sense, is a *generalized* version of quantifier: the operation of "forall" is `and`, the operation
+    of "exists" is `or`, the operation of "Sigma" is `sum`, and "Pi" `multiplication`.
+    """
     @property
     @abstractmethod
     def operation(self) -> AbelianOperation:
@@ -554,7 +602,7 @@ class QuantifierExpression(Expression, ABC):
         return self.set(3, new_expression)
 
     def __str__(self) -> str:
-        return f'"{self.operation}({self.index}:{self.constraint}, {self.body})"'
+        return f'Q_{self.operation}({self.index}:{self.constraint}, {self.body})'
 
 
 class NotTypedError(ValueError, TypeError):
@@ -566,4 +614,8 @@ class VariableNotTypedError(NotTypedError):
 
 
 class FunctionNotTypedError(NotTypedError):
+    pass
+
+
+class ConversionError(Exception):
     pass

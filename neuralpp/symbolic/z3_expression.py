@@ -431,6 +431,9 @@ def _extract_key_to_value_from_assertions(assertions: List[z3.ExprRef] | z3.AstV
 
 
 class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
+    def __hash__(self):
+        return self._solver.__hash__()
+
     @property
     def dict(self) -> Dict[str, Any]:
         return self._dict
@@ -457,7 +460,9 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
 
         if not isinstance(from_expression, Z3ObjectExpression):
             # only possible when from_expression is Z3SolverExpression
-            raise ValueError(f"{from_expression}({type(from_expression)}) does not have a z3_object.")
+            # don't replace
+            return self
+            # raise ValueError(f"{self}\n{from_expression}({type(from_expression)}) does not have a z3_object.")
         if not isinstance(to_expression, Z3ObjectExpression):
             raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
 
@@ -476,7 +481,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         if not z3_solver.check() == z3.sat:
             raise ValueError(f"Expect a solver that is satisfiable. Got {z3_solver.check()}.")
 
-        super().__init__(z3_false)
+        super().__init__(bool)
         self._solver = z3_solver
         if value_dict is not None:
             self._dict = value_dict
@@ -587,6 +592,14 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             for element in equivalence_class:
                 result[element.as_z3_expression()] = equivalence_class.minimum.as_z3_expression()
         return result
+
+    def implies(self, formula: Expression):
+        """
+        If self & ~formula is UNSAT, then ~self & formula is VALID
+        """
+        statement = self & ~formula
+        return statement.satisfiability_is_known and statement.unsatisfiable
+
 
 
 class EquivalenceClass:
