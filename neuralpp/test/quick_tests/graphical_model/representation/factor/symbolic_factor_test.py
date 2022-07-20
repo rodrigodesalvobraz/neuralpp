@@ -8,6 +8,8 @@ from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
 from neuralpp.inference.graphical_model.brute_force import BruteForce
+from neuralpp.symbolic.normalizer import Normalizer
+from neuralpp.symbolic.z3_expression import Z3SolverExpression
 
 def test_sympy_condition():
     x = IntegerVariable("x", 3)
@@ -186,11 +188,11 @@ def test_with_variable_elimination():
 
     query = z
 
-    for (i, factor) in enumerate(model):
-        print(f"Factor {i}", model[i])
-
     ve_result = VariableElimination().run(query, model)
-    print(f"\nVE marginal on {query}:", ve_result)
     brute_result = BruteForce().run(query, model)
-    print(f"\nBrute force marginal on {query}:", brute_result)
-    assert ve_result == brute_result
+
+    difference = ve_result.expression - brute_result.expression
+    normalizer = Normalizer()
+    context = Z3SolverExpression()
+
+    assert normalizer.normalize(difference, context) == 0
