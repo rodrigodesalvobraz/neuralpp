@@ -80,7 +80,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
     def siblings_variables(self, node) -> Set[Variable]:
         """ Variables appearing in the subtree of at least one sibling of node """
         if self.parent(node) is None:
-            return set([])
+            return set()
         else:
             return util.union([self.variables(sibling)
                                for sibling in self.children(self.parent(node))
@@ -88,7 +88,7 @@ class FactorPartialSpanningTree(PartialSpanningTree):
 
     @cache_by_id
     def external_variables(self, node) -> Set[Variable]:
-        """ Variables appearing outside subtree of node"""
+        """ Variables appearing outside subtree of node """
 
         def local_external_variables(n):
             return self.siblings_variables(n) | node_variables(n)
