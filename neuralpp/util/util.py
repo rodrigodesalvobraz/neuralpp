@@ -430,9 +430,17 @@ def repeat_interleave_first_dimension(tensor, n):
 
 def flatten_one_level(iterable, is_nested, get_nested):
     """
-    Returns [get_nested(e) if is_nested(e) else e for e in iterable]
+    Returns a list which replaces elements e in iterable where is_nested(e)
+    with the elements contained in get_nested(e), while maintaining all other
+    elements of iterable in order.
     """
-    return [get_nested(e) if is_nested(e) else e for e in iterable]
+    result = []
+    for e in iterable:
+        if is_nested(e):
+            result.extend(get_nested(e))
+        else:
+            result.append(e)
+    return result
 
 
 def isinstance_predicate(type):
