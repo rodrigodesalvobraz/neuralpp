@@ -52,7 +52,7 @@ class PartialSpanningTree:
 
 
 def node_variables(node):
-    """All variables which are used directly by a node"""
+    """All variables which are used directly by a node """
     return set(node.variables) if isinstance(node, Factor) else {node}
 
 
