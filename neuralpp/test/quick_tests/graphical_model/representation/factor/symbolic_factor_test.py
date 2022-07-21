@@ -1,6 +1,6 @@
 import sympy
 from neuralpp.inference.graphical_model.representation.factor.symbolic_factor import SymbolicFactor
-from neuralpp.symbolic.sympy_expression import SymPyVariable
+from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
@@ -23,7 +23,7 @@ def test_sympy_condition():
     conditioned = symbolic.condition({x: 1})
 
     expected = SymPyVariable(y_symbol, int)
-    assert conditioned.expression == expected
+    assert conditioned.expression.syntactic_eq(expected)
 
 def test_sympy_if_then_else_condition():
     x = IntegerVariable("x", 3)
@@ -39,15 +39,15 @@ def test_sympy_if_then_else_condition():
     conditioned1 = symbolic.condition({x: 1})
 
     expected1 = if_then_else(y_sympy < 1, 2, 3)
-    assert conditioned1.expression.arguments[0] == expected1.arguments[0]
-    assert conditioned1.expression.arguments[1].value == expected1.arguments[1]
-    assert conditioned1.expression.arguments[2].value == expected1.arguments[2]
+    assert conditioned1.expression.structure_eq(expected1)
 
-    conditioned1 = symbolic.condition({x: 1, y:2})
-    assert conditioned1.expression == 3
+    conditioned2 = symbolic.condition({x: 1, y:2})
+    expected2 = SymPyConstant.new_constant(3)
+    assert conditioned2.expression.syntactic_eq(expected2)
 
-    conditioned1 = symbolic.condition({x: 1, y:0})
-    assert conditioned1.expression == 2
+    conditioned3 = symbolic.condition({x: 1, y:0})
+    expected3 = SymPyConstant.new_constant(2)
+    assert conditioned3.expression.syntactic_eq(expected3)
 
 def test_mul_by_non_identity():
     x = IntegerVariable("x", 3)
@@ -70,8 +70,9 @@ def test_mul_by_non_identity():
     symbolic2_condition = symbolic2.condition({x: 1, z: 3})
     symbolic3_condition = symbolic3.condition({x: 1, y: 2, z: 3})
 
-    expected = symbolic1_condition.expression.sympy_object * symbolic2_condition.expression.sympy_object
-    assert symbolic3_condition.expression.sympy_object == expected
+    expected = symbolic1_condition.expression * symbolic2_condition.expression
+    expected = SymPyInterpreter().simplify(expected)
+    assert symbolic3_condition.expression.syntactic_eq(expected)
 
 
 def test_if_then_else_mul_by_non_identity():
@@ -95,8 +96,9 @@ def test_if_then_else_mul_by_non_identity():
     symbolic2_condition = symbolic2.condition({x: 3, z: 3})
     symbolic3_condition = symbolic3.condition({x: 3, y: 2, z: 3})
 
-    expected = symbolic1_condition.expression.sympy_object * symbolic2_condition.expression.sympy_object
-    assert symbolic3_condition.expression.sympy_object == expected
+    expected = symbolic1_condition.expression * symbolic2_condition.expression
+    expected = SymPyInterpreter().simplify(expected)
+    assert symbolic3_condition.expression.syntactic_eq(expected)
 
 def test_sum_out_variable():
     x = IntegerVariable("x", 3)
@@ -111,8 +113,8 @@ def test_sum_out_variable():
     symbolic = SymbolicFactor([x, y], expression1)
     sum_out_x = symbolic ^ x
 
-    expected = 3 * y_symbol
-    assert sum_out_x.expression.sympy_object == expected
+    expected = SymPyFunctionApplication(3 * y_symbol, {y_symbol: int})
+    assert sum_out_x.expression.syntactic_eq(expected)
 
 def test_if_then_else_sum_out_variable():
     x = IntegerVariable("x", 3)
@@ -129,7 +131,7 @@ def test_if_then_else_sum_out_variable():
 
     expected = if_then_else(0 > y_sympy, 2, 3) + if_then_else(1 > y_sympy, 2, 3) + if_then_else(2 > y_sympy, 2, 3)
     expected = SymPyInterpreter().simplify(expected)
-    assert sum_out_x.expression == expected
+    assert sum_out_x.expression.syntactic_eq(expected)
 
 def test_normalize():
     x = IntegerVariable("x", 3)
@@ -144,11 +146,12 @@ def test_normalize():
     symbolic = SymbolicFactor([x, y], expression1)
     sum_variables = symbolic.sum_out_variables([x, y])
 
-    assert sum_variables.expression.sympy_object == 3
+    expected1 = SymPyConstant.new_constant(3)
+    assert sum_variables.expression.syntactic_eq(expected1)
 
     normalized = symbolic.normalize()
-    expected = x_symbol * y_symbol / 3
-    assert normalized.expression.sympy_object == expected
+    expected2 = SymPyFunctionApplication(x_symbol * y_symbol / 3, {x_symbol: int, y_symbol: int})
+    assert normalized.expression.syntactic_eq(expected2)
 
 def test_if_then_else_normalize():
     x = IntegerVariable("x", 3)
@@ -163,11 +166,12 @@ def test_if_then_else_normalize():
     symbolic = SymbolicFactor([x, y], expression1)
     sum_variables = symbolic.sum_out_variables([x, y])
 
-    assert sum_variables.expression.sympy_object == 15
+    expected1 = SymPyConstant.new_constant(15)
+    assert sum_variables.expression.syntactic_eq(expected1)
 
     normalized = symbolic.normalize()
-    expected = SymPyInterpreter().simplify(if_then_else(x_sympy > y_sympy, 2, 3) / 15)
-    assert normalized.expression == expected
+    expected2 = SymPyInterpreter().simplify(if_then_else(x_sympy > y_sympy, 2, 3) / 15)
+    assert normalized.expression.syntactic_eq(expected2)
 
 def test_with_variable_elimination():
     x = IntegerVariable("x", 3)
@@ -199,4 +203,5 @@ def test_with_variable_elimination():
     normalizer = Normalizer()
     context = Z3SolverExpression()
 
-    assert normalizer.normalize(difference, context) == 0
+    expected = SymPyConstant.new_constant(0)
+    assert normalizer.normalize(difference, context).syntactic_eq(expected)
