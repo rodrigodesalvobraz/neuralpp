@@ -52,7 +52,7 @@ class PartialSpanningTree:
 
 
 def node_variables(node):
-    """All variables which are used directly by a node """
+    """ All variables which are used directly by a node. """
     return set(node.variables) if isinstance(node, Factor) else {node}
 
 
@@ -78,9 +78,9 @@ class FactorPartialSpanningTree(PartialSpanningTree):
         if self.parent(node) is None:
             return set()
         else:
-            return util.union([self.variables(sibling)
-                               for sibling in self.children(self.parent(node))
-                               if sibling is not node])
+            return util.union(self.variables(sibling)
+                              for sibling in self.children(self.parent(node))
+                              if sibling is not node)
 
     @cache_by_id
     def external_variables(self, node) -> Set[Variable]:
