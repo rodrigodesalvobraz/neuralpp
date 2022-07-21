@@ -56,10 +56,6 @@ def node_variables(node):
     return set(node.variables) if isinstance(node, Factor) else {node}
 
 
-def variable_at(node):
-    return node if isinstance(node, Variable) else None
-
-
 class FactorPartialSpanningTree(PartialSpanningTree):
 
     def __init__(self, graph: FactorGraph, root):
