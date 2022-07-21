@@ -20,9 +20,9 @@ class BeliefPropagation:
     def factor_at(node):
         return [] if isinstance(node, Variable) else [node]
 
-    def variables_summed_out_at(self, node, incoming_variables):
+    def variables_summed_out_at(self, node, all_variables_in_product_at_node):
         return util.subtract(
-            incoming_variables,
+            all_variables_in_product_at_node,
             self.tree.external_variables(node)
         )
 
