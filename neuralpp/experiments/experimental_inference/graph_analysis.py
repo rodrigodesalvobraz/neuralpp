@@ -31,7 +31,19 @@ class FactorGraph(Graph):
                 else self.variable_neighbors.get(node, []))
 
 
-class PartialSpanningTree:
+class Tree:
+
+    def __init__(self):
+        self.root = None
+
+    def children(self, node):
+        raise NotImplemented()
+
+    def parent(self, node):
+        raise NotImplemented()
+
+
+class LazySpanningTree(Tree):
 
     def __init__(self, graph: Graph, root):
         self.graph = graph
@@ -56,7 +68,17 @@ def node_variables(node):
     return set(node.variables) if isinstance(node, Factor) else {node}
 
 
-class FactorPartialSpanningTree(PartialSpanningTree):
+class FactorTree(Tree):
+    """
+    A tree of factors that also provides the external variables for each subtree (identified by its root).
+    The external variables of a subtree are the variables that appear somewhere in the whole tree
+    outside the subtree, plus the variables appearing at the subtree's root node.
+    """
+    def external_variables(self, node) -> Set[Variable]:
+        raise NotImplemented()
+
+
+class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
 
     def __init__(self, graph: FactorGraph, root):
         super().__init__(graph, root)

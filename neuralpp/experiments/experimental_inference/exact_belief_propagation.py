@@ -1,4 +1,4 @@
-from neuralpp.experiments.experimental_inference.graph_analysis import FactorPartialSpanningTree, FactorGraph
+from neuralpp.experiments.experimental_inference.graph_analysis import LazyFactorSpanningTree, FactorGraph, FactorTree
 from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
@@ -6,7 +6,7 @@ from neuralpp.util import util
 
 class BeliefPropagation:
 
-    def __init__(self, tree: FactorPartialSpanningTree):
+    def __init__(self, tree: FactorTree):
         self.tree = tree
 
     def run(self):
@@ -34,4 +34,4 @@ class BeliefPropagation:
 
 class ExactBeliefPropagation(BeliefPropagation):
     def __init__(self, factors, query):
-        super().__init__(FactorPartialSpanningTree(FactorGraph(factors), query))
+        super().__init__(LazyFactorSpanningTree(FactorGraph(factors), query))
