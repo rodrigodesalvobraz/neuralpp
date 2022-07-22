@@ -26,7 +26,7 @@ class FactorGraph(Graph):
     def neighbors(self, node):
         assert (isinstance(node, Factor) or isinstance(node, Variable))
         return (node.variables if (isinstance(node, Factor))
-                else self.variable_neighbors.get(node, []))
+                else self.variable_neighbors[node])
 
     @staticmethod
     def factor_at(node):
@@ -53,6 +53,7 @@ class Tree:
 class LazySpanningTree(Tree):
 
     def __init__(self, graph: Graph, root):
+        super().__init__()
         self.graph = graph
         self.root = root
         self._children = {}
