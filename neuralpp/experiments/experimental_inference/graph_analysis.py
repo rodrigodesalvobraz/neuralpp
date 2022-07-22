@@ -30,6 +30,15 @@ class FactorGraph(Graph):
         return (node.variables if (isinstance(node, Factor))
                 else self.variable_neighbors.get(node, []))
 
+    @staticmethod
+    def factor_at(node):
+        return [] if isinstance(node, Variable) else [node]
+
+    @staticmethod
+    def variables_at(node):
+        """ All variables which are used directly by a node. """
+        return set(node.variables) if isinstance(node, Factor) else {node}
+
 
 class Tree:
 
@@ -63,12 +72,7 @@ class LazySpanningTree(Tree):
         return self._parents.get(id(node), None)
 
 
-def node_variables(node):
-    """ All variables which are used directly by a node. """
-    return set(node.variables) if isinstance(node, Factor) else {node}
-
-
-class FactorTree(Tree):
+class FactorTree(Tree, FactorGraph):
     """
     A tree of factors that also provides the external variables for each subtree (identified by its root).
     The external variables of a subtree are the variables that appear somewhere in the whole tree
@@ -89,7 +93,7 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
         """ All variables appearing in the subtree rooted at node. """
         return util.union(
             [
-                node_variables(node),
+                self.variables_at(node),
                 util.union([self.variables(child)
                             for child in self.children(node)])
             ])
@@ -109,9 +113,9 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
         """ Variables appearing outside subtree of node """
 
         def local_external_variables(n):
-            return self.siblings_variables(n) | node_variables(n)
+            return self.siblings_variables(n) | self.variables_at(node)
 
         if self.parent(node) is None:
-            return node_variables(node)
+            return self.variables_at(node)
         else:
             return local_external_variables(node) | self.external_variables(self.parent(node))
