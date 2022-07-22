@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Iterable, Set
 
 from neuralpp.inference.graphical_model.representation.factor.product_factor import Factor
@@ -15,15 +16,12 @@ class FactorGraph(Graph):
 
     def __init__(self, factors):
         self.factors = factors
-        self.variable_neighbors = {}
+        self.variable_neighbors = defaultdict(list)
         # Compute variable neighbors in one pass over factors
         # to avoid looping over all factors for all variables.
         for f in factors:
             for v in f.variables:
-                if self.variable_neighbors.get(v) is None:
-                    self.variable_neighbors[v] = [f]
-                else:
-                    self.variable_neighbors[v] += [f]
+                self.variable_neighbors[v].append(f)
 
     def neighbors(self, node):
         assert (isinstance(node, Factor) or isinstance(node, Variable))

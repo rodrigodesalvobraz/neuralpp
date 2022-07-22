@@ -88,7 +88,7 @@ def test_ebp_with_loop():
 def test_random_model():
     for i in range(10):
         factors = generate_model(
-            number_of_factors=15, number_of_variables=8, cardinality=2
+            number_of_factors=15, number_of_variables=8, cardinality=3
         )
         query = random.choice([v for f in factors for v in f.variables])
         expected = VariableElimination().run(query, factors)
