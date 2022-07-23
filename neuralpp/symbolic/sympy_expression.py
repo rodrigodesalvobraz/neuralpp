@@ -184,7 +184,7 @@ class SymPyExpression(Expression, ABC):
         return SymPyVariable(sympy_var, type_)
 
     @classmethod
-    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> SymPyFunctionApplication:
+    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> SymPyExpression:
         # we cannot be lazy here because the goal is to create a sympy object, so arguments must be
         # recursively converted to sympy object
         match function:
@@ -208,7 +208,7 @@ class SymPyExpression(Expression, ABC):
 
     @classmethod
     def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
-                                  ) -> QuantifierExpression:
+                                  ) -> Expression:
         raise NotImplementedError()
 
     @classmethod

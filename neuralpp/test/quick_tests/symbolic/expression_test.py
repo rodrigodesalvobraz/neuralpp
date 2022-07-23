@@ -14,7 +14,8 @@ from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicCo
 from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, _python_callable_to_sympy_function, \
     _sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable, _infer_sympy_function_type, \
     _infer_sympy_object_type
-from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression
+from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression, \
+    Z3SolverExpression
 
 
 @pytest.fixture(params=[BasicExpression, SymPyExpression, Z3Expression])
@@ -140,25 +141,27 @@ def test_basic_function_application():
 def test_basic_quantifier_expressions():
     from neuralpp.symbolic.constants import int_add, int_multiply
     i = BasicVariable('i', int)
-    i_range = (0 < i) & (i < 10)
+    context = Z3SolverExpression()
+    i_range = context & (0 < i) & (i < 10)
     sum_ = BasicSummation(int, i, i_range, i)
     assert sum_.subexpressions[0].syntactic_eq(int_add)
     assert sum_.subexpressions[1].syntactic_eq(i)
-    assert sum_.subexpressions[2].syntactic_eq(i_range)
+    assert sum_.subexpressions[2].structure_eq(i_range)  # cannot check syntactic_eq() of Z3SolverExpression.
     assert sum_.subexpressions[3].syntactic_eq(i)
     assert len(sum_.subexpressions) == 4
 
     a = BasicVariable('a', int)
     new_sum = sum_.replace(i, a)
-    assert sum_.syntactic_eq(BasicSummation(int, i, (0 < i) & (i < 10), i))
-    assert new_sum.syntactic_eq(BasicSummation(int, a, (0 < a) & (a < 10), a))
+    assert sum_.structure_eq(BasicSummation(int, i, i_range, i))
+    assert new_sum.structure_eq(BasicSummation(int, a, context & (0 < a) & (a < 10), a))
 
-    assert sum_.set(0, int_multiply).syntactic_eq(BasicQuantifierExpression(int_multiply, i, (0 < i) & (i < 10), i))
+    assert sum_.set(0, int_multiply).structure_eq(BasicQuantifierExpression(int_multiply, i,
+                                                                            context & (0 < i) & (i < 10), i))
 
     sum_ia = new_sum.set(3, i * a)
     nested_sum = sum_.set(3, sum_ia)
-    assert nested_sum.syntactic_eq(BasicSummation(int, i, (0 < i) & (i < 10),
-                                                  BasicSummation(int, a, (0 < a) & (a < 10), i * a)))
+    assert nested_sum.structure_eq(BasicSummation(int, i, context & (0 < i) & (i < 10),
+                                                  BasicSummation(int, a, context & (0 < a) & (a < 10), i * a)))
 
 
 @pytest.fixture(params=[operator.and_, operator.or_, operator.invert, operator.xor, operator.le,
