@@ -76,12 +76,12 @@ class BasicExpression(Expression, ABC):
 
     @classmethod
     def new_quantifier_expression(cls,
-                                  operation: AbelianOperation, index: Variable, constrain: Context, body: Expression,
+                                  operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                                   ) -> Expression:
-        if constrain.satisfiability_is_known and constrain.unsatisfiable:
+        if constraint.satisfiability_is_known and constraint.unsatisfiable:
             return operation.identity
         else:
-            return BasicQuantifierExpression(operation, index, constrain, body)
+            return BasicQuantifierExpression(operation, index, constraint, body)
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
@@ -185,10 +185,10 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
 
 
 class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
-    def __init__(self, operation: AbelianOperation, index: Variable, constrain: Context, body: Expression):
+    def __init__(self, operation: AbelianOperation, index: Variable, constraint: Context, body: Expression):
         self._operation = operation
         self._index = index
-        self._constrain = constrain
+        self._constraint = constraint
         self._body = body
         argument_types, return_type = get_args(operation.type)
         if len(argument_types) != 2 or not (argument_types[0] == argument_types [1] == return_type):
@@ -204,8 +204,8 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
         return self._index
 
     @property
-    def constrain(self) -> Expression:
-        return self._constrain
+    def constraint(self) -> Expression:
+        return self._constraint
 
     @property
     def body(self) -> Expression:
@@ -221,23 +221,24 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
 
 class BasicAbelianOperation(BasicConstant, AbelianOperation):
     @property
-    def identity(self) -> Any:
+    def identity(self) -> Expression:
         return self._identity
 
-    def __init__(self, operation: Callable, element_type: type, identity: Any):
+    def __init__(self, operation: Callable, identity: Expression):
         # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
         self._identity = identity
+        element_type = identity.type
         super().__init__(operation, Callable[[element_type, element_type], element_type])
 
 
 def basic_add_operation(type_) -> BasicAbelianOperation:
-    return BasicAbelianOperation(operator.add, type_, 0)
+    return BasicAbelianOperation(operator.add, BasicConstant(0, type_))
 
 
 class BasicSummation(BasicQuantifierExpression):
-    def __init__(self, type_: type, index: Variable, constrain: Context, body: Expression):
+    def __init__(self, type_: type, index: Variable, constraint: Context, body: Expression):
         """
         Expect type_ to be the argument type/return type of the summation.
         E.g., the type_ of Summation{i in [0,100]}(i) should be `int`.
         """
-        super().__init__(basic_add_operation(type_), index, constrain, body)
+        super().__init__(basic_add_operation(type_), index, constraint, body)

@@ -285,7 +285,7 @@ class Z3Expression(Expression, ABC):
                 raise ValueError(f"Unknown case: {function}")
 
     @classmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
                                   ) -> Expression:
         raise NotImplementedError()
 
@@ -440,7 +440,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Z3SolverExpression:
         """
-        If we do not override this replace(), the default replace() will causing the return value to be
+        If we do not override this replace(), the default replace() will cause the return value to be
         a Z3FunctionApplication, where the result is no longer a Context.
         """
         from_expression = Z3Expression.convert(from_expression)

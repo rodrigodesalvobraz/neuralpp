@@ -189,7 +189,7 @@ class Expression(ABC):
 
     @classmethod
     @abstractmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
                                   ) -> Expression:
         pass
 
@@ -532,7 +532,7 @@ class QuantifierExpression(Expression, ABC):
 
     @property
     @abstractmethod
-    def constrain(self) -> Context:
+    def constraint(self) -> Context:
         """ User can expect the returning `expression` to be a Boolean Expression, i.e., expression.type == bool. """
         pass
 
@@ -543,7 +543,7 @@ class QuantifierExpression(Expression, ABC):
 
     @property
     def subexpressions(self) -> List[Expression]:
-        return [self.operation, self.index, self.constrain, self.body]
+        return [self.operation, self.index, self.constraint, self.body]
 
     def set(self, i: int, new_expression: Expression) -> QuantifierExpression:
         subexpressions = self.subexpressions
@@ -568,14 +568,14 @@ class QuantifierExpression(Expression, ABC):
     def set_index(self, new_expression: Expression) -> QuantifierExpression:
         return self.set(1, new_expression)
 
-    def set_constrain(self, new_expression: Expression) -> QuantifierExpression:
+    def set_constraint(self, new_expression: Expression) -> QuantifierExpression:
         return self.set(2, new_expression)
 
     def set_body(self, new_expression: Expression) -> QuantifierExpression:
         return self.set(3, new_expression)
 
     def __str__(self) -> str:
-        return f'"{self.operation}({self.index}:{self.constrain}, {self.body})"'
+        return f'"{self.operation}({self.index}:{self.constraint}, {self.body})"'
 
 
 class NotTypedError(ValueError, TypeError):

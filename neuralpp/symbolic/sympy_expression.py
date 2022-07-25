@@ -207,7 +207,7 @@ class SymPyExpression(Expression, ABC):
                 raise ValueError("Unknown case.")
 
     @classmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
                                   ) -> Expression:
         raise NotImplementedError()
 

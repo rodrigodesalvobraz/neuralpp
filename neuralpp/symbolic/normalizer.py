@@ -96,9 +96,9 @@ class Normalizer:
                 condition, then_clause, else_clause = arguments  # if len(arguments) != 3, raise
                 if condition.structurally_contains(expression.index):
                     new_then_clause = BasicExpression.new_quantifier_expression(
-                        expression.operation, expression.index, expression.constrain & condition, then_clause)
+                        expression.operation, expression.index, expression.constraint & condition, then_clause)
                     new_else_clause = BasicExpression.new_quantifier_expression(
-                        expression.operation, expression.index, expression.constrain & ~condition, else_clause)
+                        expression.operation, expression.index, expression.constraint & ~condition, else_clause)
                     return BasicFunctionApplication(expression.operation, [new_then_clause, new_else_clause])
                 else:
                     return BasicFunctionApplication(function, [condition,
