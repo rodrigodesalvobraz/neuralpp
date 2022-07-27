@@ -30,12 +30,12 @@ def test_constant(expression_factory):
     # Constant can be anything
     constant_one = expression_factory.new_constant(1)
     constant_abc = expression_factory.new_constant("abc", Callable[[int], int])
-    assert not constant_one.syntactic_eq(constant_abc)
-    assert constant_one.syntactic_eq(expression_factory.new_constant(2-1))
+    assert not constant_one.internal_object_eq(constant_abc)
+    assert constant_one.internal_object_eq(expression_factory.new_constant(2-1))
     assert constant_one.subexpressions == []
     assert not constant_one.contains(constant_abc)
     assert constant_one.contains(constant_one)  # A constant contains() itself
-    assert constant_one.replace(constant_one, constant_abc).syntactic_eq(constant_abc)
+    assert constant_one.replace(constant_one, constant_abc).internal_object_eq(constant_abc)
     with pytest.raises(IndexError):
         constant_one.set(1, constant_abc)
     assert constant_one.value == 1
@@ -65,13 +65,13 @@ def test_variable(expression_factory):
     # Variable is initialized by a variable name.
     variable_x = expression_factory.new_variable("x", int)
     variable_y = expression_factory.new_variable("y", int)
-    assert not variable_x.syntactic_eq(variable_y)
-    assert variable_x.syntactic_eq(expression_factory.new_variable("x", int))
-    assert not variable_x.syntactic_eq(expression_factory.new_variable("x", bool))  # must be of the same type
+    assert not variable_x.internal_object_eq(variable_y)
+    assert variable_x.internal_object_eq(expression_factory.new_variable("x", int))
+    assert not variable_x.internal_object_eq(expression_factory.new_variable("x", bool))  # must be of the same type
     assert variable_x.subexpressions == []
     assert not variable_x.contains(variable_y)
     assert variable_x.contains(variable_x)
-    assert variable_x.replace(variable_x, variable_y).syntactic_eq(variable_y)
+    assert variable_x.replace(variable_x, variable_y).internal_object_eq(variable_y)
     with pytest.raises(IndexError):
         variable_x.set(1, variable_y)
     assert variable_x.name == "x"
@@ -90,7 +90,7 @@ def test_basic_function_application():
     constant_two = BasicConstant(2)
     fa1 = BasicFunctionApplication(func1, [constant_one, constant_two])
     # type of function application (i.e., the return type) is optional
-    assert fa1.syntactic_eq(BasicFunctionApplication(func1, [constant_one, constant_two]))
+    assert fa1.internal_object_eq(BasicFunctionApplication(func1, [constant_one, constant_two]))
     assert BasicFunctionApplication(func1, [constant_one, constant_two]).type == int_type
     # using operator.add is easy to compare (operator.add == operator.add) and thus more desirable than using lambda.
     func2 = BasicConstant(operator.add, int_to_int_to_int)
@@ -102,39 +102,39 @@ def test_basic_function_application():
     # use fa2 here, expression can be recursive
     fa3 = BasicFunctionApplication(func3, [constant_one, fa2])
 
-    assert all(l.syntactic_eq(r) for l, r in
+    assert all(l.internal_object_eq(r) for l, r in
                zip(fa2.subexpressions, [BasicConstant(operator.add, int_to_int_to_int), constant_one, constant_two]))
-    assert fa2.syntactic_eq(fa2)
+    assert fa2.internal_object_eq(fa2)
     # python cannot check __eq__ of two lambdas, so we have the following inequality
     assert fa1.subexpressions[0].value != (lambda x, y: x + y)
     # but if the two lambdas are the same object then they are equal.
-    assert fa1.syntactic_eq(fa1)
+    assert fa1.internal_object_eq(fa1)
 
-    assert not fa1.syntactic_eq(fa2)
-    assert not fa2.syntactic_eq(fa3)
-    assert not fa2.syntactic_eq(BasicFunctionApplication(func2, [constant_one, constant_one]))
-    assert not fa2.syntactic_eq(BasicFunctionApplication(func2, [constant_one, fa2]))
+    assert not fa1.internal_object_eq(fa2)
+    assert not fa2.internal_object_eq(fa3)
+    assert not fa2.internal_object_eq(BasicFunctionApplication(func2, [constant_one, constant_one]))
+    assert not fa2.internal_object_eq(BasicFunctionApplication(func2, [constant_one, fa2]))
     assert fa1.contains(constant_two)
     assert fa3.contains(constant_two)  # shows that search of contains() is deep.
 
     # replace() is also deep and not in-place (returns a new object instead of modify the called on)
     fa4 = fa3.replace(constant_two, constant_one)
-    assert not fa4.syntactic_eq(fa3)
-    assert fa3.syntactic_eq(BasicFunctionApplication(func3, [constant_one, fa2]))
-    assert fa4.syntactic_eq(BasicFunctionApplication(
+    assert not fa4.internal_object_eq(fa3)
+    assert fa3.internal_object_eq(BasicFunctionApplication(func3, [constant_one, fa2]))
+    assert fa4.internal_object_eq(BasicFunctionApplication(
         func3, [constant_one, BasicFunctionApplication(func2, [constant_one, constant_one])]))
 
     # set() is also not changing the object that it is called on
     fa5 = fa2.set(0, BasicVariable("f", int_to_int_to_int))
-    assert fa5.syntactic_eq(BasicFunctionApplication(BasicVariable("f", int_to_int_to_int), [constant_one, constant_two]))
-    assert fa2.syntactic_eq(BasicFunctionApplication(func2, [constant_one, constant_two]))
+    assert fa5.internal_object_eq(BasicFunctionApplication(BasicVariable("f", int_to_int_to_int), [constant_one, constant_two]))
+    assert fa2.internal_object_eq(BasicFunctionApplication(func2, [constant_one, constant_two]))
     fa6 = fa2.set(1, BasicVariable("a", int_type))
-    assert fa6.syntactic_eq(BasicFunctionApplication(func2, [BasicVariable("a", int_type), constant_two]))
+    assert fa6.internal_object_eq(BasicFunctionApplication(func2, [BasicVariable("a", int_type), constant_two]))
     with pytest.raises(IndexError):
         fa4.set(3, constant_one)
 
     fa7 = fa4.replace(constant_one, constant_two)
-    assert fa7.syntactic_eq(BasicFunctionApplication(
+    assert fa7.internal_object_eq(BasicFunctionApplication(
         func3, [constant_two, BasicFunctionApplication(func2, [constant_two, constant_two])]))
 
 
@@ -144,23 +144,23 @@ def test_basic_quantifier_expressions():
     context = Z3SolverExpression()
     i_range = context & (0 < i) & (i < 10)
     sum_ = BasicSummation(int, i, i_range, i)
-    assert sum_.subexpressions[0].syntactic_eq(int_add)
-    assert sum_.subexpressions[1].syntactic_eq(i)
-    assert sum_.subexpressions[2].structure_eq(i_range)  # cannot check syntactic_eq() of Z3SolverExpression.
-    assert sum_.subexpressions[3].syntactic_eq(i)
+    assert sum_.subexpressions[0].internal_object_eq(int_add)
+    assert sum_.subexpressions[1].internal_object_eq(i)
+    assert sum_.subexpressions[2].syntactic_eq(i_range)  # cannot check internal_object_eq() of Z3SolverExpression.
+    assert sum_.subexpressions[3].internal_object_eq(i)
     assert len(sum_.subexpressions) == 4
 
     a = BasicVariable('a', int)
     new_sum = sum_.replace(i, a)
-    assert sum_.structure_eq(BasicSummation(int, i, i_range, i))
-    assert new_sum.structure_eq(BasicSummation(int, a, context & (0 < a) & (a < 10), a))
+    assert sum_.syntactic_eq(BasicSummation(int, i, i_range, i))
+    assert new_sum.syntactic_eq(BasicSummation(int, a, context & (0 < a) & (a < 10), a))
 
-    assert sum_.set(0, int_multiply).structure_eq(BasicQuantifierExpression(int_multiply, i,
+    assert sum_.set(0, int_multiply).syntactic_eq(BasicQuantifierExpression(int_multiply, i,
                                                                             context & (0 < i) & (i < 10), i))
 
     sum_ia = new_sum.set(3, i * a)
     nested_sum = sum_.set(3, sum_ia)
-    assert nested_sum.structure_eq(BasicSummation(int, i, context & (0 < i) & (i < 10),
+    assert nested_sum.syntactic_eq(BasicSummation(int, i, context & (0 < i) & (i < 10),
                                                   BasicSummation(int, a, context & (0 < a) & (a < 10), i * a)))
 
 
@@ -192,19 +192,19 @@ def test_function_application(expression_factory):
     add_func = expression_factory.new_constant(operator.add, int_to_int_to_int)
     fa = expression_factory.new_function_application(add_func, [constant_one, constant_two])
 
-    assert fa.subexpressions[0].syntactic_eq(add_func)
+    assert fa.subexpressions[0].internal_object_eq(add_func)
     assert fa.subexpressions[1].value == 1
     assert fa.subexpressions[2].value == 2
-    assert fa.syntactic_eq(fa)
+    assert fa.internal_object_eq(fa)
 
-    assert not fa.syntactic_eq(expression_factory.new_function_application(add_func, [constant_one, constant_one]))
-    assert fa.syntactic_eq(expression_factory.new_function_application(add_func, [constant_one, constant_two]))
+    assert not fa.internal_object_eq(expression_factory.new_function_application(add_func, [constant_one, constant_one]))
+    assert fa.internal_object_eq(expression_factory.new_function_application(add_func, [constant_one, constant_two]))
 
-    assert constant_one.syntactic_eq(expression_factory.new_constant(1))
+    assert constant_one.internal_object_eq(expression_factory.new_constant(1))
 
     fa2 = expression_factory.new_function_application(add_func, [constant_one, fa])
     fa2 = fa2.replace(constant_one, constant_two)
-    assert fa2.syntactic_eq(expression_factory.new_function_application(
+    assert fa2.internal_object_eq(expression_factory.new_function_application(
         add_func, [constant_two, expression_factory.new_function_application(add_func, [constant_two, constant_two])]))
 
     # some new type test.
@@ -216,11 +216,11 @@ def test_function_application(expression_factory):
     assert fa2.subexpressions[2].subexpressions[2].type == int
 
     fa3 = fa.set(0, expression_factory.new_constant(operator.mul, int_to_int_to_int))
-    assert fa3.syntactic_eq(expression_factory.new_function_application(
+    assert fa3.internal_object_eq(expression_factory.new_function_application(
         expression_factory.new_constant(operator.mul, int_to_int_to_int), [constant_one, constant_two]))
-    assert fa.syntactic_eq(expression_factory.new_function_application(add_func, [constant_one, constant_two]))
+    assert fa.internal_object_eq(expression_factory.new_function_application(add_func, [constant_one, constant_two]))
     fa6 = fa.set(1, expression_factory.new_variable("a", int))
-    assert fa6.syntactic_eq(expression_factory.new_function_application(
+    assert fa6.internal_object_eq(expression_factory.new_function_application(
         add_func, [expression_factory.new_variable("a", int), constant_two]))
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
@@ -360,8 +360,8 @@ def test_sympy_z3_conversion():
 
     # in creating add2, we implicitly convert the sympy child `two_third`.
     add2 = Z3Expression.new_function_application(real_add_func, [constant_one_third2, two_third])
-    assert add2.arguments[1].syntactic_eq(add0)
-    assert add2.syntactic_eq(add1)
+    assert add2.arguments[1].internal_object_eq(add0)
+    assert add2.internal_object_eq(add1)
 
 
 def test_sympy_neg_weird():
@@ -408,5 +408,5 @@ def test_function_application_eq():
     a = BasicVariable('a', int)
     fa = a + 1
     fa2 = BasicFunctionApplication(int_add, [a])
+    assert not fa.internal_object_eq(fa2)
     assert not fa.syntactic_eq(fa2)
-    assert not fa.structure_eq(fa2)

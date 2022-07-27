@@ -86,7 +86,7 @@ class Normalizer:
     @staticmethod
     def _quantifier_expression_normalize(expression: QuantifierExpression, context: Z3SolverExpression) -> Expression:
         """ The function assumes context is satisfiable, otherwise will raise. """
-        if context.structurally_contains(expression.index):
+        if context.contains(expression.index):
             raise ValueError(f"{context} should not contain {expression.index}, which is not a free variable!")
 
         normalized_body = Normalizer._normalize(expression.body, context)
@@ -94,7 +94,7 @@ class Normalizer:
             case FunctionApplication(function=function, arguments=arguments,
                                      ) if function.value == functions.conditional:
                 condition, then_clause, else_clause = arguments  # if len(arguments) != 3, raise
-                if condition.structurally_contains(expression.index):
+                if condition.contains(expression.index):
                     new_then_clause = BasicExpression.new_quantifier_expression(
                         expression.operation, expression.index, expression.constraint & condition, then_clause)
                     new_else_clause = BasicExpression.new_quantifier_expression(

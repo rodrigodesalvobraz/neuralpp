@@ -17,7 +17,7 @@ def test_normalizer1():
     expr = if_then_else(a > b, a + b, 3)
     context = Z3SolverExpression()
     result1 = normalizer.normalize(expr, context)
-    assert result1.structure_eq(expr)
+    assert result1.syntactic_eq(expr)
 
     context = context & (a == b)
     result2 = normalizer.normalize(expr, context)
@@ -40,7 +40,7 @@ def test_normalizer2():
     context = context & (f(True, True, 5) == 42) & (f(True, False, 5) == 99)
     assert isinstance(context, Z3SolverExpression)
     result = normalizer.normalize(expr, context)
-    assert result.structure_eq(if_then_else(a < b,
+    assert result.syntactic_eq(if_then_else(a < b,
                                             if_then_else(b > c, 42, 99),
                                             if_then_else(b > c, f(False, True, 5), f(False, False, 5))))
 
@@ -78,7 +78,7 @@ def test_normalizer3():
     context = context & (f(True, 66) == 45) & (f(True, 3) == 66) & (f(False, 3) == 3)
     assert isinstance(context, Z3SolverExpression)
     result = normalizer.normalize(expr, context)
-    assert result.structure_eq(if_then_else(c, 45, if_then_else(a > b, f(False, 66), 3)))
+    assert result.syntactic_eq(if_then_else(c, 45, if_then_else(a > b, f(False, 66), 3)))
 
 
 def test_quantifier_normalizer():
@@ -90,7 +90,7 @@ def test_quantifier_normalizer():
 
     context = empty_context
     normalizer = Normalizer()
-    assert normalizer.normalize(sum_, context).structure_eq(sum_)
+    assert normalizer.normalize(sum_, context).syntactic_eq(sum_)
 
     context = empty_context & (i < 5)
     # raises ValueError because the context should not contain index (in this case i),
@@ -101,25 +101,25 @@ def test_quantifier_normalizer():
     j = BasicVariable('j', int)
     sum_ = BasicSummation(int, i, empty_context & (j < i) & (i < 10), i + j)
     context = empty_context & (j == 5)
-    assert normalizer.normalize(sum_, context).structure_eq(
+    assert normalizer.normalize(sum_, context).syntactic_eq(
         BasicSummation(int, i, empty_context & (j < i) & (i < 10), 5 + i))  # SymPy switched 5 and i
 
     context = empty_context & (j == 10)
-    assert normalizer.normalize(sum_, context).structure_eq(
+    assert normalizer.normalize(sum_, context).syntactic_eq(
         BasicSummation(int, i, empty_context & (j < i) & (i < 10), 10 + i))
     # not reduced to 0 because j < i < 10 is still satisfiable
-    assert not normalizer.normalize(sum_, context).structure_eq(BasicConstant(0, int))
+    assert not normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
 
     sum_ = BasicSummation(int, i, empty_context & (j < i), if_then_else(j > 5, i + j, i))
-    assert normalizer.normalize(sum_, empty_context).structure_eq(
+    assert normalizer.normalize(sum_, empty_context).syntactic_eq(
         if_then_else(j > 5,
                      BasicSummation(int, i, empty_context & (j < i), i + j),
                      BasicSummation(int, i, empty_context & (j < i), i)))
-    assert normalizer.normalize(sum_, empty_context & (j == 6)).structure_eq(
+    assert normalizer.normalize(sum_, empty_context & (j == 6)).syntactic_eq(
         BasicSummation(int, i, empty_context & (j < i), 6 + i))
 
     sum_ = BasicSummation(int, i, empty_context & (j < i), if_then_else(i > 5, i + j, i))
-    assert normalizer.normalize(sum_, empty_context).structure_eq(
+    assert normalizer.normalize(sum_, empty_context).syntactic_eq(
                      BasicSummation(int, i, empty_context & (j < i) & (i > 5), i + j) +
                      BasicSummation(int, i, empty_context & (j < i) & (i <= 5), i))
 

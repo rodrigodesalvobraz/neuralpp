@@ -113,46 +113,25 @@ class Expression(ABC):
                 return True
         return False
 
-    def structurally_contains(self, target: Expression) -> bool:
-        """
-        Same as contains(), but uses structure_eq() instead of syntactic_eq().
-        structurally_contains() is more 'liberal' in terms of accepted `target`.
-        E.g., say we have a SymPyVariable sympy_x and a Z3Variable z3_x,
-        both representing an integer variable named 'x',
-        >>> sympy_x.contains(z3_x)
-        False
-        >>> z3_x.contains(sympy_x)
-        False
-        >>> sympy_x.structurally_contains(z3_x)
-        True
-        >>> z3_x.structurally_contains(sympy_x)
-        True
-        """
-        if self.structure_eq(target):
-            return True
-        for sub_expr in self.subexpressions:
-            if sub_expr.structurally_contains(target):
-                return True
-        return False
-
     @abstractmethod
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         """
-        Returns if self and other are syntactically equal, i.e.,
-        that they are of subclass of Expression and their internal representation are equal.
+        Returns if self and other are of subclass of Expression and their internal representation are equal.
         This method usually depends on subclass-specific library calls,
         e.g., Z3Expression.syntactic_eq() would leverage z3.eq().
         This method should be considered as a cheap way to check syntactic equality of two symbolic expressions.
         """
         pass
 
-    def structure_eq(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         """
-        Returns if self and other are "structurally" equivalent, i.e., that they have the same Expression interfaces.
-        E.g, a Z3Expression of "a + b" does not syntactic_eq() a SymPyExpression of "a + b", but a call of
-        structure_eq() on the two should return True.
-        This method is general and more expensive than syntactic_eq()
+        Returns if self and other are syntactically equivalent, i.e., that they have the same Expression interfaces.
+        E.g, a Z3Expression of "a + b" does not internal_object_eq() a SymPyExpression of "a + b", but a call of
+        syntactic_eq() on the two should return True.
         """
+        if self.internal_object_eq(other):
+            return True
+
         match self, other:
             case AtomicExpression(base_type=self_base_type, atom=self_atom, type=self_type),\
                     AtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
@@ -162,7 +141,7 @@ class Expression(ABC):
                  (QuantifierExpression(subexpressions=self_subexpressions),
                   QuantifierExpression(subexpressions=other_subexpressions)):
                 return len(self_subexpressions) == len(other_subexpressions) and \
-                       all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
+                       all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
             case _:
                 return False
 

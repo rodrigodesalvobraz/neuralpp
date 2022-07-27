@@ -10,7 +10,7 @@ import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context, \
     QuantifierExpression
-from neuralpp.symbolic.basic_expression import FalseContext
+from neuralpp.symbolic.basic_expression import FalseContext, TrueContext
 from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, is_z3_uninterpreted_function, \
     z3_replace_in_solver
 from functools import cached_property, total_ordering
@@ -332,7 +332,7 @@ class Z3ObjectExpression(Z3Expression, ABC):
     def z3_object(self):
         return self._z3_object
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case Z3ObjectExpression(z3_object=other_z3_object):
                 return self.z3_object.eq(other_z3_object)
@@ -435,7 +435,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def dict(self) -> Dict[str, Any]:
         return self._dict
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Z3SolverExpression:
@@ -443,6 +443,15 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         If we do not override this replace(), the default replace() will cause the return value to be
         a Z3FunctionApplication, where the result is no longer a Context.
         """
+        if self.syntactic_eq(from_expression):
+            match to_expression:
+                case Constant(value=True):
+                    return TrueContext()
+                case Constant(value=False):
+                    return FalseContext()
+                case _:
+                    raise NotImplementedError("replace a SolverExpression with a non-constant value is not supported.")
+
         from_expression = Z3Expression.convert(from_expression)
         to_expression = Z3Expression.convert(to_expression)
 

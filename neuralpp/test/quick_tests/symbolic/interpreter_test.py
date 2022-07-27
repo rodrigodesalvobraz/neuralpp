@@ -165,7 +165,7 @@ def test_sympy_interpreter_simplify():
     x_only = si.simplify(x_plus_y_minus_y)  # simplifies x + y - y to x
     assert isinstance(x_only, SymPyVariable)
     assert x_only.type_dict == SymPyVariable(x, int).type_dict
-    assert x_only.syntactic_eq(SymPyVariable(x, int))
+    assert x_only.internal_object_eq(SymPyVariable(x, int))
     assert len(x_only.type_dict) == 1  # no other type information
     assert x_only.type_dict == {x: int}
 
@@ -182,7 +182,7 @@ def test_sympy_interpreter_simplify():
     b_y = BasicVariable("y", int)
     b_x_plus_y = BasicFunctionApplication(BasicConstant(operator.add, int_to_int_to_int), [b_x, b_y])
     b_x_plus_y_minus_y = BasicFunctionApplication(BasicConstant(operator.sub, int_to_int_to_int), [b_x_plus_y, b_y])
-    assert si.simplify(b_x_plus_y_minus_y).syntactic_eq(SymPyVariable(x, int))
+    assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(SymPyVariable(x, int))
     assert si.simplify(b_x_plus_y).sympy_object == x + y
 
     # with a context
@@ -211,7 +211,7 @@ def test_sympy_interpreter_simplify_operator_overload():
     x_only = si.simplify(x_plus_y_minus_y)  # simplifies x + y - y to x
     assert isinstance(x_only, SymPyVariable)
     assert x_only.type_dict == SymPyVariable(x, int).type_dict
-    assert x_only.syntactic_eq(SymPyVariable(x, int))
+    assert x_only.internal_object_eq(SymPyVariable(x, int))
     assert len(x_only.type_dict) == 1  # no other type information
     assert x_only.type_dict == {x: int}
 
@@ -227,7 +227,7 @@ def test_sympy_interpreter_simplify_operator_overload():
     b_y = BasicVariable("y", int)
     b_x_plus_y = b_x + b_y
     b_x_plus_y_minus_y = b_x_plus_y - b_y
-    assert si.simplify(b_x_plus_y_minus_y).syntactic_eq(SymPyVariable(x, int))
+    assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(SymPyVariable(x, int))
     assert si.simplify(b_x_plus_y).sympy_object == x + y
 
     # with a context

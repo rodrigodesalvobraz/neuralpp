@@ -71,9 +71,7 @@ class ContextSimplifier(Simplifier):
 
         # replace variables
         for variable, replacement in context.variable_replacement_dict.items():
-            # `variable` and `replacement` are Z3Expressions, replace() checks syntactic_eq,
-            # so we need to convert them to SymPyExpressions since result is a SymPyExpression.
-            result = result.replace(SymPyExpression.convert(variable), SymPyExpression.convert(replacement))
+            result = result.replace(variable, replacement)
         return result
 
     def simplify(self, expression: Expression, context: Z3SolverExpression) -> Expression:

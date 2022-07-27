@@ -99,7 +99,7 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def atom(self) -> str:
         return self._atom
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case BasicAtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
                 return other_base_type == self.base_type and self.type == other_type and self.atom == other_atom
@@ -175,11 +175,11 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def number_of_arguments(self) -> int:
         return len(self.arguments)
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case BasicFunctionApplication(subexpressions=other_subexpressions):
                 return len(self.subexpressions) == len(other_subexpressions) and \
-                       all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                       all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
 
@@ -211,10 +211,10 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
     def body(self) -> Expression:
         return self._body
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case BasicQuantifierExpression(subexpressions=other_subexpressions):
-                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                return all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
 
