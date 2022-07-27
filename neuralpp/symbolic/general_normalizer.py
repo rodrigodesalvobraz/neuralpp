@@ -89,6 +89,7 @@ def _normalize_function_application(function: Expression,
     if i >= len(arguments):
         return function(*arguments)
     n_i = _normalize(arguments[i], context)
+    arguments[i] = n_i
     return _move_down_and_normalize(function, arguments, context, i)
 
 
