@@ -71,9 +71,7 @@ class ContextSimplifier(Simplifier):
                 raise ValueError(f"Context {context} is unsatisfiable.")
 
             new_expression = ContextSimplifier._simplify_pass(expression, context)
-            print(f'..={new_expression}')
             while not new_expression.syntactic_eq(expression):
                 expression = new_expression
                 new_expression = ContextSimplifier._simplify_pass(expression, context)
-                print(f'new={new_expression}')
             return new_expression

@@ -601,7 +601,6 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         return statement.satisfiability_is_known and statement.unsatisfiable
 
 
-
 class EquivalenceClass:
     def __init__(self, element: OrderedZ3Expression):
         self._set = frozenset([element])

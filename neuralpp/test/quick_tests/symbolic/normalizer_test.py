@@ -106,10 +106,7 @@ def test_quantifier_normalizer():
         BasicSummation(int, i, empty_context & (j < i) & (i < 10), 5 + i))  # SymPy switched 5 and i
 
     context = empty_context & (j == 10)
-    assert normalizer.normalize(sum_, context).syntactic_eq(
-        BasicSummation(int, i, empty_context & (j < i) & (i < 10), 10 + i))
-    # not reduced to 0 because j < i < 10 is still satisfiable
-    assert not normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
+    assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
 
     sum_ = BasicSummation(int, i, empty_context & (j < i), if_then_else(j > 5, i + j, i))
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
@@ -121,18 +118,15 @@ def test_quantifier_normalizer():
 
     sum_ = BasicSummation(int, i, empty_context & (j < i), if_then_else(i > 5, i + j, i))
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
-                     BasicSummation(int, i, empty_context & (j < i) & (i > 5), i + j) +
-                     BasicSummation(int, i, empty_context & (j < i) & (i <= 5), i))
+                     BasicSummation(int, i, empty_context & (j < i) & (5 < i), i + j) +
+                     BasicSummation(int, i, empty_context & (j < i) & ~(5 < i), i))
 
-    print('===')
     sum1 = if_then_else(j > 5, i + j, sum_)
-    print(f'result={normalizer.normalize(sum1, empty_context)}')
 
     # Normalization of nested quantifier expression
-    print('---')
     sum_ = BasicSummation(int, j, empty_context & (j < 10), if_then_else(j > 5, i + j, sum_))
-    print(f'result={normalizer.normalize(sum_, empty_context)}')
-    assert normalizer.normalize(sum_, empty_context).structure_eq(
-        BasicSummation(int, j, empty_context & (j < 10) & (j > 5), i + j) +
-        BasicSummation(int, j, empty_context & (j < 10) & ~(j > 5),
-                       BasicSummation(int, i, empty_context & (j < i), if_then_else(i > 5, i + j, i))))
+    assert normalizer.normalize(sum_, empty_context).syntactic_eq(
+        BasicSummation(int, j, empty_context & (10 > j) & (5 < j), i + j) +
+        BasicSummation(int, j, empty_context & (10 > j) & ~(5 < j),
+                       BasicSummation(int, i, empty_context & (j < i) & (5 < i), i + j) +
+                       BasicSummation(int, i, empty_context & (j < i) & ~(5 < i), i)))

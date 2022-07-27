@@ -138,6 +138,25 @@ class TrueContext(BasicConstant, Context):
     def __init__(self):
         BasicConstant.__init__(self, True, bool)
 
+    def __and__(self, other: Any) -> Expression:
+        return other
+
+    __rand__ = __and__
+
+    @property
+    def and_priority(self) -> int:
+        """
+        set and_priority to be higher than normal Context() to simplify __and__ operation.
+        E.g., say we have a Z3SolverExpression z3_solver_expression:
+        >>> z3_solver_expression & TrueContext()
+        would normally call
+        >>> z3_solver_expression.__and__(TrueContext())
+        but by setting and_priority to 2 here, the above expression will call
+        >>> TrueContext().__and__(z3_solver_expression)
+        which just returns the other side.
+        """
+        return 2
+
 
 class FalseContext(BasicConstant, Context):
     @property
@@ -154,6 +173,15 @@ class FalseContext(BasicConstant, Context):
 
     def __init__(self):
         BasicConstant.__init__(self, False, bool)
+
+    def __and__(self, other: Any) -> Expression:
+        return self
+
+    __rand__ = __and__
+
+    @property
+    def and_priority(self) -> int:
+        return 2
 
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):

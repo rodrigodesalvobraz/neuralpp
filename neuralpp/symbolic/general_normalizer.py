@@ -61,6 +61,9 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                     return _eliminate(operation, index, constraint, normalized_body, context)
 
 
+simplifier = ContextSimplifier()
+
+
 def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                context: Z3SolverExpression) -> Expression:
     """
@@ -75,14 +78,16 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
     1. supports more operations (add, multiply, and, or, ...)
     2. supports multiple intervals & complicated constraints (e.g, 1 <= x <= 100, x != y)
     """
-    return BasicExpression.new_quantifier_expression(operation, index, constraint & context, body)
+    if context.is_known_to_imply(~constraint):
+        return operation.identity
+    return BasicQuantifierExpression(operation, index, constraint, simplifier.simplify(body, context & constraint))
 
 
 def _normalize_function_application(function: Expression,
                                     arguments: List[Expression],
                                     context: Z3SolverExpression, i: int = 0) -> Expression:
     if i >= len(arguments):
-        return function(arguments)
+        return function(*arguments)
     n_i = _normalize(arguments[i], context)
     return _move_down_and_normalize(function, arguments, context, i)
 
@@ -109,8 +114,6 @@ def _move_down_and_normalize(function: Expression,
 
 
 class GeneralNormalizer(Normalizer):
-    simplifier = ContextSimplifier()
-
     @staticmethod
     def normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
         with sympy_evaluate(True):
