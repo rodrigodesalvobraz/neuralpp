@@ -593,13 +593,6 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
                 result[element.as_z3_expression()] = equivalence_class.minimum.as_z3_expression()
         return result
 
-    def implies(self, formula: Expression):
-        """
-        If self & ~formula is UNSAT, then ~self & formula is VALID
-        """
-        statement = self & ~formula
-        return statement.satisfiability_is_known and statement.unsatisfiable
-
 
 class EquivalenceClass:
     def __init__(self, element: OrderedZ3Expression):
