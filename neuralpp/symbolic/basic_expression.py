@@ -4,7 +4,7 @@ import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
     VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types, Context, \
-    QuantifierExpression
+    QuantifierExpression, AbelianOperation
 from abc import ABC
 from typing import Any, List, Optional, Callable, Dict, get_args
 import neuralpp.symbolic.functions as functions
@@ -75,9 +75,13 @@ class BasicExpression(Expression, ABC):
         return BasicFunctionApplication(function, arguments)
 
     @classmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
-                                  ) -> QuantifierExpression:
-        return BasicQuantifierExpression(operation, index, constrain, body)
+    def new_quantifier_expression(cls,
+                                  operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
+                                  ) -> Expression:
+        if constraint.satisfiability_is_known and constraint.unsatisfiable:
+            return operation.identity
+        else:
+            return BasicQuantifierExpression(operation, index, constraint, body)
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
@@ -95,7 +99,7 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def atom(self) -> str:
         return self._atom
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case BasicAtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
                 return other_base_type == self.base_type and self.type == other_type and self.atom == other_atom
@@ -171,20 +175,20 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def number_of_arguments(self) -> int:
         return len(self.arguments)
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case BasicFunctionApplication(subexpressions=other_subexpressions):
                 return len(self.subexpressions) == len(other_subexpressions) and \
-                       all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                       all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
 
 
 class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
-    def __init__(self, operation: Constant, index: Variable, constrain: Expression, body: Expression):
+    def __init__(self, operation: AbelianOperation, index: Variable, constraint: Context, body: Expression):
         self._operation = operation
         self._index = index
-        self._constrain = constrain
+        self._constraint = constraint
         self._body = body
         argument_types, return_type = get_args(operation.type)
         if len(argument_types) != 2 or not (argument_types[0] == argument_types [1] == return_type):
@@ -200,26 +204,41 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
         return self._index
 
     @property
-    def constrain(self) -> Expression:
-        return self._constrain
+    def constraint(self) -> Expression:
+        return self._constraint
 
     @property
     def body(self) -> Expression:
         return self._body
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case BasicQuantifierExpression(subexpressions=other_subexpressions):
-                return all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                return all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
 
 
+class BasicAbelianOperation(BasicConstant, AbelianOperation):
+    @property
+    def identity(self) -> Expression:
+        return self._identity
+
+    def __init__(self, operation: Callable, identity: Expression):
+        # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
+        self._identity = identity
+        element_type = identity.type
+        super().__init__(operation, Callable[[element_type, element_type], element_type])
+
+
+def basic_add_operation(type_) -> BasicAbelianOperation:
+    return BasicAbelianOperation(operator.add, BasicConstant(0, type_))
+
+
 class BasicSummation(BasicQuantifierExpression):
-    def __init__(self, type_: type, index: Variable, constrain: Expression, body: Expression):
+    def __init__(self, type_: type, index: Variable, constraint: Context, body: Expression):
         """
         Expect type_ to be the argument type/return type of the summation.
         E.g., the type_ of Summation{i in [0,100]}(i) should be `int`.
         """
-        summation_operation = BasicConstant(operator.add, Callable[[type_, type_], type_])
-        super().__init__(summation_operation, index, constrain, body)
+        super().__init__(basic_add_operation(type_), index, constraint, body)

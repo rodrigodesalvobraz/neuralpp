@@ -1,7 +1,8 @@
 from typing import Optional, Deque
 from collections import deque
 
-from .expression import Expression, Constant, FunctionApplication
+from .expression import Expression, Constant, FunctionApplication, QuantifierExpression
+from .basic_expression import BasicQuantifierExpression, BasicFunctionApplication, BasicExpression
 from .z3_expression import Z3SolverExpression
 from .constants import basic_true, basic_false, if_then_else
 from .context_simplifier import ContextSimplifier
@@ -38,7 +39,12 @@ class Normalizer:
     simplifier = ContextSimplifier()
 
     @staticmethod
-    def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
+    def _basic_normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
+        """
+        The word `basic` in the function name is not to be confused with that in `BasicExpression`.
+        Here it refers to normalization of non-quantifier expressions.
+        The function assumes context is satisfiable, otherwise will raise (from Normalizer.simplifier.simplify()).
+        """
         simplified_expression = Normalizer.simplifier.simplify(expression, context)
         # We look for non-constant formula, because we should not split on constants (i.e., True/False)
         # as it is meaningless and would cause the algorithm to not terminate.
@@ -65,6 +71,38 @@ class Normalizer:
         return if_then_else(first_non_constant_formula, then_clause, else_clause)
 
     @staticmethod
+    def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
+        """ The function assumes context is satisfiable, otherwise will raise. """
+        if isinstance(expression, QuantifierExpression):
+            return Normalizer._quantifier_expression_normalize(expression, context)
+        else:
+            return Normalizer._basic_normalize(expression, context)
+
+    @staticmethod
     def normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
         with sympy_evaluate(True):
             return Normalizer._normalize(expression, context)
+
+    @staticmethod
+    def _quantifier_expression_normalize(expression: QuantifierExpression, context: Z3SolverExpression) -> Expression:
+        """ The function assumes context is satisfiable, otherwise will raise. """
+        if context.contains(expression.index):
+            raise ValueError(f"{context} should not contain {expression.index}, which is not a free variable!")
+
+        normalized_body = Normalizer._normalize(expression.body, context)
+        match normalized_body:
+            case FunctionApplication(function=function, arguments=arguments,
+                                     ) if function.value == functions.conditional:
+                condition, then_clause, else_clause = arguments  # if len(arguments) != 3, raise
+                if condition.contains(expression.index):
+                    new_then_clause = BasicExpression.new_quantifier_expression(
+                        expression.operation, expression.index, expression.constraint & condition, then_clause)
+                    new_else_clause = BasicExpression.new_quantifier_expression(
+                        expression.operation, expression.index, expression.constraint & ~condition, else_clause)
+                    return BasicFunctionApplication(expression.operation, [new_then_clause, new_else_clause])
+                else:
+                    return BasicFunctionApplication(function, [condition,
+                                                               expression.set_body(then_clause),
+                                                               expression.set_body(else_clause)])
+            case _:
+                return expression.set_body(normalized_body)

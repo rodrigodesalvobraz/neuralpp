@@ -106,33 +106,32 @@ class Expression(ABC):
         f(x,f(a,b)).contains(a) == True
         a.contains(a) == True
         """
-        if self == target:
+        if self.syntactic_eq(target):
             return True
-
         for sub_expr in self.subexpressions:
             if sub_expr.contains(target):
                 return True
-
         return False
 
     @abstractmethod
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         """
-        Returns if self and other are syntactically equal, i.e.,
-        that they are of subclass of Expression and their internal representation are equal.
+        Returns if self and other are of subclass of Expression and their internal representation are equal.
         This method usually depends on subclass-specific library calls,
         e.g., Z3Expression.syntactic_eq() would leverage z3.eq().
         This method should be considered as a cheap way to check syntactic equality of two symbolic expressions.
         """
         pass
 
-    def structure_eq(self, other) -> bool:
+    def syntactic_eq(self, other) -> bool:
         """
-        Returns if self and other are "structurally" equivalent, i.e., that they have the same Expression interfaces.
-        E.g, a Z3Expression of "a + b" does not syntactic_eq() a SymPyExpression of "a + b", but a call of
-        structure_eq() on the two should return True.
-        This method is general and more expensive than syntactic_eq()
+        Returns if self and other are syntactically equivalent, i.e., that they have the same Expression interfaces.
+        E.g, a Z3Expression of "a + b" does not internal_object_eq() a SymPyExpression of "a + b", but a call of
+        syntactic_eq() on the two should return True.
         """
+        if self.internal_object_eq(other):
+            return True
+
         match self, other:
             case AtomicExpression(base_type=self_base_type, atom=self_atom, type=self_type),\
                     AtomicExpression(base_type=other_base_type, atom=other_atom, type=other_type):
@@ -142,7 +141,7 @@ class Expression(ABC):
                  (QuantifierExpression(subexpressions=self_subexpressions),
                   QuantifierExpression(subexpressions=other_subexpressions)):
                 return len(self_subexpressions) == len(other_subexpressions) and \
-                       all(lhs.structure_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
+                       all(lhs.syntactic_eq(rhs) for lhs, rhs in zip(self_subexpressions, other_subexpressions))
             case _:
                 return False
 
@@ -164,13 +163,13 @@ class Expression(ABC):
 
     @classmethod
     @abstractmethod
-    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> FunctionApplication:
+    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> Expression:
         pass
 
     @classmethod
     @abstractmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
-                                  ) -> QuantifierExpression:
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  ) -> Expression:
         pass
 
     @classmethod
@@ -185,6 +184,8 @@ class Expression(ABC):
                 return cls.new_variable(name, type_)
             case FunctionApplication(function=function, arguments=arguments):
                 return cls.new_function_application(function, arguments)
+            case QuantifierExpression(subexpressions=subexpressions):
+                return cls.new_quantifier_expression(*subexpressions)
             case _:
                 raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
 
@@ -369,9 +370,6 @@ class AtomicExpression(Expression, ABC):
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
-    def contains(self, target: Expression) -> bool:
-        return self.syntactic_eq(target)
-
 
 class Variable(AtomicExpression, ABC):
     @property
@@ -476,12 +474,34 @@ class Context(Expression, ABC):
         pass
 
 
+class AbelianOperation(Constant, ABC):
+    """
+    An Abelian operation is a commutative, associative binary operation with an identity element:
+    https://en.wikipedia.org/wiki/Abelian_group
+    """
+    @property
+    @abstractmethod
+    def identity(self) -> Expression:
+        """
+        An identity element on a set is an element of the set which leaves unchanged every element of the set
+        when the operation is applied.
+        E.g., for the operation "add" on natural numbers, 0 is the identity element. Because for all x, x + 0 = x.
+        """
+        pass
+
+    @property
+    def element_type(self) -> ExpressionType:
+        return self.identity.type
+
+
 class QuantifierExpression(Expression, ABC):
     @property
     @abstractmethod
-    def operation(self) -> Constant:
-        """ operation is a Constant wrapping a function.
-        E.g., integer Summation's operation is Constant(operator.add, Callable[[int,int],int]). """
+    def operation(self) -> AbelianOperation:
+        """
+        operation is a Constant wrapping a function.
+        E.g., integer Summation's operation is Constant(operator.add, Callable[[int,int],int]).
+        """
         pass
 
     @property
@@ -491,7 +511,7 @@ class QuantifierExpression(Expression, ABC):
 
     @property
     @abstractmethod
-    def constrain(self) -> Expression:
+    def constraint(self) -> Context:
         """ User can expect the returning `expression` to be a Boolean Expression, i.e., expression.type == bool. """
         pass
 
@@ -502,9 +522,9 @@ class QuantifierExpression(Expression, ABC):
 
     @property
     def subexpressions(self) -> List[Expression]:
-        return [self.operation, self.index, self.constrain, self.body]
+        return [self.operation, self.index, self.constraint, self.body]
 
-    def set(self, i: int, new_expression: Expression) -> Expression:
+    def set(self, i: int, new_expression: Expression) -> QuantifierExpression:
         subexpressions = self.subexpressions
         subexpressions[i] = new_expression
         return self.new_quantifier_expression(*subexpressions)
@@ -516,6 +536,25 @@ class QuantifierExpression(Expression, ABC):
         # recursively do the replacement
         new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
         return self.new_quantifier_expression(*new_subexpressions)
+
+    def set_operation(self, new_expression: Expression) -> QuantifierExpression:
+        """
+        set_*() are a series of functions wrapping set() for better readability.
+        Like set(), it does not modify `self`, but instead returns a new expression.
+        """
+        return self.set(0, new_expression)
+
+    def set_index(self, new_expression: Expression) -> QuantifierExpression:
+        return self.set(1, new_expression)
+
+    def set_constraint(self, new_expression: Expression) -> QuantifierExpression:
+        return self.set(2, new_expression)
+
+    def set_body(self, new_expression: Expression) -> QuantifierExpression:
+        return self.set(3, new_expression)
+
+    def __str__(self) -> str:
+        return f'"{self.operation}({self.index}:{self.constraint}, {self.body})"'
 
 
 class NotTypedError(ValueError, TypeError):

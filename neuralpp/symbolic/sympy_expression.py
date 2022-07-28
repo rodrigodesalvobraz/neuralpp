@@ -184,7 +184,7 @@ class SymPyExpression(Expression, ABC):
         return SymPyVariable(sympy_var, type_)
 
     @classmethod
-    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> SymPyFunctionApplication:
+    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> SymPyExpression:
         # we cannot be lazy here because the goal is to create a sympy object, so arguments must be
         # recursively converted to sympy object
         match function:
@@ -207,8 +207,8 @@ class SymPyExpression(Expression, ABC):
                 raise ValueError("Unknown case.")
 
     @classmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
-                                  ) -> QuantifierExpression:
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  ) -> Expression:
         raise NotImplementedError()
 
     @classmethod
@@ -237,7 +237,7 @@ class SymPyExpression(Expression, ABC):
     def type_dict(self) -> Dict[sympy.Basic, ExpressionType]:
         return self._type_dict
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case SymPyExpression(sympy_object=other_sympy_object, type_dict=other_type_dict):
                 return self.sympy_object == other_sympy_object and self.type_dict == other_type_dict

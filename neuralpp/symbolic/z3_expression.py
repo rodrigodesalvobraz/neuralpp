@@ -10,8 +10,9 @@ import operator
 import builtins
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context, \
     QuantifierExpression
-from neuralpp.symbolic.basic_expression import FalseContext
-from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, is_z3_uninterpreted_function
+from neuralpp.symbolic.basic_expression import FalseContext, TrueContext
+from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, is_z3_uninterpreted_function, \
+    z3_replace_in_solver
 from functools import cached_property, total_ordering
 import neuralpp.symbolic.functions as functions
 
@@ -284,8 +285,8 @@ class Z3Expression(Expression, ABC):
                 raise ValueError(f"Unknown case: {function}")
 
     @classmethod
-    def new_quantifier_expression(cls, operation: Constant, index: Variable, constrain: Expression, body: Expression,
-                                  ) -> QuantifierExpression:
+    def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  ) -> Expression:
         raise NotImplementedError()
 
     @classmethod
@@ -331,7 +332,7 @@ class Z3ObjectExpression(Z3Expression, ABC):
     def z3_object(self):
         return self._z3_object
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         match other:
             case Z3ObjectExpression(z3_object=other_z3_object):
                 return self.z3_object.eq(other_z3_object)
@@ -434,8 +435,34 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def dict(self) -> Dict[str, Any]:
         return self._dict
 
-    def syntactic_eq(self, other) -> bool:
+    def internal_object_eq(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
+
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Context:
+        """
+        If we do not override this replace(), the default replace() will cause the return value to be
+        a Z3FunctionApplication, where the result is no longer a Context.
+        """
+        if self.syntactic_eq(from_expression):
+            match to_expression:
+                case Constant(value=True):
+                    return TrueContext()
+                case Constant(value=False):
+                    return FalseContext()
+                case _:
+                    raise NotImplementedError("replace a SolverExpression with a non-constant value is not supported.")
+
+        from_expression = Z3Expression.convert(from_expression)
+        to_expression = Z3Expression.convert(to_expression)
+
+        if not isinstance(from_expression, Z3ObjectExpression):
+            # only possible when from_expression is Z3SolverExpression
+            raise ValueError(f"{from_expression}({type(from_expression)}) does not have a z3_object.")
+        if not isinstance(to_expression, Z3ObjectExpression):
+            raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
+
+        new_solver = z3_replace_in_solver(self._solver, from_expression.z3_object, to_expression.z3_object)
+        return Z3SolverExpression(new_solver)
 
     def __init__(self, z3_solver: z3.Solver = None, value_dict: Dict[str, Any] | None = None):
         """
