@@ -438,7 +438,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     def internal_object_eq(self, other) -> bool:
         return False  # why do we need to compare two Z3ConjunctiveClause?
 
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Z3SolverExpression:
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Context:
         """
         If we do not override this replace(), the default replace() will cause the return value to be
         a Z3FunctionApplication, where the result is no longer a Context.
