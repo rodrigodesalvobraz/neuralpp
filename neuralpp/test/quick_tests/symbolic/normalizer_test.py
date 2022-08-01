@@ -155,7 +155,7 @@ def test_quantifier_normalizer():
     #       B*(B+C)             B*Sum(C)
     f = BasicVariable('f', Callable[[int, int], int])
     A = BasicVariable('A', bool)
-    B: BasicVariable = BasicVariable('B', int)
+    B = BasicVariable('B', int)
     C = BasicVariable('C', int)
     D = BasicVariable('D', int)
     expr = f(if_then_else(A, B, C), BasicSummation(int, D, empty_context & (0 < D) & (D < 10),
