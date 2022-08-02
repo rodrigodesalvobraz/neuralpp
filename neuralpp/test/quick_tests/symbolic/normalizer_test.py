@@ -205,7 +205,7 @@ def test_quantifier_normalizer():
     assert normalizer.normalize(expr, empty_context).syntactic_eq(
         if_then_else(A,
                      if_then_else(B == 4,
-                                  f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),
+                                  f(4, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),
                                   f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B))),
                      if_then_else(B == 4,
                                   f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),

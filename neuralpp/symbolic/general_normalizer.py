@@ -10,25 +10,39 @@ import neuralpp.symbolic.functions as functions
 from typing import List
 
 
+_simplifier = ContextSimplifier()
+
+
+def _normalize_conditional(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
+    """
+    Arguments condition-then-else_ forms an if-then-else statement.
+    If either branch can be pruned (its negation implied by context), it is pruned.
+    It is not just an optimization but a requirement that every prunable be pruned:
+    otherwise we'd call normalize() with an unsatisfiable context, which is not well-defined.
+    """
+    if context.is_known_to_imply(condition):
+        return _normalize(then, context)
+    elif context.is_known_to_imply(~condition):
+        return _normalize(else_, context)
+    else:
+        return if_then_else(condition,
+                            _normalize(then, context & condition),
+                            _normalize(else_, context & ~condition))
+
+
 def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
     """
-    The function assumes context is satisfiable, otherwise will raise.
+    The function assumes context is satisfiable, otherwise the behavior is undefined.
     The input expression can be arbitrarily structured. The result expression is guaranteed to be
     `quantifiers-at-leaves`: quantifiers are at leaves and do not contain conditional function in their bodies.
     """
+    assert not context.unsatisfiable
     match expression:
         case Constant():
             return expression
         case FunctionApplication(function=Constant(value=functions.conditional),
                                  arguments=[condition, then, else_]):
-            if context.is_known_to_imply(condition):
-                return _normalize(then, context)
-            elif context.is_known_to_imply(~condition):
-                return _normalize(else_, context)
-            else:
-                return if_then_else(condition,
-                                    _normalize(then, context & condition),
-                                    _normalize(else_, context & ~condition))
+            return _normalize_conditional(condition, then, else_, context)
         case Expression(type=type_) if type_ == bool:
             if context.is_known_to_imply(expression):
                 return basic_true
@@ -42,6 +56,8 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
         case QuantifierExpression(operation=operation, index=index, constraint=constraint, body=body):
             if context.contains(index):
                 raise ValueError(f"context {context} should not contain index {index}")
+            if context.is_known_to_imply(~constraint):
+                return operation.identity
             normalized_body = _normalize(body, context & constraint)
             match normalized_body:
                 case FunctionApplication(function=Constant(value=functions.conditional),
@@ -52,16 +68,12 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                                       BasicQuantifierExpression(operation, index, constraint & ~condition, else_)),
                             context)
                     else:
-                        return if_then_else(condition,
-                                            _normalize(BasicQuantifierExpression(operation, index, constraint, then),
-                                                       context & condition),
-                                            _normalize(BasicQuantifierExpression(operation, index, constraint, else_),
-                                                       context & ~condition))
+                        return _normalize_conditional(condition,
+                                                      BasicQuantifierExpression(operation, index, constraint, then),
+                                                      BasicQuantifierExpression(operation, index, constraint, else_),
+                                                      context)
                 case _:
                     return _eliminate(operation, index, constraint, normalized_body, context)
-
-
-_simplifier = ContextSimplifier()
 
 
 def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
@@ -87,9 +99,8 @@ def _normalize_function_application(function: Expression,
                                     arguments: List[Expression],
                                     context: Z3SolverExpression, i: int = 0) -> Expression:
     if i >= len(arguments):
-        return function(*arguments)
-    n_i = _normalize(arguments[i], context)
-    arguments[i] = n_i
+        return _simplifier.simplify(function(*arguments), context)
+    arguments[i] = _normalize(arguments[i], context)
     return _move_down_and_normalize(function, arguments, context, i)
 
 

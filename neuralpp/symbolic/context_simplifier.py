@@ -6,6 +6,7 @@ from .sympy_interpreter import SymPyInterpreter
 from .constants import basic_true, basic_false
 from .z3_expression import Z3SolverExpression
 from .parameters import sympy_evaluate
+from .expression import QuantifierExpression
 
 
 def _simplify_expression(boolean_expression: Expression, context: Z3SolverExpression) -> Optional[Expression]:
@@ -48,7 +49,9 @@ class ContextSimplifier(Simplifier):
             result = expression
 
         # replace boolean expressions
-        all_boolean_subexpressions = _collect_subset_expressions(result, lambda expr: expr.type == bool)
+        all_boolean_subexpressions = _collect_subset_expressions(
+            result,
+            lambda expr: expr.type == bool and not isinstance(expr, QuantifierExpression))
         for boolean_subexpression in all_boolean_subexpressions:
             simplified_subexpression = _simplify_expression(boolean_subexpression, context)
             if simplified_subexpression is not None:
