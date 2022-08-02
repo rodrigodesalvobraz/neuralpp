@@ -180,3 +180,33 @@ def test_quantifier_normalizer():
                                                       )))))
     assert normalizer.normalize(expr, empty_context & A & (B > 4)).syntactic_eq(
         f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B * (B + C))))
+
+    # if we have "B==4" in the context of a subtree, B will be substituted by 4
+    #          f
+    #       /    \
+    #     if A   Sum
+    #     /  \    |
+    #    B    C  B * if B==4
+    #                /    \
+    #               B+C    1
+    # should be normalized to
+    #              if A
+    #           /        \
+    #      if B==4       if B==4
+    #       /    \        /   \
+    #      f      ..   ..      f
+    #     /\                  /  \
+    #    4  Sum              C   Sum
+    #        |                    |
+    #       16+4*C                B
+
+    expr = f(if_then_else(A, B, C), BasicSummation(int, D, empty_context & (0 < D) & (D < 10),
+                                                   B * if_then_else(B == 4, B + C, 1)))
+    assert normalizer.normalize(expr, empty_context).syntactic_eq(
+        if_then_else(A,
+                     if_then_else(B == 4,
+                                  f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),
+                                  f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B))),
+                     if_then_else(B == 4,
+                                  f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),
+                                  f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B)))))
