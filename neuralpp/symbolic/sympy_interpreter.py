@@ -52,8 +52,8 @@ class SymPyInterpreter(Interpreter, Simplifier):
             if not isinstance(expression, SymPyExpression):
                 try:
                     expression = SymPyExpression.convert(expression)
-                except Exception:
-                    raise ConversionError()
+                except Exception as exc:
+                    raise ConversionError() from exc
 
             simplified_sympy_expression = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
             # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still

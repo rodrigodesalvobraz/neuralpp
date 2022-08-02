@@ -308,8 +308,8 @@ class Z3Expression(Expression, ABC):
 
             try:
                 return _z3_function_to_python_callable(value)
-            except Exception:
-                raise ValueError(f"Cannot pythonize {value}.")
+            except Exception as exc:
+                raise ValueError(f"Cannot pythonize {value}.") from exc
         else:
             raise ValueError("Cannot pythonize non-z3 object")
 

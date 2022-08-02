@@ -171,9 +171,9 @@ class SymPyExpression(Expression, ABC):
         else:
             try:
                 sympy_object = _python_callable_to_sympy_function(value)
-            except Exception:
+            except Exception as exc:
                 raise ValueError(f"SymPyConstant does not support {type(value)}: "
-                                 f"unable to turn into a sympy representation internally")
+                                 f"unable to turn into a sympy representation internally") from exc
         return SymPyConstant(sympy_object, type_)
 
     @classmethod
@@ -227,8 +227,8 @@ class SymPyExpression(Expression, ABC):
         else:
             try:
                 return _sympy_function_to_python_callable(value)
-            except Exception:
-                raise ValueError(f"Cannot pythonize {value}.")
+            except Exception as exc:
+                raise ValueError(f"Cannot pythonize {value}.") from exc
 
     @property
     def sympy_object(self):
