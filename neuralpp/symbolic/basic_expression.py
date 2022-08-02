@@ -35,7 +35,7 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
                 raise TypeError(f"Invert expect only one boolean argument. Got {argument_types}.")
             return Callable[[bool], bool]
         # comparison
-        case operator.le | operator.lt | operator.ge | operator.gt | operator.eq:
+        case operator.le | operator.lt | operator.ge | operator.gt | operator.eq | operator.ne:
             if argument_types is None:
                 raise AmbiguousTypeError(python_callable)
             return Callable[argument_types, bool]

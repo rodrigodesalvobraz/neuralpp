@@ -85,6 +85,7 @@ python_callable_and_sympy_function_relation = [
     (operator.ge, sympy.Ge),
     (operator.gt, sympy.Gt),
     (operator.eq, sympy.Eq),
+    (operator.ne, sympy.Ne),
     # arithmetic
     (operator.add, sympy.Add),
     (operator.mul, sympy.Mul),

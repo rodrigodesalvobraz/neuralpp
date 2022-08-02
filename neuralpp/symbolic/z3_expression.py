@@ -142,6 +142,8 @@ def _z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.gt
         case z3.Z3_OP_EQ:
             return operator.eq
+        case z3.Z3_OP_DISTINCT:
+            return operator.ne
         # arithmetic
         case z3.Z3_OP_ADD:
             return operator.add
@@ -205,6 +207,8 @@ def _apply_python_callable_on_z3_arguments(python_callable: Callable,
             return arguments[0] > arguments[1]
         case operator.eq:
             return arguments[0] == arguments[1]
+        case operator.ne:
+            return arguments[0] != arguments[1]
         # arithmetic
         case operator.add:
             return arguments[0] + arguments[1]
