@@ -462,7 +462,6 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             # only possible when from_expression is Z3SolverExpression
             # don't replace
             return self
-            # raise ValueError(f"{self}\n{from_expression}({type(from_expression)}) does not have a z3_object.")
         if not isinstance(to_expression, Z3ObjectExpression):
             raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
 

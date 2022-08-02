@@ -164,7 +164,6 @@ def test_quantifier_normalizer():
                                                                     BasicSummation(int, C,
                                                                                    empty_context & (0 < C) & (C < 10),
                                                                                    if_then_else(B < 5, C, 1)))))
-    print(normalizer.normalize(expr, empty_context))
     assert normalizer.normalize(expr, empty_context).syntactic_eq(
         if_then_else(A,
                      if_then_else(B > 4,
