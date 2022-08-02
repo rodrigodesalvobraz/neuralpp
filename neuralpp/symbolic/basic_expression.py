@@ -35,7 +35,7 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
                 raise TypeError(f"Invert expect only one boolean argument. Got {argument_types}.")
             return Callable[[bool], bool]
         # comparison
-        case operator.le | operator.lt | operator.ge | operator.gt | operator.eq:
+        case operator.le | operator.lt | operator.ge | operator.gt | operator.eq | operator.ne:
             if argument_types is None:
                 raise AmbiguousTypeError(python_callable)
             return Callable[argument_types, bool]
@@ -95,6 +95,9 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
         super().__init__(expression_type)
         self._atom = atom
 
+    def __hash__(self):
+        return self.atom.__hash__()
+
     @property
     def atom(self) -> str:
         return self._atom
@@ -135,6 +138,25 @@ class TrueContext(BasicConstant, Context):
     def __init__(self):
         BasicConstant.__init__(self, True, bool)
 
+    def __and__(self, other: Any) -> Expression:
+        return other
+
+    __rand__ = __and__
+
+    @property
+    def and_priority(self) -> int:
+        """
+        set and_priority to be higher than normal Context() to simplify __and__ operation.
+        E.g., say we have a Z3SolverExpression z3_solver_expression:
+        >>> z3_solver_expression & TrueContext()
+        would normally call
+        >>> z3_solver_expression.__and__(TrueContext())
+        but by setting and_priority to 2 here, the above expression will call
+        >>> TrueContext().__and__(z3_solver_expression)
+        which just returns the other side.
+        """
+        return 2
+
 
 class FalseContext(BasicConstant, Context):
     @property
@@ -152,12 +174,24 @@ class FalseContext(BasicConstant, Context):
     def __init__(self):
         BasicConstant.__init__(self, False, bool)
 
+    def __and__(self, other: Any) -> Expression:
+        return self
+
+    __rand__ = __and__
+
+    @property
+    def and_priority(self) -> int:
+        return 2
+
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):
     def __init__(self, function: Expression, arguments: List[Expression]):
         function_type = function.get_return_type(len(arguments))
         super().__init__(function_type)
         self._subexpressions = [function] + arguments
+
+    def __hash__(self):
+        return hash(tuple(self.subexpressions))
 
     @property
     def function(self) -> Expression:
@@ -195,20 +229,27 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
             raise ValueError(f"Wrong operation type {operation.type}.")
         super().__init__(return_type)
 
+    def __hash__(self):
+        return hash(tuple(self.subexpressions))
+
     @property
     def operation(self) -> Constant:
+        assert isinstance(self._operation, Constant)
         return self._operation
 
     @property
     def index(self) -> Variable:
+        assert isinstance(self._index, Variable)
         return self._index
 
     @property
     def constraint(self) -> Expression:
+        assert isinstance(self._constraint, Context)
         return self._constraint
 
     @property
     def body(self) -> Expression:
+        assert isinstance(self._body, Expression)
         return self._body
 
     def internal_object_eq(self, other) -> bool:
@@ -221,10 +262,11 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
 
 class BasicAbelianOperation(BasicConstant, AbelianOperation):
     @property
-    def identity(self) -> Expression:
+    def identity(self) -> Constant:
+        assert isinstance(self._identity, Constant)
         return self._identity
 
-    def __init__(self, operation: Callable, identity: Expression):
+    def __init__(self, operation: Callable, identity: Constant):
         # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
         self._identity = identity
         element_type = identity.type

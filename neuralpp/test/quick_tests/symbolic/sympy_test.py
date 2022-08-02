@@ -131,6 +131,13 @@ def test_sum():
     # https://docs.sympy.org/latest/modules/concrete.html?highlight=sum#sympy.concrete.summations.Sum
     assert Sum(k, (k, i, i - 100)).doit() == -Sum(k, (k, i - 99, i - 1)).doit()
 
+    expr = Sum(i, (i, 0, k), (k, 0, 10))
+    assert expr.doit() == 1 + 3 + 6 + 10 + 15 + 21 + 28 + 36 + 45 + 55
+    # Multiple ranges are not concatenated:
+    # The first sum Sum(i, (i, 0, 10)) = 55, here i is eliminated, so Sum(55, (i, 10, 11)) == 55 *2
+    expr = Sum(i, (i, 0, 10), (i, 10, 11))
+    assert expr.doit() == 55 * 2 != 55 + 10 + 11
+
 
 def test_sympy_bug():
     from sympy import Max, Add, evaluate

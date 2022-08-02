@@ -1,8 +1,10 @@
 import pytest
 import z3
+from typing import Callable
 
-from neuralpp.symbolic.normalizer import Normalizer
-from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation, BasicConstant
+from neuralpp.symbolic.quantifier_free_normalizer import QuantifierFreeNormalizer
+from neuralpp.symbolic.general_normalizer import GeneralNormalizer
+from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation, BasicConstant, BasicFunctionApplication
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Variable
 
@@ -11,7 +13,7 @@ def test_normalizer1():
     """
     if a > b then a + b else 3
     """
-    normalizer = Normalizer()
+    normalizer = QuantifierFreeNormalizer()
     a = BasicVariable('a', int)
     b = BasicVariable('b', int)
     expr = if_then_else(a > b, a + b, 3)
@@ -29,7 +31,7 @@ def test_normalizer2():
     f: bool -> bool -> int -> int
     f(a < b, b > c, 5)
     """
-    normalizer = Normalizer()
+    normalizer = QuantifierFreeNormalizer()
     f = Z3Variable(z3.Function('f', z3.BoolSort(), z3.BoolSort(), z3.IntSort(), z3.IntSort()))
     a = BasicVariable('a', int)
     b = BasicVariable('b', int)
@@ -67,7 +69,7 @@ def test_normalizer3():
         --(simplify by f(False, 3) == 3)-->
     if c then 45 else if a>b then f(False, 66) else 3
     """
-    normalizer = Normalizer()
+    normalizer = QuantifierFreeNormalizer()
     f = Z3Variable(z3.Function('f', z3.BoolSort(), z3.IntSort(), z3.IntSort()))
     a = BasicVariable('a', int)
     b = BasicVariable('b', int)
@@ -89,7 +91,7 @@ def test_quantifier_normalizer():
     sum_ = BasicSummation(int, i, i_range, i)
 
     context = empty_context
-    normalizer = Normalizer()
+    normalizer = GeneralNormalizer()
     assert normalizer.normalize(sum_, context).syntactic_eq(sum_)
 
     context = empty_context & (i < 5)
@@ -105,10 +107,7 @@ def test_quantifier_normalizer():
         BasicSummation(int, i, empty_context & (j < i) & (i < 10), 5 + i))  # SymPy switched 5 and i
 
     context = empty_context & (j == 10)
-    assert normalizer.normalize(sum_, context).syntactic_eq(
-        BasicSummation(int, i, empty_context & (j < i) & (i < 10), 10 + i))
-    # not reduced to 0 because j < i < 10 is still satisfiable
-    assert not normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
+    assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
 
     sum_ = BasicSummation(int, i, empty_context & (j < i), if_then_else(j > 5, i + j, i))
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
@@ -120,11 +119,94 @@ def test_quantifier_normalizer():
 
     sum_ = BasicSummation(int, i, empty_context & (j < i), if_then_else(i > 5, i + j, i))
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
-                     BasicSummation(int, i, empty_context & (j < i) & (i > 5), i + j) +
-                     BasicSummation(int, i, empty_context & (j < i) & (i <= 5), i))
+        BasicSummation(int, i, empty_context & (j < i) & (5 < i), i + j) +
+        BasicSummation(int, i, empty_context & (j < i) & ~(5 < i), i))
 
-    # Normalization of nested quantifier expression is not supported, yet.
+    sum1 = if_then_else(j > 5, i + j, sum_)
+
+    # Normalization of nested quantifier expression
     sum_ = BasicSummation(int, j, empty_context & (j < 10), if_then_else(j > 5, i + j, sum_))
-    # because SymPyQuantifierExpression is not implemented.
-    with pytest.raises(NotImplementedError):
-        normalizer.normalize(sum_, empty_context)
+    assert normalizer.normalize(sum_, empty_context).syntactic_eq(
+        BasicSummation(int, j, empty_context & (10 > j) & (j > 5), i + j) +
+        BasicSummation(int, j, empty_context & (10 > j) & ~(5 < j),
+                       BasicSummation(int, i, empty_context & (j < i) & (5 < i), i + j) +
+                       BasicSummation(int, i, empty_context & (j < i) & ~(5 < i), i)))
+
+    #          f
+    #       /    \
+    #     if A   Sum
+    #     /  \    |
+    #    B    C  B * if B>4
+    #                /    \
+    #               B+C    Sum
+    #                       |
+    #                      if B<5
+    #                      / \
+    #                     C   1
+    # should be normalized to
+    #              if A
+    #           /        \
+    #      if B>4       if B>4
+    #       /    \        /   \
+    #      f      ..   ..      f
+    #     /\                  /  \
+    #    B  Sum              C   Sum
+    #        |                    |
+    #       B*(B+C)             B*Sum(C)
+    f = BasicVariable('f', Callable[[int, int], int])
+    A = BasicVariable('A', bool)
+    B = BasicVariable('B', int)
+    C = BasicVariable('C', int)
+    D = BasicVariable('D', int)
+    expr = f(if_then_else(A, B, C), BasicSummation(int, D, empty_context & (0 < D) & (D < 10),
+                                                   B * if_then_else(B > 4,
+                                                                    B + C,
+                                                                    BasicSummation(int, C,
+                                                                                   empty_context & (0 < C) & (C < 10),
+                                                                                   if_then_else(B < 5, C, 1)))))
+    assert normalizer.normalize(expr, empty_context).syntactic_eq(
+        if_then_else(A,
+                     if_then_else(B > 4,
+                                  f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B * (B + C))),
+                                  f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10),
+                                                      B * (
+                                                          BasicSummation(int, C, empty_context & (0 < C) & (C < 10), C))
+                                                      ))),
+                     if_then_else(B > 4,
+                                  f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B * (B + C))),
+                                  f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10),
+                                                      B * (
+                                                          BasicSummation(int, C, empty_context & (0 < C) & (C < 10), C))
+                                                      )))))
+    assert normalizer.normalize(expr, empty_context & A & (B > 4)).syntactic_eq(
+        f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B * (B + C))))
+
+    # if we have "B==4" in the context of a subtree, B will be substituted by 4
+    #          f
+    #       /    \
+    #     if A   Sum
+    #     /  \    |
+    #    B    C  B * if B==4
+    #                /    \
+    #               B+C    1
+    # should be normalized to
+    #              if A
+    #           /        \
+    #      if B==4       if B==4
+    #       /    \        /   \
+    #      f      ..   ..      f
+    #     /\                  /  \
+    #    4  Sum              C   Sum
+    #        |                    |
+    #       16+4*C                B
+
+    expr = f(if_then_else(A, B, C), BasicSummation(int, D, empty_context & (0 < D) & (D < 10),
+                                                   B * if_then_else(B == 4, B + C, 1)))
+    assert normalizer.normalize(expr, empty_context).syntactic_eq(
+        if_then_else(A,
+                     if_then_else(B == 4,
+                                  f(4, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),
+                                  f(B, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B))),
+                     if_then_else(B == 4,
+                                  f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), 16 + 4 * C)),
+                                  f(C, BasicSummation(int, D, empty_context & (0 < D) & (D < 10), B)))))

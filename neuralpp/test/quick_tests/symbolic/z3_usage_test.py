@@ -97,9 +97,9 @@ def test_sum():
     # we can only do this when n is static to Z3.
     # We cannot state something like "forall n, 1 + 2 + ... n = (1 + n) * n / 2"
     N = 1000
-    assert (is_valid(Sum([j for j in range(N+1)]) == (1 + N)*N/2))
-    assert (is_valid(Sum([x for _ in range(N+1)]) == (1 + N)*x))
-    assert (is_valid(Sum([x + j for j in range(N+1)]) == (1 + N)*x + (1 + N)*N/2))
+    assert (is_valid(Sum([j for j in range(N + 1)]) == (1 + N) * N / 2))
+    assert (is_valid(Sum([x for _ in range(N + 1)]) == (1 + N) * x))
+    assert (is_valid(Sum([x + j for j in range(N + 1)]) == (1 + N) * x + (1 + N) * N / 2))
 
 
 def test_z3_solver():
@@ -234,10 +234,10 @@ def test_z3_sort():
 
     # but it does distinguish an int add and a real add.
     y = z3.Real("y")
-    assert (y+y).decl().kind() == (x+x).decl().kind()
-    assert (y+y).decl() != (x+x).decl()
-    assert (y+y).decl().domain(0) == z3.RealSort()
-    assert (x+x).decl().domain(0) == z3.IntSort()
+    assert (y + y).decl().kind() == (x + x).decl().kind()
+    assert (y + y).decl() != (x + x).decl()
+    assert (y + y).decl().domain(0) == z3.RealSort()
+    assert (x + x).decl().domain(0) == z3.IntSort()
 
 
 def test_z3_fp_sort():
@@ -275,3 +275,37 @@ def test_z3_simplify():
     s = Solver()
     s.add(g)
     assert s.check() == unsat
+
+
+def test_z3_eq_bool():
+    """
+    Test that z3 overloads bool() for `__eq__()` symbolic expression specifically.
+    This is because __hash__() depends on __eq__() which should be a comparison function for objects.
+    Thus, if z3 does not provide bool() for `==` expressions __hash__() will not work.
+    (If let bool() by default return True, any different objects with same hash() will be considered equal.)
+    """
+    a: z3.ArithRef
+    b: z3.ArithRef
+    a, b = Ints('a b')
+    assert not isinstance(a == b, bool)
+
+    # checks that a == b is a symbolic expression
+    assert (a == b).eq(a == b)
+    assert not (a == b).eq(b == a)
+
+    # but `==` can be converted to bool
+    assert not bool(a == b)
+    assert bool(a == a)
+    # and it is doing symbolic checking (note the second line return False)
+    assert bool((a == b) == (a == b))
+    assert not bool((a == b) == (b == a))
+
+    # However, other operations are not overloaded with bool()
+    def assert_no_bool_overload(expression):
+        with pytest.raises(z3.Z3Exception) as exc_info:
+            assert bool(expression)
+        assert "Symbolic expressions cannot be cast to concrete Boolean values." in repr(exc_info)
+
+    assert_no_bool_overload(a != b)
+    assert_no_bool_overload(a < b)
+    assert_no_bool_overload(a > b)

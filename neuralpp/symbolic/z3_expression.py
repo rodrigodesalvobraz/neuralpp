@@ -142,6 +142,8 @@ def _z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.gt
         case z3.Z3_OP_EQ:
             return operator.eq
+        case z3.Z3_OP_DISTINCT:
+            return operator.ne
         # arithmetic
         case z3.Z3_OP_ADD:
             return operator.add
@@ -205,6 +207,8 @@ def _apply_python_callable_on_z3_arguments(python_callable: Callable,
             return arguments[0] > arguments[1]
         case operator.eq:
             return arguments[0] == arguments[1]
+        case operator.ne:
+            return arguments[0] != arguments[1]
         # arithmetic
         case operator.add:
             return arguments[0] + arguments[1]
@@ -308,8 +312,8 @@ class Z3Expression(Expression, ABC):
 
             try:
                 return _z3_function_to_python_callable(value)
-            except Exception:
-                raise ValueError(f"Cannot pythonize {value}.")
+            except Exception as exc:
+                raise ValueError(f"Cannot pythonize {value}.") from exc
         else:
             raise ValueError("Cannot pythonize non-z3 object")
 
@@ -431,6 +435,9 @@ def _extract_key_to_value_from_assertions(assertions: List[z3.ExprRef] | z3.AstV
 
 
 class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
+    def __hash__(self):
+        return self._solver.__hash__()
+
     @property
     def dict(self) -> Dict[str, Any]:
         return self._dict
@@ -457,7 +464,8 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
 
         if not isinstance(from_expression, Z3ObjectExpression):
             # only possible when from_expression is Z3SolverExpression
-            raise ValueError(f"{from_expression}({type(from_expression)}) does not have a z3_object.")
+            # don't replace
+            return self
         if not isinstance(to_expression, Z3ObjectExpression):
             raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
 
@@ -476,7 +484,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         if not z3_solver.check() == z3.sat:
             raise ValueError(f"Expect a solver that is satisfiable. Got {z3_solver.check()}.")
 
-        super().__init__(z3_false)
+        super().__init__(bool)
         self._solver = z3_solver
         if value_dict is not None:
             self._dict = value_dict
