@@ -362,10 +362,8 @@ class Expression(ABC):
         Refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_eq_bool() for how Z3 deals with a similar problem.
         """
         match self:
-            case Constant(value=True):
-                return True
-            case Constant(value=False):
-                return False
+            case Constant(value=value) if isinstance(value, bool):
+                return value
             case FunctionApplication(function=Constant(value=operator.eq), arguments=[lhs, rhs]):
                 return lhs.syntactic_eq(rhs)
             case _:
