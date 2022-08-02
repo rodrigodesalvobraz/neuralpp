@@ -61,13 +61,13 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                     return _eliminate(operation, index, constraint, normalized_body, context)
 
 
-simplifier = ContextSimplifier()
+_simplifier = ContextSimplifier()
 
 
 def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                context: Z3SolverExpression) -> Expression:
     """
-    Eliminates all quantifiers by doing the "summation" (in a broader sense).
+    Eliminates all quantifiers by doing the "summation" (or to use a Computer Science term, "reduction").
     Currently, a very naive placeholder.
     In particular, we allow eliminate() to accept body and return expression that contains quantifier,
     thus it is a "partial/best-effort elimination".
@@ -80,7 +80,7 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
     """
     if context.is_known_to_imply(~constraint):
         return operation.identity
-    return BasicQuantifierExpression(operation, index, constraint, simplifier.simplify(body, context & constraint))
+    return BasicQuantifierExpression(operation, index, constraint, _simplifier.simplify(body, context & constraint))
 
 
 def _normalize_function_application(function: Expression,
@@ -96,10 +96,12 @@ def _normalize_function_application(function: Expression,
 def _move_down_and_normalize(function: Expression,
                              arguments: List[Expression],
                              context: Z3SolverExpression, i: int) -> Expression:
-    # assume i < len(arguments);
-    # assume all {arguments[j] | j < i} does not contain if-then-else;
-    # assume arguments[i] has been normalized.
-    # move down the f to the leaves. Then replace every leaf f with its normalized version
+    """
+    assume i < len(arguments);
+    assume all {arguments[j] | j < i} does not contain if-then-else (and thus normalized);
+    assume arguments[i] has been normalized.
+    move down the f to the leaves. Then replace every leaf f with its normalized version
+    """
     match arguments[i]:
         case FunctionApplication(function=Constant(value=functions.conditional),
                                  arguments=[condition, then, else_]):
