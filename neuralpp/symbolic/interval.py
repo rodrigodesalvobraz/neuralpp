@@ -44,7 +44,7 @@ class ClosedInterval(BasicExpression):
         if not isinstance(other, ClosedInterval):
             return False
         return self.lower_bound.internal_object_eq(other.lower_bound) and \
-        self.upper_bound.internal_object_eq(other.upper_bound)
+            self.upper_bound.internal_object_eq(other.upper_bound)
 
     def __iter__(self) -> Iterable[Expression]:
         """
