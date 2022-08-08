@@ -44,9 +44,8 @@ class ClosedInterval(BasicExpression):
         if not isinstance(other, ClosedInterval):
             return False
         return self.lower_bound.internal_object_eq(other.lower_bound) and \
-               self.upper_bound.internal_object_eq(other.upper_bound)
 
-    def __iter__(self) -> Iterable[Int]:
+    def __iter__(self) -> Iterable[Expression]:
         """
         If upper and lower bounds are constant, return a range that's iterable.
         Otherwise, raise
@@ -200,7 +199,6 @@ def _check_and_set_bounds(
     When checking the upper bounds: if the bound is <= the current lower bound, replace the current
     upper bound with the bound.
     """
-
     match index:
         case 0:
             if closed_interval.lower_bound is None or bound >= closed_interval.lower_bound():
