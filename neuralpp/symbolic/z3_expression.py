@@ -686,5 +686,3 @@ def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | 
     result: Dict[z3.ExprRef, EquivalenceClass] = {}
     _traverse_equalities(assertions, key_to_equivalence_class_accumulator)
     return frozenset(result.values())
-
-
