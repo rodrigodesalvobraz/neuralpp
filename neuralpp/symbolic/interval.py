@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import builtins
 import operator
-from typing import Iterable, List, Set, Tuple
+from typing import Iterable, List, Set, Tuple, Optional
 from .expression import Variable, Expression, Context, Constant, FunctionApplication
 from .basic_expression import BasicExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
@@ -12,8 +12,6 @@ class ClosedInterval(BasicExpression):
     """ [lower_bound, upper_bound] """
     def __init__(self, lower_bound, upper_bound):
         super().__init__(Set)
-        if lower_bound > upper_bound:
-            raise AttributeError(f'[{lower_bound},{upper_bound}] is an empty interval.')
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
 
@@ -48,7 +46,6 @@ class ClosedInterval(BasicExpression):
         return self.lower_bound.internal_object_eq(other.lower_bound) and \
             self.upper_bound.internal_object_eq(other.upper_bound)
 
-
     def __iter__(self) -> Iterable[int]:
         """
         If upper and lower bounds are constant, return a range that's iterable.
@@ -62,6 +59,8 @@ class ClosedInterval(BasicExpression):
 
     @property
     def size(self) -> Expression:
+        if self.lower_bound > self.upper_bound:
+            raise AttributeError(f'[{self.lower_bound},{self.upper_bound}] is an empty interval.')
         return self.upper_bound - self.lower_bound + 1
 
     def to_context(self, index: Variable) -> Context:
@@ -115,17 +114,18 @@ def from_constraint(index: Variable, constraint: Context) -> Expression:
     closed_interval = ClosedInterval(None, None)
     exceptions = []
     for subexpression in constraint.subexpressions:
-        if (isinstance(subexpression, FunctionApplication)):
+        if isinstance(subexpression, FunctionApplication):
             closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval, exceptions)
 
     return DottedIntervals(closed_interval, exceptions)
+
 
 def _extract_bound_from_constraint(
     index: Variable,
     constraint: Expression,
     closed_interval: ClosedInterval,
     exceptions: List[Expression]
-) -> Tuple(ClosedInterval, List[Expression]):
+) -> Tuple[ClosedInterval, List[Expression]]:
     """
     @param index: the variable that the interval is for
     @param constraint: the context that constrains the variable
@@ -183,12 +183,13 @@ def _extract_bound_from_constraint(
             raise ValueError(f"interval doesn't support {possible_inequality} yet")
     return closed_interval, exceptions
 
+
 def _check_and_set_bounds(
     index: int,
     bound: Expression,
     closed_interval: ClosedInterval,
     exceptions: List[Expression]
-) -> Tuple(ClosedInterval, List[Expression]):
+) -> Tuple[ClosedInterval, List[Expression]]:
     """
     @param index: indicates which bound we are checking => 0 is lower bound and 1 is upper bound
     @param bound: the Constant of the bound (the value inside will be an int)
@@ -209,7 +210,7 @@ def _check_and_set_bounds(
                 closed_interval = closed_interval.set(0, bound)
         case 1:
             if closed_interval.upper_bound is None or bound <= closed_interval.upper_bound():
-                closed_interval =  closed_interval.set(1, bound)
+                closed_interval = closed_interval.set(1, bound)
         case _:
             raise IndexError(f"{index} is out of bounds")
 

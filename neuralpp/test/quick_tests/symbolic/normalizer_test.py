@@ -92,7 +92,8 @@ def test_quantifier_normalizer():
 
     context = empty_context
     normalizer = GeneralNormalizer()
-    assert normalizer.normalize(sum_, context).syntactic_eq(sum_)
+    print(normalizer.normalize(sum_, context))
+    assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(45))
 
     context = empty_context & (i < 5)
     # raises ValueError because the context should not contain index (in this case i),

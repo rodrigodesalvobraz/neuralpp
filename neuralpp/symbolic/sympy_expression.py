@@ -17,6 +17,7 @@ from neuralpp.symbolic.expression import Expression, FunctionApplication, Variab
 from neuralpp.symbolic.basic_expression import infer_python_callable_type, basic_add_operation
 from neuralpp.util.util import update_consistent_dict
 from neuralpp.symbolic.parameters import global_parameters
+from neuralpp.symbolic.basic_expression import BasicSummation
 import neuralpp.symbolic.functions as functions
 from neuralpp.util.sympy_util import is_sympy_uninterpreted_function
 
@@ -128,6 +129,10 @@ def _is_sympy_value(sympy_object: sympy.Basic) -> bool:
            isinstance(sympy_object, sympy.logic.boolalg.BooleanAtom)
 
 
+def _is_sympy_sum(sympy_object: sympy.Basic) -> bool:
+    return isinstance(sympy_object, sympy.Sum)
+
+
 def _build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]) -> None:
     update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
@@ -151,6 +156,19 @@ class SymPyExpression(Expression, ABC):
         super().__init__(expression_type)
         self._sympy_object = sympy_object
         self._type_dict = type_dict
+
+    @staticmethod
+    def symbolic_sum(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
+            -> Optional[Expression]:
+        """ try to compute the sum symbolically, if fails, return None"""
+        try:
+            body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
+                                                     for argument in [body, index, lower_bound, upper_bound]]
+            type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
+            return SymPyExpression.from_sympy_object(sympy.Sum(body, (index, lower_bound, upper_bound)).doit(),
+                                                     type_dict)
+        except Exception:
+            return None
 
     @classmethod
     def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> SymPyConstant:
@@ -253,6 +271,8 @@ class SymPyExpression(Expression, ABC):
             return SymPyVariable(sympy_object, type_dict[sympy_object])
         elif _is_sympy_value(sympy_object):
             return SymPyConstant(sympy_object, _infer_sympy_object_type(sympy_object, type_dict))
+        elif _is_sympy_sum(sympy_object):
+            return SymPySummation(sympy_object, type_dict)
         else:
             return SymPyFunctionApplication(sympy_object, type_dict)
 
@@ -503,8 +523,9 @@ class SymPyContext(SymPyFunctionApplication, Context):
 
 
 class SymPySummation(SymPyExpression, QuantifierExpression):
-    def __init__(self, sympy_object: sympy.Basic, expression_type: ExpressionType,
-                 type_dict: Dict[sympy.Basic, ExpressionType]):
+    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
+        expression_type = _infer_sympy_object_type(sympy_object.args[0], type_dict)
+        # sympy.Sum(body, (index, lower, upper))
         super().__init__(sympy_object, expression_type, type_dict)
 
     @property
@@ -513,13 +534,25 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
 
     @property
     def index(self) -> SymPyVariable:
-        variable = self.sympy_object.limits[0]
+        variable = self.sympy_object.args[1][0]
         return SymPyVariable(variable, self.type_dict[variable])
 
     @property
-    def constrain(self) -> Context:
-        pass
+    def lower_bound(self) -> SymPyExpression:
+        lower = self.sympy_object.args[1][1]
+        return SymPyExpression.from_sympy_object(lower, self.type_dict)
+
+    @property
+    def upper_bound(self) -> SymPyExpression:
+        upper = self.sympy_object.args[1][2]
+        return SymPyExpression.from_sympy_object(upper, self.type_dict)
+
+    @property
+    def constraint(self) -> Context:
+        from .z3_expression import Z3SolverExpression
+        empty_context = Z3SolverExpression()
+        return empty_context & (self.index >= self.lower_bound) & (self.index <= self.upper_bound)
 
     @property
     def body(self) -> Expression:
-        return self.sympy_object.function
+        return SymPyExpression.from_sympy_object(self.sympy_object.args[0], self.type_dict)

@@ -9,7 +9,7 @@ import math
 # cannot use `from sympy import *` because that would import all the "test_*" functions in sympy,
 # causing pytest to run them as well.
 from sympy import symbols, expand, factor, sin, cos, diff, integrate, exp, Integer, Xor, Rational, \
-    sqrt, Sum, lambdify, Indexed, factorial, oo, Integral
+    sqrt, Sum, lambdify, Indexed, factorial, oo, Integral, Poly
 
 
 def test_symbols_basic():
@@ -152,3 +152,14 @@ def test_sympy_bug():
         assert Max(1, 3) == 3  # HERE! should not evaluate. If the sympy bug is fixed this line should fail
         # assert Max(1, 3) != 3  # If the sympy bug is fixed we should use this line
 
+
+def test_symbolic_summation():
+    i, j = symbols("i j")
+    expr = Sum(i * 2 + j * i, (i, 0, 100))
+    assert expr.doit() == 5050 * j + 10100
+    expr = Sum(i * j, (i, 0, 100000))
+    assert expr.doit() == 5000050000 * j
+    expr = Sum(i * j, (i, 10, 1))  # sum[10,1] -> sum[10,2) <==by definition==> -sum[2,10) => -sum[2,9]
+    assert expr.doit() == -44 * j == -Sum(i * j, (i, 2, 9)).doit()
+    expr = Sum(i * j, (i, 1, 10))
+    assert expr.doit() == 55 * j
