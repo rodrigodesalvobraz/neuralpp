@@ -1,22 +1,29 @@
 from __future__ import annotations
 
 import builtins
-from typing import Iterable, List, Set
-
-from .expression import Variable, Expression, Context, Constant
+import operator
+from typing import Iterable, List, Set, Tuple
+from .expression import Variable, Expression, Context, Constant, FunctionApplication
 from .basic_expression import BasicExpression
-from .z3_expression import Z3SolverExpression
+from .z3_expression import Z3SolverExpression, Z3Expression
 
 
 class ClosedInterval(BasicExpression):
     """ [lower_bound, upper_bound] """
-
     def __init__(self, lower_bound, upper_bound):
         super().__init__(Set)
         if lower_bound > upper_bound:
             raise AttributeError(f'[{lower_bound},{upper_bound}] is an empty interval.')
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
+
+    @property
+    def lower_bound(self) -> Expression:
+        return self._lower_bound
+
+    @property
+    def upper_bound(self) -> Expression:
+        return self._upper_bound
 
     @property
     def subexpressions(self) -> List[Expression]:
@@ -39,15 +46,8 @@ class ClosedInterval(BasicExpression):
         if not isinstance(other, ClosedInterval):
             return False
         return self.lower_bound.internal_object_eq(other.lower_bound) and \
-               self.upper_bound.internal_object_eq(other.upper_bound)
+            self.upper_bound.internal_object_eq(other.upper_bound)
 
-    @property
-    def lower_bound(self) -> Expression:
-        return self._lower_bound
-
-    @property
-    def upper_bound(self) -> Expression:
-        return self._upper_bound
 
     def __iter__(self) -> Iterable[int]:
         """
@@ -76,6 +76,18 @@ class DottedIntervals(BasicExpression):
         self._interval = interval
         self._dots = dots
 
+    @property
+    def interval(self) -> ClosedInterval:
+        return self._interval
+
+    @property
+    def dots(self) -> List[Expression]:
+        return self._dots
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.interval] + self.dots
+
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise NotImplementedError("TODO")
 
@@ -86,26 +98,119 @@ class DottedIntervals(BasicExpression):
         raise NotImplementedError("TODO")
 
     @property
-    def subexpressions(self) -> List[Expression]:
-        return [self.interval] + self.dots
-
-    @property
-    def dots(self) -> List[Expression]:
-        return self._dots
-
-    @property
-    def interval(self) -> ClosedInterval:
-        return self._interval
-
-    @property
     def __iter__(self) -> Iterable[int]:
         raise NotImplementedError("TODO")
 
 
 def from_constraint(index: Variable, constraint: Context) -> Expression:
     """
-    @param index:
-    @param constraint:
-    @return: an if-then-else tree whose leaves are DottedIntervals
+    @param index: the variable that the interval is for
+    @param constraint: the context that constrains the variable
+    @return: an DottedInterval
+
+    This currently only supports the most basic of constraints
+    For example, x > 0 and x <= 5 should return an interval [1, 5]
+    More complicated cases will be added later
     """
-    raise NotImplementedError("TODO")
+    closed_interval = ClosedInterval(None, None)
+    exceptions = []
+    for subexpression in constraint.subexpressions:
+        if (isinstance(subexpression, FunctionApplication)):
+            closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval, exceptions)
+
+    return DottedIntervals(closed_interval, exceptions)
+
+def _extract_bound_from_constraint(
+    index: Variable,
+    constraint: Expression,
+    closed_interval: ClosedInterval,
+    exceptions: List[Expression]
+) -> Tuple(ClosedInterval, List[Expression]):
+    """
+    @param index: the variable that the interval is for
+    @param constraint: the context that constrains the variable
+    @param closed_interval: the current ClosedInterval
+    @exceptions: a list of exceptions
+    @return: a tuple of closed_interval and list of exceptions
+
+    Extracts the operator, where in the expression the variable is, and possible lower or upper bound
+
+    For example, the constraint is (>=, x, 5). Possible_inequality will be >=, variable_index will be 1,
+    and bound will be 5
+
+    Sets the possible bound if it's greater than the current lower or less than the current upper by passing
+    it into _check_and_set_bounds
+    """
+    possible_inequality = constraint.subexpressions[0].value
+
+    variable_index = None
+    bound = None
+    if constraint.subexpressions[1].syntactic_eq(index):
+        variable_index = 1
+        bound = constraint.subexpressions[2]
+    elif constraint.subexpressions[2].syntactic_eq(index):
+        variable_index = 2
+        bound = constraint.subexpressions[1]
+    else:
+        raise ValueError("intervals is not yet ready to handle more complicated cases")
+
+    match possible_inequality:
+        case operator.ge:
+            if variable_index == 1:
+                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+            elif variable_index == 2:
+                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+        case operator.le:
+            if variable_index == 1:
+                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+            elif variable_index == 2:
+                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+        case operator.gt:
+            if variable_index == 1:
+                bound = Z3Expression.new_constant(bound.value + 1)
+                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+            elif variable_index == 2:
+                bound = Z3Expression.new_constant(bound.value - 1)
+                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+        case operator.lt:
+            if variable_index == 1:
+                bound = Z3Expression.new_constant(bound.value - 1)
+                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+            elif variable_index == 2:
+                bound = Z3Expression.new_constant(bound.value + 1)
+                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+        case _:
+            raise ValueError(f"interval doesn't support {possible_inequality} yet")
+    return closed_interval, exceptions
+
+def _check_and_set_bounds(
+    index: int,
+    bound: Expression,
+    closed_interval: ClosedInterval,
+    exceptions: List[Expression]
+) -> Tuple(ClosedInterval, List[Expression]):
+    """
+    @param index: indicates which bound we are checking => 0 is lower bound and 1 is upper bound
+    @param bound: the Constant of the bound (the value inside will be an int)
+    @param closed_interval: the current ClosedInterval we have
+    @exceptions: a list of exceptions
+    @return: a tuple of the new closed_interval and list of exceptions
+
+    When checking the lower bounds: if the bound is >= the current lower bound, replace the current
+    lower bound with the bound. For example, if the context is x >= 4 and x >= 5, x has to be greater than 5
+    to fulfill the context.
+
+    When checking the upper bounds: if the bound is <= the current lower bound, replace the current
+    upper bound with the bound.
+    """
+    match index:
+        case 0:
+            if closed_interval.lower_bound is None or bound >= closed_interval.lower_bound():
+                closed_interval = closed_interval.set(0, bound)
+        case 1:
+            if closed_interval.upper_bound is None or bound <= closed_interval.upper_bound():
+                closed_interval =  closed_interval.set(1, bound)
+        case _:
+            raise IndexError(f"{index} is out of bounds")
+
+    return closed_interval, exceptions
