@@ -10,6 +10,14 @@ from .z3_expression import Z3SolverExpression
 
 class ClosedInterval(BasicExpression):
     """ [lower_bound, upper_bound] """
+
+    def __init__(self, lower_bound, upper_bound):
+        super().__init__(Set)
+        if lower_bound > upper_bound:
+            raise AttributeError(f'[{lower_bound},{upper_bound}] is an empty interval.')
+        self._lower_bound = lower_bound
+        self._upper_bound = upper_bound
+
     @property
     def subexpressions(self) -> List[Expression]:
         return [self.lower_bound, self.upper_bound]
@@ -33,11 +41,6 @@ class ClosedInterval(BasicExpression):
         return self.lower_bound.internal_object_eq(other.lower_bound) and \
                self.upper_bound.internal_object_eq(other.upper_bound)
 
-    def __init__(self, lower_bound, upper_bound):
-        super().__init__(Set)
-        self._lower_bound = lower_bound
-        self._upper_bound = upper_bound
-
     @property
     def lower_bound(self) -> Expression:
         return self._lower_bound
@@ -46,7 +49,7 @@ class ClosedInterval(BasicExpression):
     def upper_bound(self) -> Expression:
         return self._upper_bound
 
-    def to_range(self) -> Iterable[Expression]:
+    def __iter__(self) -> Iterable[int]:
         """
         If upper and lower bounds are constant, return a range that's iterable.
         Otherwise, raise
@@ -68,9 +71,10 @@ class ClosedInterval(BasicExpression):
 
 
 class DottedIntervals(BasicExpression):
-    @property
-    def subexpressions(self) -> List[Expression]:
-        return [self.interval] + self.dots
+    def __init__(self, interval: ClosedInterval, dots: List[Expression]):
+        super().__init__(Set)
+        self._interval = interval
+        self._dots = dots
 
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise NotImplementedError("TODO")
@@ -81,10 +85,9 @@ class DottedIntervals(BasicExpression):
     def internal_object_eq(self, other) -> bool:
         raise NotImplementedError("TODO")
 
-    def __init__(self, interval: ClosedInterval, dots: List[Expression]):
-        super().__init__(Set)
-        self._interval = interval
-        self._dots = dots
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.interval] + self.dots
 
     @property
     def dots(self) -> List[Expression]:
@@ -95,11 +98,11 @@ class DottedIntervals(BasicExpression):
         return self._interval
 
     @property
-    def __iter__(self) -> Iterable[Constant]:
+    def __iter__(self) -> Iterable[int]:
         raise NotImplementedError("TODO")
 
 
-def from_constraints(index: Variable, constraint: Context) -> Expression:
+def from_constraint(index: Variable, constraint: Context) -> Expression:
     """
     @param index:
     @param constraint:
