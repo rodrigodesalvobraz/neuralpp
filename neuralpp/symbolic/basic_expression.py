@@ -261,20 +261,24 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
 
 
 class BasicAbelianOperation(BasicConstant, AbelianOperation):
+    def __init__(self, operation: Callable, identity: Constant, inverse_function: Callable[[Expression], Expression]):
+        # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
+        self._identity = identity
+        self._inverse_function = inverse_function
+        element_type = identity.type
+        super().__init__(operation, Callable[[element_type, element_type], element_type])
+
+    def inverse(self, expr: Expression) -> Expression:
+        return self._inverse_function(expr)
+
     @property
     def identity(self) -> Constant:
         assert isinstance(self._identity, Constant)
         return self._identity
 
-    def __init__(self, operation: Callable, identity: Constant):
-        # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
-        self._identity = identity
-        element_type = identity.type
-        super().__init__(operation, Callable[[element_type, element_type], element_type])
-
 
 def basic_add_operation(type_) -> BasicAbelianOperation:
-    return BasicAbelianOperation(operator.add, BasicConstant(0, type_))
+    return BasicAbelianOperation(operator.add, BasicConstant(0, type_), operator.neg)
 
 
 class BasicSummation(BasicQuantifierExpression):

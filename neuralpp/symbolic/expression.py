@@ -530,6 +530,18 @@ class AbelianOperation(Constant, ABC):
     def element_type(self) -> ExpressionType:
         return self.identity.type
 
+    @abstractmethod
+    def inverse(self, expr: Expression) -> Expression:
+        """
+        The inverse `i` of any element `a` in an Abelian group is defined by:
+            i OP a = identity
+        where OP is the Abelian operation.
+        E.g., for integer addition,
+            (-a) + a = 0
+        so the inverse of element `a` is `-a`.
+        """
+        pass
+
 
 class QuantifierExpression(Expression, ABC):
     """
