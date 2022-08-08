@@ -101,13 +101,12 @@ class DottedIntervals(BasicExpression):
 
 def from_constraints(index: Variable, constraint: Context) -> Expression:
     """
-    @param index:
-    @param constraint:
-    @return: an if-then-else tree whose leaves are DottedIntervals
+    @param index: the variable that the interval is for
+    @param constraint: the context that constrains the variable
+    @return: an DottedInterval
 
     This currently only supports the most basic of constraints
-    For example, x > 0 and x <= 5
-    This should return an interval [1, 5]
+    For example, x > 0 and x <= 5 should return an interval [1, 5]
     More complicated cases will be added later
     """
     closed_interval = ClosedInterval(None, None)
@@ -125,9 +124,19 @@ def _extract_bound_from_constraint(
     exceptions: List[Expression]
 ) -> Tuple(ClosedInterval, List[Expression]):
     """
-    Helper function for from_constraints
-    Gets the possible lower or upper bound
-    Sets the possible bound if it's greater than the current lower or less than the current upper
+    @param index: the variable that the interval is for
+    @param constraint: the context that constrains the variable
+    @param closed_interval: the current ClosedInterval
+    @exceptions: a list of exceptions
+    @return: a tuple of closed_interval and list of exceptions
+
+    Extracts the operator, where in the expression the variable is, and possible lower or upper bound
+
+    For example, the constraint is (>=, x, 5). Possible_inequality will be >=, variable_index will be 1,
+    and bound will be 5
+
+    Sets the possible bound if it's greater than the current lower or less than the current upper by passing
+    it into _check_and_set_bounds
     """
     possible_inequality = constraint.subexpressions[0].value
 
@@ -146,25 +155,25 @@ def _extract_bound_from_constraint(
         case operator.ge:
             if variable_index == 1:
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
-            if variable_index == 2:
+            elif variable_index == 2:
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
         case operator.le:
             if variable_index == 1:
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
-            if variable_index == 2:
+            elif variable_index == 2:
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
         case operator.gt:
             if variable_index == 1:
                 bound = Z3Expression.new_constant(bound.value + 1)
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
-            if variable_index == 2:
+            elif variable_index == 2:
                 bound = Z3Expression.new_constant(bound.value - 1)
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
         case operator.lt:
             if variable_index == 1:
                 bound = Z3Expression.new_constant(bound.value - 1)
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
-            if variable_index == 2:
+            elif variable_index == 2:
                 bound = Z3Expression.new_constant(bound.value + 1)
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
         case _:
@@ -177,6 +186,21 @@ def _check_and_set_bounds(
     closed_interval: ClosedInterval,
     exceptions: List[Expression]
 ) -> Tuple(ClosedInterval, List[Expression]):
+    """
+    @param index: indicates which bound we are checking => 0 is lower bound and 1 is upper bound
+    @param bound: the Constant of the bound (the value inside will be an int)
+    @param closed_interval: the current ClosedInterval we have
+    @exceptions: a list of exceptions
+    @return: a tuple of the new closed_interval and list of exceptions
+
+    When checking the lower bounds: if the bound is >= the current lower bound, replace the current
+    lower bound with the bound. For example, if the context is x >= 4 and x >= 5, x has to be greater than 5
+    to fulfill the context.
+
+    When checking the upper bounds: if the bound is <= the current lower bound, replace the current
+    upper bound with the bound.
+    """
+
     match index:
         case 0:
             if closed_interval.lower_bound is None or bound >= closed_interval.lower_bound():
