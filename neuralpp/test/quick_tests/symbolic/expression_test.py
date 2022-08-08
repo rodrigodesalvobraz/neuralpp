@@ -410,3 +410,10 @@ def test_function_application_eq():
     fa2 = BasicFunctionApplication(int_add, [a])
     assert not fa.internal_object_eq(fa2)
     assert not fa.syntactic_eq(fa2)
+
+
+def test_abelian_operation():
+    from neuralpp.symbolic.basic_expression import basic_add_operation
+    a = BasicVariable('a', int)
+    a_plus_one = a + 1
+    assert basic_add_operation(int).inverse(a_plus_one).syntactic_eq(-(a + 1))

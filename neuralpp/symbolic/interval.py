@@ -12,6 +12,8 @@ class ClosedInterval(BasicExpression):
     """ [lower_bound, upper_bound] """
     def __init__(self, lower_bound, upper_bound):
         super().__init__(Set)
+        if lower_bound > upper_bound:
+            raise AttributeError(f'[{lower_bound},{upper_bound}] is an empty interval.')
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound
 
@@ -46,7 +48,8 @@ class ClosedInterval(BasicExpression):
         return self.lower_bound.internal_object_eq(other.lower_bound) and \
             self.upper_bound.internal_object_eq(other.upper_bound)
 
-    def __iter__(self) -> Iterable[Expression]:
+
+    def __iter__(self) -> Iterable[int]:
         """
         If upper and lower bounds are constant, return a range that's iterable.
         Otherwise, raise
@@ -95,11 +98,11 @@ class DottedIntervals(BasicExpression):
         raise NotImplementedError("TODO")
 
     @property
-    def __iter__(self) -> Iterable[Constant]:
+    def __iter__(self) -> Iterable[int]:
         raise NotImplementedError("TODO")
 
 
-def from_constraints(index: Variable, constraint: Context) -> Expression:
+def from_constraint(index: Variable, constraint: Context) -> Expression:
     """
     @param index: the variable that the interval is for
     @param constraint: the context that constrains the variable
