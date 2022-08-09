@@ -15,3 +15,17 @@ def test_basic_constant_closed_intervals():
 
     assert interval.lower_bound.syntactic_eq(Z3Expression.new_constant(1))
     assert interval.upper_bound.syntactic_eq(Z3Expression.new_constant(4))
+
+
+def test_basic_constant_closed_intervals():
+    i = BasicVariable('i', int)
+    x = BasicVariable('x', int)
+
+    empty_context = Z3SolverExpression()
+    constant_context = empty_context & (i < 5) & (i > x)
+
+    dotted_interval = from_constraint(i, constant_context)
+    interval = dotted_interval.interval
+
+    assert interval.lower_bound.syntactic_eq(1+x)
+    assert interval.upper_bound.syntactic_eq(Z3Expression.new_constant(4))

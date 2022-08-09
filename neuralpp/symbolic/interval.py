@@ -6,6 +6,9 @@ from typing import Iterable, List, Set, Tuple, Optional
 from .expression import Variable, Expression, Context, Constant, FunctionApplication
 from .basic_expression import BasicExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
+from .sympy_interpreter import SymPyInterpreter
+
+_simplifier = SymPyInterpreter()
 
 
 class ClosedInterval(BasicExpression):
@@ -167,17 +170,17 @@ def _extract_bound_from_constraint(
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
         case operator.gt:
             if variable_index == 1:
-                bound = Z3Expression.new_constant(bound.value + 1)
+                bound = _simplifier.simplify(bound + 1)
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
             elif variable_index == 2:
-                bound = Z3Expression.new_constant(bound.value - 1)
+                bound = _simplifier.simplify(bound - 1)
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
         case operator.lt:
             if variable_index == 1:
-                bound = Z3Expression.new_constant(bound.value - 1)
+                bound = _simplifier.simplify(bound - 1)
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
             elif variable_index == 2:
-                bound = Z3Expression.new_constant(bound.value + 1)
+                bound = _simplifier.simplify(bound + 1)
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
         case _:
             raise ValueError(f"interval doesn't support {possible_inequality} yet")

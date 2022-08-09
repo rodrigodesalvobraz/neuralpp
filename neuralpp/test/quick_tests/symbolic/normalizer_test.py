@@ -1,4 +1,7 @@
+import fractions
+
 import pytest
+import sympy
 import z3
 from typing import Callable
 
@@ -7,6 +10,7 @@ from neuralpp.symbolic.general_normalizer import GeneralNormalizer
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation, BasicConstant, BasicFunctionApplication
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Variable
+from neuralpp.symbolic.sympy_expression import SymPyExpression
 
 
 def test_normalizer1():
@@ -94,8 +98,13 @@ def test_quantifier_normalizer():
     normalizer = GeneralNormalizer()
     assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(45))
 
-    print(normalizer.normalize(BasicSummation(int, i, i_range, i + 1), context))
     assert normalizer.normalize(BasicSummation(int, i, i_range, i + 1), context).syntactic_eq(BasicConstant(54))
+
+    x = BasicVariable('x', int)
+    i_range_symbolic = empty_context & (x < i) & (i < 100)
+    xx = sympy.symbols('x')
+    assert normalizer.normalize(BasicSummation(int, i, i_range_symbolic, i + 1), context).sympy_object == \
+           -xx ** 2 / 2 - 3 * xx / 2 + 5049
 
     context = empty_context & (i < 5)
     # raises ValueError because the context should not contain index (in this case i),
@@ -124,8 +133,6 @@ def test_quantifier_normalizer():
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
         BasicSummation(int, i, empty_context & (j < i) & (5 < i), i + j) +
         BasicSummation(int, i, empty_context & (j < i) & ~(5 < i), i))
-
-    sum1 = if_then_else(j > 5, i + j, sum_)
 
     assert(normalizer.normalize(BasicSummation(int, j, empty_context & (10 > j) & (j > 5), i + j),
                                 empty_context)).syntactic_eq(30 + 4 * i)
