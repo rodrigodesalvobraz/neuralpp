@@ -55,7 +55,8 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
             return expression
         case FunctionApplication(function=function, arguments=arguments):
             return _normalize_function_application(function, arguments, context)
-        case QuantifierExpression(operation=operation, index=index, constraint=constraint, body=body):
+        case QuantifierExpression(operation=operation, index=index, constraint=constraint, body=body,
+                                  is_integral=is_integral):
             if context.contains(index):
                 raise ValueError(f"context {context} should not contain index {index}")
             if context.is_known_to_imply(~constraint):
@@ -66,20 +67,24 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                                          arguments=[condition, then, else_]):
                     if condition.contains(index):
                         return _normalize(
-                            operation(BasicQuantifierExpression(operation, index, constraint & condition, then),
-                                      BasicQuantifierExpression(operation, index, constraint & ~condition, else_)),
+                            operation(BasicQuantifierExpression(operation, index, constraint & condition, then,
+                                                                is_integral),
+                                      BasicQuantifierExpression(operation, index, constraint & ~condition, else_,
+                                                                is_integral)),
                             context)
                     else:
                         return _normalize_conditional(condition,
-                                                      BasicQuantifierExpression(operation, index, constraint, then),
-                                                      BasicQuantifierExpression(operation, index, constraint, else_),
+                                                      BasicQuantifierExpression(operation, index, constraint, then,
+                                                                                is_integral),
+                                                      BasicQuantifierExpression(operation, index, constraint, else_,
+                                                                                is_integral),
                                                       context)
                 case _:
-                    return _eliminate(operation, index, constraint, normalized_body, context)
+                    return _eliminate(operation, index, constraint, normalized_body, is_integral, context)
 
 
 def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
-               context: Z3SolverExpression) -> Expression:
+               is_integral: bool, context: Z3SolverExpression) -> Expression:
     """
     Eliminates all quantifiers by doing the "summation" (or to use a Computer Science term, "reduction").
     In particular, we expect body and result to be normalized quantifiers-at-leaves.
@@ -91,7 +96,8 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
     """
     if context.is_known_to_imply(~constraint):
         return operation.identity
-    return _eliminator.eliminate(operation, index, constraint, body, context)
+    result = _eliminator.eliminate(operation, index, constraint, body, is_integral, context)
+    return _simplifier.simplify(result, context)
 
 
 def _normalize_function_application(function: Expression,

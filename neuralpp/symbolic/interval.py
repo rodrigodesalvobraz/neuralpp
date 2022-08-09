@@ -67,6 +67,10 @@ class ClosedInterval(BasicExpression):
         return self.upper_bound - self.lower_bound + 1
 
     def to_context(self, index: Variable) -> Context:
+        if self.lower_bound is None:
+            raise AttributeError("lower bound is None")
+        if self.upper_bound is None:
+            raise AttributeError("upper bound is None")
         result = Z3SolverExpression() & (index >= self.lower_bound) & (index <= self.upper_bound)
         assert isinstance(result, Context)  # otherwise lower_bound <= upper_bound is unsatisfiable
         return result
@@ -104,10 +108,11 @@ class DottedIntervals(BasicExpression):
         raise NotImplementedError("TODO")
 
 
-def from_constraint(index: Variable, constraint: Context) -> Expression:
+def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool) -> Expression:
     """
     @param index: the variable that the interval is for
     @param constraint: the context that constrains the variable
+    @param is_integral: whether asking for an integration (if yes return as is, instead of rounding), a bit hacky
     @return: an DottedInterval
 
     This currently only supports the most basic of constraints
@@ -118,7 +123,10 @@ def from_constraint(index: Variable, constraint: Context) -> Expression:
     exceptions = []
     for subexpression in constraint.subexpressions:
         if isinstance(subexpression, FunctionApplication):
-            closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval, exceptions)
+            closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval,
+                                                                         exceptions,
+                                                                         is_integral,
+                                                                         )
 
     return DottedIntervals(closed_interval, exceptions)
 
@@ -127,7 +135,8 @@ def _extract_bound_from_constraint(
     index: Variable,
     constraint: Expression,
     closed_interval: ClosedInterval,
-    exceptions: List[Expression]
+    exceptions: List[Expression],
+    is_integral: bool,
 ) -> Tuple[ClosedInterval, List[Expression]]:
     """
     @param index: the variable that the interval is for
@@ -155,7 +164,7 @@ def _extract_bound_from_constraint(
         variable_index = 2
         bound = constraint.subexpressions[1]
     else:
-        raise ValueError("intervals is not yet ready to handle more complicated cases")
+        raise ValueError(f"intervals is not yet ready to handle more complicated cases {constraint} {index}")
 
     match possible_inequality:
         case operator.ge:
@@ -170,17 +179,21 @@ def _extract_bound_from_constraint(
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
         case operator.gt:
             if variable_index == 1:
-                bound = _simplifier.simplify(bound + 1)
+                if not is_integral:
+                    bound = _simplifier.simplify(bound + 1)
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
             elif variable_index == 2:
-                bound = _simplifier.simplify(bound - 1)
+                if not is_integral:
+                    bound = _simplifier.simplify(bound - 1)
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
         case operator.lt:
             if variable_index == 1:
-                bound = _simplifier.simplify(bound - 1)
+                if not is_integral:
+                    bound = _simplifier.simplify(bound - 1)
                 closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
             elif variable_index == 2:
-                bound = _simplifier.simplify(bound + 1)
+                if not is_integral:
+                    bound = _simplifier.simplify(bound + 1)
                 closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
         case _:
             raise ValueError(f"interval doesn't support {possible_inequality} yet")

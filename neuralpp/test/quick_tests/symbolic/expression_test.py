@@ -156,7 +156,9 @@ def test_basic_quantifier_expressions():
     assert new_sum.syntactic_eq(BasicSummation(int, a, context & (0 < a) & (a < 10), a))
 
     assert sum_.set(0, int_multiply).syntactic_eq(BasicQuantifierExpression(int_multiply, i,
-                                                                            context & (0 < i) & (i < 10), i))
+                                                                            context & (0 < i) & (i < 10), i,
+                                                                            False
+                                                                            ))
 
     sum_ia = new_sum.set(3, i * a)
     nested_sum = sum_.set(3, sum_ia)

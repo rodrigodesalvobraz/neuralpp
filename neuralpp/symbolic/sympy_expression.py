@@ -133,6 +133,10 @@ def _is_sympy_sum(sympy_object: sympy.Basic) -> bool:
     return isinstance(sympy_object, sympy.Sum)
 
 
+def _is_sympy_integral(sympy_object: sympy.Basic) -> bool:
+    return isinstance(sympy_object, sympy.Integral)
+
+
 def _build_type_dict(sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]) -> None:
     update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
@@ -171,6 +175,24 @@ class SymPyExpression(Expression, ABC):
                                                                 upper_bound.sympy_object,
                                                                 ),
                                                                ).doit(),
+                                                     type_dict)
+        except Exception as exc:
+            return None
+
+    @staticmethod
+    def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
+            -> Optional[Expression]:
+        """ try to compute the integral symbolically, if fails, return None"""
+        try:
+            body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
+                                                     for argument in [body, index, lower_bound, upper_bound]]
+            type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
+            return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object,
+                                                                    (index.sympy_object,
+                                                                     lower_bound.sympy_object,
+                                                                     upper_bound.sympy_object,
+                                                                     ),
+                                                                    ).doit(),
                                                      type_dict)
         except Exception as exc:
             return None
@@ -233,6 +255,7 @@ class SymPyExpression(Expression, ABC):
 
     @classmethod
     def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  is_integral: bool,
                                   ) -> Expression:
         raise NotImplementedError()
 
@@ -270,7 +293,7 @@ class SymPyExpression(Expression, ABC):
                 return False
 
     @staticmethod
-    def from_sympy_object(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, Expression]) -> SymPyExpression:
+    def from_sympy_object(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> SymPyExpression:
         # Here we just try to find a type of expression for sympy object.
         if isinstance(sympy_object, sympy.Symbol):
             return SymPyVariable(sympy_object, type_dict[sympy_object])
@@ -278,6 +301,8 @@ class SymPyExpression(Expression, ABC):
             return SymPyConstant(sympy_object, _infer_sympy_object_type(sympy_object, type_dict))
         elif _is_sympy_sum(sympy_object):
             return SymPySummation(sympy_object, type_dict)
+        elif _is_sympy_integral(sympy_object):
+            raise NotImplementedError("expect sympy to eliminate integral sign. TODO")
         else:
             return SymPyFunctionApplication(sympy_object, type_dict)
 
@@ -532,6 +557,10 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
         expression_type = _infer_sympy_object_type(sympy_object.args[0], type_dict)
         # sympy.Sum(body, (index, lower, upper))
         super().__init__(sympy_object, expression_type, type_dict)
+
+    @property
+    def is_integral(self) -> bool:
+        return False
 
     @property
     def operation(self) -> AbelianOperation:

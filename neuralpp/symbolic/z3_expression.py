@@ -290,6 +290,7 @@ class Z3Expression(Expression, ABC):
 
     @classmethod
     def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  is_integral: bool,
                                   ) -> Expression:
         raise NotImplementedError()
 

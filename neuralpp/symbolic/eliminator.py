@@ -8,10 +8,11 @@ from typing import Optional
 import operator
 
 
-def _eliminate_interval(operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression) \
+def _eliminate_interval(operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
+                        is_integral: bool) \
         -> Expression:
     # try to solve symbolically
-    result = _symbolically_eliminate(operation, index, interval, body)
+    result = _symbolically_eliminate(operation, index, interval, body, is_integral)
     if result is not None:
         return result
 
@@ -21,8 +22,7 @@ def _eliminate_interval(operation: AbelianOperation, index: Variable, interval: 
     #     return reduce(operation,
     #                   map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
     #                   operation.identity)
-
-    return BasicQuantifierExpression(operation, index, interval.to_context(index), body)
+    return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
 
 
 def _repeat_n(operation: AbelianOperation, expression: Expression, size: Expression) -> Optional[Expression]:
@@ -33,11 +33,16 @@ def _repeat_n(operation: AbelianOperation, expression: Expression, size: Express
     return None  # TODO: expand this
 
 
-def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression) \
+def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
+                            is_integral: bool) \
         -> Optional[Expression]:
     if operation.value == operator.add:
-        if (result := Eliminator.symbolic_sum(body, index, interval)) is not None:
-            return result
+        if not is_integral:
+            if (result := Eliminator.symbolic_sum(body, index, interval)) is not None:
+                return result
+        else:
+            if (result := Eliminator.symbolic_integral(body, index, interval)) is not None:
+                return result
 
     if isinstance(body, Constant):
         # repeat addition: multiplication, repeat multiplication: power
@@ -48,22 +53,26 @@ def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interv
 class Eliminator:
     @staticmethod
     def eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
-                  context: Context) -> Expression:
+                  is_integral: bool, context: Context) -> Expression:
         def eliminate_at_leaves(dotted_interval: DottedIntervals) -> Expression:
             if not isinstance(dotted_interval, DottedIntervals):
                 raise AttributeError("Expect leaves to be DottedIntervals")
-            result = _eliminate_interval(operation, index, dotted_interval.interval, body)
+            result = _eliminate_interval(operation, index, dotted_interval.interval, body, is_integral)
             if not dotted_interval.dots:  # empty dots
                 return result
             inverse = operation.inverse(reduce(operation, dotted_interval.dots, operation.identity))
             return operation(result, inverse)
 
         try:
-            conditional_intervals = from_constraint(index, constraint & context)
+            conditional_intervals = from_constraint(index, constraint, context, is_integral)
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
-            return BasicQuantifierExpression(operation, index, constraint, body)
+            return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
     @staticmethod
     def symbolic_sum(body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
         return SymPyExpression.symbolic_sum(body, index, interval.lower_bound, interval.upper_bound)
+
+    @staticmethod
+    def symbolic_integral(body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
+        return SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound)
