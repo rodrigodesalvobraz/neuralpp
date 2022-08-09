@@ -1,12 +1,10 @@
-from .expression import QuantifierExpression, Context, Expression, Constant, AbelianOperation, Variable, \
-    FunctionApplication
+from .expression import Context, Expression, Constant, AbelianOperation, Variable
 from .basic_expression import BasicQuantifierExpression
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint
-from .constants import if_then_else
-import neuralpp.symbolic.functions as functions
+from .util import map_leaves_of_if_then_else
 from functools import reduce
-from typing import Optional, Callable
+from typing import Optional
 import operator
 
 
@@ -47,27 +45,13 @@ def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interv
     return None
 
 
-def _map_leaves(conditional_intervals: Expression,
-                function: Callable[[DottedIntervals], Expression]) -> Expression:
-    """
-    @param conditional_intervals: expect an if-then-else tree with leaves being DottedIntervals
-    @param function: map function
-    @return: an Expression with each DottedIntervals i mapped to f(i)
-    """
-    match conditional_intervals:
-        case FunctionApplication(function=Constant(value=functions.conditional), arguments=[if_, then, else_]):
-            return if_then_else(if_, _map_leaves(then, function), _map_leaves(else_, function))
-        case DottedIntervals():
-            return function(conditional_intervals)
-        case _:
-            raise AttributeError("Unexpected subtree.")
-
-
 class Eliminator:
     @staticmethod
     def eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                   context: Context) -> Expression:
         def eliminate_at_leaves(dotted_interval: DottedIntervals) -> Expression:
+            if not isinstance(dotted_interval, DottedIntervals):
+                raise AttributeError("Expect leaves to be DottedIntervals")
             result = _eliminate_interval(operation, index, dotted_interval.interval, body)
             if not dotted_interval.dots:  # empty dots
                 return result
@@ -76,7 +60,7 @@ class Eliminator:
 
         try:
             conditional_intervals = from_constraint(index, constraint & context)
-            return _map_leaves(conditional_intervals, eliminate_at_leaves)
+            return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             return BasicQuantifierExpression(operation, index, constraint, body)
 
