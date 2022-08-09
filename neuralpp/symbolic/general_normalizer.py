@@ -6,11 +6,13 @@ from .z3_expression import Z3SolverExpression
 from .constants import basic_true, basic_false, if_then_else
 from .parameters import sympy_evaluate
 from .basic_expression import BasicQuantifierExpression, BasicExpression
+from .eliminator import Eliminator
 import neuralpp.symbolic.functions as functions
 from typing import List
 
 
 _simplifier = ContextSimplifier()
+_eliminator = Eliminator()
 
 
 def _normalize_conditional(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
@@ -80,9 +82,6 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
                context: Z3SolverExpression) -> Expression:
     """
     Eliminates all quantifiers by doing the "summation" (or to use a Computer Science term, "reduction").
-    Currently, a very naive placeholder.
-    In particular, we allow eliminate() to accept body and return expression that contains quantifier,
-    thus it is a "partial/best-effort elimination".
     In particular, we expect body and result to be normalized quantifiers-at-leaves.
 
     Future work: more complicated elimination algorithm, which actually tries to `eliminate` quantifiers.
@@ -92,7 +91,7 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
     """
     if context.is_known_to_imply(~constraint):
         return operation.identity
-    return BasicQuantifierExpression(operation, index, constraint, _simplifier.simplify(body, context & constraint))
+    return _eliminator.eliminate(operation, index, constraint, body, context)
 
 
 def _normalize_function_application(function: Expression,

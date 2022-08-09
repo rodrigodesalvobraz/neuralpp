@@ -299,6 +299,12 @@ class Expression(ABC):
     def __rmul__(self, other: Any) -> Expression:
         return self._new_binary_arithmetic(other, operator.mul, reverse=True)
 
+    def __pow__(self, other: Any) -> Expression:
+        return self._new_binary_arithmetic(other, operator.pow)
+
+    def __rpow__(self, other) -> Expression:
+        return self._new_binary_arithmetic(other, operator.pow, reverse=True)
+
     def __truediv__(self, other: Any) -> Expression:
         return self._new_binary_arithmetic(other, operator.truediv)
 
