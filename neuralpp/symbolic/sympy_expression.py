@@ -165,9 +165,14 @@ class SymPyExpression(Expression, ABC):
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            return SymPyExpression.from_sympy_object(sympy.Sum(body, (index, lower_bound, upper_bound)).doit(),
+            return SymPyExpression.from_sympy_object(sympy.Sum(body.sympy_object,
+                                                               (index.sympy_object,
+                                                                lower_bound.sympy_object,
+                                                                upper_bound.sympy_object,
+                                                                ),
+                                                               ).doit(),
                                                      type_dict)
-        except Exception:
+        except Exception as exc:
             return None
 
     @classmethod

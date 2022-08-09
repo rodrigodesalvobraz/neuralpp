@@ -92,8 +92,10 @@ def test_quantifier_normalizer():
 
     context = empty_context
     normalizer = GeneralNormalizer()
-    print(normalizer.normalize(sum_, context))
     assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(45))
+
+    print(normalizer.normalize(BasicSummation(int, i, i_range, i + 1), context))
+    assert normalizer.normalize(BasicSummation(int, i, i_range, i + 1), context).syntactic_eq(BasicConstant(54))
 
     context = empty_context & (i < 5)
     # raises ValueError because the context should not contain index (in this case i),
@@ -125,10 +127,12 @@ def test_quantifier_normalizer():
 
     sum1 = if_then_else(j > 5, i + j, sum_)
 
+    assert(normalizer.normalize(BasicSummation(int, j, empty_context & (10 > j) & (j > 5), i + j),
+                                empty_context)).syntactic_eq(30 + 4 * i)
     # Normalization of nested quantifier expression
     sum_ = BasicSummation(int, j, empty_context & (j < 10), if_then_else(j > 5, i + j, sum_))
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
-        BasicSummation(int, j, empty_context & (10 > j) & (j > 5), i + j) +
+        30 + 4 * i +
         BasicSummation(int, j, empty_context & (10 > j) & ~(5 < j),
                        BasicSummation(int, i, empty_context & (j < i) & (5 < i), i + j) +
                        BasicSummation(int, i, empty_context & (j < i) & ~(5 < i), i)))

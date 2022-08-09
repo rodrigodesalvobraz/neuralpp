@@ -53,7 +53,7 @@ class ClosedInterval(BasicExpression):
         """
         match self.lower_bound, self.upper_bound:
             case Constant(value=l, type=builtins.int), Constant(value=r, type=builtins.int):
-                return range(l, r)
+                return iter(range(l, r))
             case _:
                 raise TypeError("Lower and upper bounds must both be Constants!")
 
@@ -64,7 +64,7 @@ class ClosedInterval(BasicExpression):
         return self.upper_bound - self.lower_bound + 1
 
     def to_context(self, index: Variable) -> Context:
-        result = Z3SolverExpression() & index >= self.lower_bound & index <= self.upper_bound
+        result = Z3SolverExpression() & (index >= self.lower_bound) & (index <= self.upper_bound)
         assert isinstance(result, Context)  # otherwise lower_bound <= upper_bound is unsatisfiable
         return result
 

@@ -17,11 +17,12 @@ def _eliminate_interval(operation: AbelianOperation, index: Variable, interval: 
     if result is not None:
         return result
 
-    if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
-        # iterate through the interval if we can
-        return reduce(operation,
-                      map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
-                      operation.identity)
+    # TODO: enable this
+    # if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
+    #     # iterate through the interval if we can
+    #     return reduce(operation,
+    #                   map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
+    #                   operation.identity)
 
     return BasicQuantifierExpression(operation, index, interval.to_context(index), body)
 
@@ -76,7 +77,7 @@ class Eliminator:
         try:
             conditional_intervals = from_constraint(index, constraint & context)
             return _map_leaves(conditional_intervals, eliminate_at_leaves)
-        except Exception:
+        except Exception as exc:
             return BasicQuantifierExpression(operation, index, constraint, body)
 
     @staticmethod
