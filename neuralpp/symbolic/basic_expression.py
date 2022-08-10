@@ -77,11 +77,12 @@ class BasicExpression(Expression, ABC):
     @classmethod
     def new_quantifier_expression(cls,
                                   operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
+                                  is_integral: bool,
                                   ) -> Expression:
         if constraint.satisfiability_is_known and constraint.unsatisfiable:
             return operation.identity
         else:
-            return BasicQuantifierExpression(operation, index, constraint, body)
+            return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
@@ -219,11 +220,13 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
 
 
 class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
-    def __init__(self, operation: AbelianOperation, index: Variable, constraint: Context, body: Expression):
+    def __init__(self, operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
+                 is_integral: bool):
         self._operation = operation
         self._index = index
         self._constraint = constraint
         self._body = body
+        self._is_integral = is_integral
         argument_types, return_type = get_args(operation.type)
         if len(argument_types) != 2 or not (argument_types[0] == argument_types [1] == return_type):
             raise ValueError(f"Wrong operation type {operation.type}.")
@@ -231,6 +234,10 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
 
     def __hash__(self):
         return hash(tuple(self.subexpressions))
+
+    @property
+    def is_integral(self) -> bool:
+        return self._is_integral
 
     @property
     def operation(self) -> Constant:
@@ -254,8 +261,9 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
 
     def internal_object_eq(self, other) -> bool:
         match other:
-            case BasicQuantifierExpression(subexpressions=other_subexpressions):
-                return all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+            case BasicQuantifierExpression(subexpressions=other_subexpressions, is_integral=other_is_integral):
+                return self.is_integral == other_is_integral and \
+                       all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
 
@@ -281,10 +289,14 @@ def basic_add_operation(type_) -> BasicAbelianOperation:
     return BasicAbelianOperation(operator.add, BasicConstant(0, type_), operator.neg)
 
 
-class BasicSummation(BasicQuantifierExpression):
-    def __init__(self, type_: type, index: Variable, constraint: Context, body: Expression):
-        """
-        Expect type_ to be the argument type/return type of the summation.
-        E.g., the type_ of Summation{i in [0,100]}(i) should be `int`.
-        """
-        super().__init__(basic_add_operation(type_), index, constraint, body)
+def BasicSummation(type_: type, index: Variable, constraint: Context, body: Expression) -> BasicQuantifierExpression:
+    """
+    Expect type_ to be the argument type/return type of the summation.
+    E.g., the type_ of Summation{i in [0,100]}(i) should be `int`.
+    """
+    return BasicQuantifierExpression(basic_add_operation(type_), index, constraint, body, False)
+
+
+def BasicIntegral(index: Variable, constraint: Context, body: Expression) -> BasicQuantifierExpression:
+    # basic_add_operation.element_type is redundant here
+    return BasicQuantifierExpression(basic_add_operation(int), index, constraint, body, True)

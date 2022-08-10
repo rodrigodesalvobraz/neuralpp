@@ -290,6 +290,7 @@ class Z3Expression(Expression, ABC):
 
     @classmethod
     def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  is_integral: bool,
                                   ) -> Expression:
         raise NotImplementedError()
 
@@ -564,6 +565,19 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         return Z3SolverExpression.make(new_solver, new_dict)
 
     __rand__ = __and__
+
+    @staticmethod
+    def from_expression(expression: Expression) -> Z3SolverExpression:
+        # a possible improvement is to split expression into subexpressions if it's an "And"
+        assert isinstance(expression, Expression)
+        if isinstance(expression, Z3SolverExpression):
+            return expression
+
+        if not isinstance(expression, Z3Expression):
+            expression = Z3Expression.convert(expression)
+        new_solver = z3.Solver()
+        new_solver.add(expression.z3_object)
+        return Z3SolverExpression(new_solver)
 
     @cached_property
     def variable_replacement_dict(self):

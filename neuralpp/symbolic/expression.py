@@ -171,6 +171,7 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_quantifier_expression(cls, operation: Constant, index: Variable, constraint: Expression, body: Expression,
+                                  is_integral: bool,
                                   ) -> Expression:
         pass
 
@@ -186,7 +187,7 @@ class Expression(ABC):
                 return cls.new_variable(name, type_)
             case FunctionApplication(function=function, arguments=arguments):
                 return cls.new_function_application(function, arguments)
-            case QuantifierExpression(subexpressions=subexpressions):
+            case QuantifierExpression(subexpressions=subexpressions, is_integral=is_integral):
                 # There is no general solution to convert a QuantifierExpression to a SymPy-backed one.
                 # Unlike for FunctionApplication where the non-constructable is the exception,
                 # here only a few SymPy-backed quantifier expression can be constructed from a general interface.
@@ -195,7 +196,7 @@ class Expression(ABC):
                 # where operation is limited to Forall&Exists.
                 # So generally, we shouldn't convert quantifier expressions, only use BasicQuantifierExpression,
                 # and avoid ending up here.
-                return cls.new_quantifier_expression(*subexpressions)
+                return cls.new_quantifier_expression(*subexpressions, is_integral=is_integral)
             case _:
                 raise ValueError(f"invalid from_expression {from_expression}: {type(from_expression)}")
 
@@ -561,6 +562,16 @@ class QuantifierExpression(Expression, ABC):
     """
     @property
     @abstractmethod
+    def is_integral(self) -> bool:
+        """
+        @return: whether this QuantifierExpression is an "Integration" instead of a "Summation"
+        Currently only makes sense when self.operation.value == operator.add
+        This is a quick hack to support integral.
+        """
+        pass
+
+    @property
+    @abstractmethod
     def operation(self) -> AbelianOperation:
         """
         operation is a Constant wrapping a function.
@@ -591,7 +602,7 @@ class QuantifierExpression(Expression, ABC):
     def set(self, i: int, new_expression: Expression) -> QuantifierExpression:
         subexpressions = self.subexpressions
         subexpressions[i] = new_expression
-        return self.new_quantifier_expression(*subexpressions)
+        return self.new_quantifier_expression(*subexpressions, is_integral=self.is_integral)
 
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
         if from_expression.syntactic_eq(self):
@@ -599,7 +610,7 @@ class QuantifierExpression(Expression, ABC):
 
         # recursively do the replacement
         new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
-        return self.new_quantifier_expression(*new_subexpressions)
+        return self.new_quantifier_expression(*new_subexpressions, is_integral=self.is_integral)
 
     def set_operation(self, new_expression: Expression) -> QuantifierExpression:
         """
@@ -618,7 +629,8 @@ class QuantifierExpression(Expression, ABC):
         return self.set(3, new_expression)
 
     def __str__(self) -> str:
-        return f'Q_{self.operation}({self.index}:{self.constraint}, {self.body})'
+        sign = 'Integral' if self.is_integral and self.operation.value == operator.add else f'Q_{self.operation}'
+        return f'{sign}({self.index}:{self.constraint}, {self.body})'
 
 
 class NotTypedError(ValueError, TypeError):
