@@ -111,7 +111,8 @@ class DottedIntervals(BasicExpression):
 def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool) -> Expression:
     """
     @param index: the variable that the interval is for
-    @param constraint: the context that constrains the variable
+    @param constraint: the constraint of the quantifier expression
+    @param context: the context that the expression is in
     @param is_integral: whether asking for an integration (if yes return as is, instead of rounding), a bit hacky
     @return: an DottedInterval
 
@@ -142,7 +143,8 @@ def _extract_bound_from_constraint(
     @param index: the variable that the interval is for
     @param constraint: the context that constrains the variable
     @param closed_interval: the current ClosedInterval
-    @exceptions: a list of exceptions
+    @param exceptions: a list of exceptions
+    @param is_integral: whether we're extracting bound for an integral (in which case don't round)
     @return: a tuple of closed_interval and list of exceptions
 
     Extracts the operator, where in the expression the variable is, and possible lower or upper bound
