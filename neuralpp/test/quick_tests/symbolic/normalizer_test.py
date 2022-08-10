@@ -240,11 +240,11 @@ def test_quantifier_normalizer_integration():
 
     #          *
     #       /    \
-    #     if A   Integral
+    #     if A   Integral D\in(0,10)
     #     /  \    |
     #    B    C  B * if B>4
     #                /    \
-    #               B+C   Integral
+    #               B+C   Integral C\in(0,10)
     #                       |
     #                      if B<5
     #                      / \
@@ -254,11 +254,13 @@ def test_quantifier_normalizer_integration():
     #           /        \
     #      if B>4       if B>4
     #       /    \        /   \
-    #      *      ..   ..      * (= C * 10 * 50 = 500 * B * C)
+    #      *      ..   ..      * (= C * {right below} = 500 * B * C)
     #     /\                  /  \
-    #    B  Integral(D)      C   Integral(D)    (= *10)
+    #    B  Integral(D)      C   Integral(D,(0,10))    (= {body below} * 10 = 50 * B * 10 = 500 * B)
     #        |                    |
-    #       B*(B+C)             B*Integral(C)  (= B * 1/2 * C ** 2 {C:[0,10]} = 50 * B)
+    #       B*(B+C)             B*Integral(C,(0,10))  (= B * Integral(C\in(0,10),C) = B * 1/2 * C ** 2 {C:[0,10]} = 50 * B)
+    #                                  |
+    #                                  C
     f = BasicVariable('f', Callable[[int, int], int])
     A = BasicVariable('A', bool)
     B = BasicVariable('B', int)
