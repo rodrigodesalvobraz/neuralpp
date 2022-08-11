@@ -58,14 +58,18 @@ def return_type_after_application(callable_: Callable, number_of_arguments: int)
 type_order_in_arithmetic = [fractions.Fraction, float, int]
 
 
+def get_arithmetic_function_return_type_from_argument_types(argument_types: List[ExpressionType]) -> Callable:
+    return type_order_in_arithmetic[min(map(type_order_in_arithmetic.index, argument_types))]
+
+
 def get_arithmetic_function_type_from_argument_types(argument_types: List[ExpressionType]) -> Callable:
     try:
         # e.g., if float + int, the return type is float
-        return_type = type_order_in_arithmetic[min(map(type_order_in_arithmetic.index, argument_types))]
+        return_type = get_arithmetic_function_return_type_from_argument_types(argument_types)
         return Callable[argument_types, return_type]
     except ValueError as err:
         raise ValueError(f"Can only infer the return type from arithmetic argument types: "
-                         f"fractions.Fraction, float and int. {err}")
+                         f"fractions.Fraction, float and int. {argument_types}") from err
 
 
 class Expression(ABC):

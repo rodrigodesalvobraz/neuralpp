@@ -1,17 +1,58 @@
 from neuralpp.symbolic.basic_expression import BasicExpression
 from neuralpp.symbolic.expression import Variable
+from neuralpp.symbolic.basic_expression import BasicIntegral, BasicVariable
+from neuralpp.symbolic.z3_expression import Z3SolverExpression
 from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation
+from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
+from neuralpp.symbolic.sympy_expression import SymPyExpression
+from fractions import Fraction
+from sympy.utilities.autowrap import autowrap
+from timeit import timeit
+from pickle import dump, load
 
-x = Variable("x")
-mu1 = Variable("mu1")
-mu2 = Variable("mu2")
+x = BasicVariable("x", float)
+mu1 = BasicVariable("mu1", float)
+mu2 = BasicVariable("mu2", float)
 
 # P(x, mu1, mu2) = Normal(x | mu1, 1.0) * Normal(mu1 | mu2, 1.0) * Normal(mu2 | 0.0, 1.0) propto
-joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
-        * \
-        get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0) \
-        * \
-        get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0)
+joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0)
+# joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
+#         * \
+#         get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0) \
+#         * \
+#         get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0)
+
+#  if A & B then C else D
+# if A then if B then C else D
+
+
+def evaluation0():
+    # goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint)
+    goal = BasicIntegral(mu1, Z3SolverExpression(), joint)
+    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
+    print(f"evaluation result: {result}")
+    sympy_formula = SymPyExpression.convert(result).sympy_object
+    print(f"evaluation result: {sympy_formula}")
+
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    assert sympy_formula.subs({x: 1.0}) == sympy_formula_cython(1.0)
+    print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
+
+
+def evaluation():
+    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint)
+    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
+    print(f"evaluation result: {result}")
+
+    sympy_formula = SymPyExpression.convert(result).sympy_object
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    assert sympy_formula.subs({x: 1.0, mu2: 0.0}) == sympy_formula_cython(1.0, 0.0)
+    print(timeit(lambda: sympy_formula_cython(1.0, 0.0), number=1000))
+
+
+if __name__ == "__main__":
+    evaluation0()
+
 
 # P(x, mu2) propto
 # phi_x_mu2 = sum_mu1 joint   # we use phi to indicate an unnormalized distribution

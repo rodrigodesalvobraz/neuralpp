@@ -16,6 +16,7 @@ def _eliminate_interval(operation: AbelianOperation, index: Variable, interval: 
     if result is not None:
         return result
 
+    raise NotImplementedError("sympy cannot eliminate?")
     # TODO: enable this
     # if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
     #     # iterate through the interval if we can
@@ -67,6 +68,7 @@ class Eliminator:
             conditional_intervals = from_constraint(index, constraint, context, is_integral)
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
+            raise AttributeError("disable this for now") from exc
             return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
     @staticmethod

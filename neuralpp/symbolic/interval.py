@@ -7,6 +7,7 @@ from .expression import Variable, Expression, Context, Constant, FunctionApplica
 from .basic_expression import BasicExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
+from .sympy_expression import SymPyExpression, SymPyVariable
 
 _simplifier = SymPyInterpreter()
 
@@ -108,6 +109,26 @@ class DottedIntervals(BasicExpression):
         raise NotImplementedError("TODO")
 
 
+def _adjust(expression: Expression, variable: Variable) -> Expression:
+    from sympy import solve
+    from sympy import oo
+    sympy_expression = SymPyExpression.convert(expression)
+    sympy_var = SymPyExpression.convert(variable).sympy_object
+    print(f"solving {sympy_expression.sympy_object}")
+    answer = solve(sympy_expression.sympy_object, sympy_var)
+    if len(answer.args) > 2:
+        raise AttributeError("?")
+    if len(answer.args) == 2:
+        if answer.args[0].has(oo) or answer.args[0].has(-oo):
+            answer = answer.args[1]
+        elif answer.args[1].has(oo) or answer.args[1].has(-oo):
+            answer = answer.args[0]
+    if answer.has(oo) or answer.has(-oo):
+        raise NotImplementedError(f"TODO {answer} {sympy_expression.sympy_object}")
+    print(f"-> {answer}")
+    return SymPyExpression.from_sympy_object(answer, sympy_expression.type_dict)
+
+
 def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool) -> Expression:
     """
     @param index: the variable that the interval is for
@@ -120,10 +141,12 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     For example, x > 0 and x <= 5 should return an interval [1, 5]
     More complicated cases will be added later
     """
+    constraint = SymPyExpression.convert(constraint)  # make "and" structure plain
     closed_interval = ClosedInterval(None, None)
     exceptions = []
     for subexpression in constraint.subexpressions:
         if isinstance(subexpression, FunctionApplication):
+            subexpression = _adjust(subexpression, index)
             closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval,
                                                                          exceptions,
                                                                          is_integral,
@@ -224,11 +247,16 @@ def _check_and_set_bounds(
     """
     match index:
         case 0:
-            if closed_interval.lower_bound is None or bound >= closed_interval.lower_bound():
+            if closed_interval.lower_bound is None:
                 closed_interval = closed_interval.set(0, bound)
+            else:
+                raise NotImplementedError(f"TWO BOUNDS: {bound} {closed_interval.lower_bound}")
         case 1:
-            if closed_interval.upper_bound is None or bound <= closed_interval.upper_bound():
+            if closed_interval.upper_bound is None:
                 closed_interval = closed_interval.set(1, bound)
+            else:
+                # if bound <= closed_interval.upper_bound()
+                raise NotImplementedError(f"TWO BOUNDS: {bound} {closed_interval.upper_bound}")
         case _:
             raise IndexError(f"{index} is out of bounds")
 

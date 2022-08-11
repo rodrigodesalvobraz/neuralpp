@@ -36,7 +36,8 @@ def _get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> Expressi
 sort_type_relation = [
     (z3.IntSort(), int),
     (z3.BoolSort(), bool),
-    (z3.RealSort(), fractions.Fraction),
+    # (z3.RealSort(), fractions.Fraction),
+    (z3.RealSort(), float),  # HACK
     # (z3.FPSort(11, 53), float)  # FPSort(11,53) is double sort (IEEE754, ebits=11, sbits=53)
     # please refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_fp_sort() for why z3 floating point is not yet
     # supported
@@ -155,6 +156,8 @@ def _z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.mul
         case z3.Z3_OP_POWER:
             return operator.pow
+        case z3.Z3_OP_DIV:
+            return operator.truediv
         # if then else
         case z3.Z3_OP_ITE:
             return functions.conditional
@@ -220,6 +223,8 @@ def _apply_python_callable_on_z3_arguments(python_callable: Callable,
             return arguments[0] * arguments[1]
         case operator.pow:
             return arguments[0] ** arguments[1]
+        case operator.truediv:
+            return arguments[0] / arguments[1]
         # min/max
         case builtins.min:
             return z3.If(arguments[0] < arguments[1], arguments[0], arguments[1])
