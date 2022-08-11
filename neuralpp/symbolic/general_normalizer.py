@@ -15,6 +15,17 @@ _simplifier = ContextSimplifier()
 _eliminator = Eliminator()
 
 
+def conditional_given_context(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
+    """
+    """
+    if context.is_known_to_imply(condition):
+        return then
+    elif context.is_known_to_imply(~condition):
+        return else_
+    else:
+        return if_then_else(condition, then, else_,)
+
+
 def _normalize_conditional(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
     """
     Arguments condition-then-else_ forms an if-then-else statement.
@@ -30,6 +41,56 @@ def _normalize_conditional(condition: Expression, then: Expression, else_: Expre
         return if_then_else(condition,
                             _normalize(then, context & condition),
                             _normalize(else_, context & ~condition))
+
+
+def _split_into_literals(condition: Expression) -> List[Expression]:
+    from .sympy_interpreter import SymPyInterpreter
+    import operator
+    condition = SymPyInterpreter().simplify(condition)  # get an DNF
+    match condition:
+        case FunctionApplication(function=Constant(value=operator.or_)):
+            raise NotImplementedError("Not expecting OR")
+        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
+            return arguments
+        case _:
+            return [condition]
+
+
+def _normalize_quantifier_expression_given_literals(operation: AbelianOperation, index: Variable,
+                                                    conjunctive_constraint: Context, is_integral: bool,
+                                                    literals: List[Expression],
+                                                    then: Expression, else_: Expression,
+                                                    context: Z3SolverExpression):
+    """
+    when conditions is Empty, return
+    normalize operation{index:constraint, is_integral}(if literals then then else else_) given context
+    in the else, literals are adjusted into "conjunctive form", a & b & c..
+    """
+    if len(literals) == 1:
+        condition = literals[0]
+        if condition.contains(index):
+            return _normalize(
+                operation(BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral),
+                          BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral)),
+                context)
+        else:
+            return _normalize_conditional(condition,
+                                          BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral),
+                                          BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral),
+                                          context)
+    else:
+        condition = literals[0]
+        if condition.contains(index):
+            return _normalize(
+                operation(_normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & condition, is_integral, literals[1:], then, else_, context),
+                          _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & ~condition, is_integral, literals[1:], else_, else_, context)),
+                context)
+        else:
+            return _normalize_conditional(condition,
+                                          _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context),
+                                          _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], else_, else_, context),
+                                          context)
+
 
 
 def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
@@ -65,6 +126,15 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
             match normalized_body:
                 case FunctionApplication(function=Constant(value=functions.conditional),
                                          arguments=[condition, then, else_]):
+                    # assuming condition is conjunctive (does not contain OR)
+                    # if A & B then T {context: A&B} else E {context: ~A | ~B} (bad, we have OR here)
+                    #   [2,y]                                     x > y or x < 2
+                    # =>
+                    # if A then (if B then T {A&B} else E {A&~B}) else (if B then E {~A&B} else E{~A&~B})
+                    #                        [2,y]        x<=y and x < 2           x>y and x>=2     x>y and x<=2
+                    literals = _split_into_literals(condition)
+                    return _normalize_quantifier_expression_given_literals(operation, index, constraint, is_integral,
+                                                                           literals, then, else_, context)
                     if condition.contains(index):
                         return _normalize(
                             operation(BasicQuantifierExpression(operation, index, constraint & condition, then,

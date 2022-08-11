@@ -365,3 +365,13 @@ def test_codegen():
     sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
     assert sympy_formula.subs({AA: True, BB: 100, CC: 888}) == sympy_formula_cython(True, 100, 888)
     print(timeit(lambda: sympy_formula_cython(True, 100, 888), number=1000))
+
+
+def test_quantifier_normalizer_1():
+    i = BasicVariable('i', int)
+    j = BasicVariable('j', int)
+    empty_context = Z3SolverExpression()
+    normalizer = GeneralNormalizer()
+    sum_ = BasicSummation(int, i, Z3SolverExpression.from_expression(j < i) & (i < 100), if_then_else(i > 5, i + j, i))
+    expr = normalizer.normalize(sum_, empty_context)
+    print(SymPyExpression.convert(expr).sympy_object)

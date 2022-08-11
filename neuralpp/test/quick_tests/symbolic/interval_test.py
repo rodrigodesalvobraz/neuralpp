@@ -37,4 +37,4 @@ def test_basic_symbolic_closed_intervals():
     interval = dotted_interval.interval
 
     assert interval.lower_bound.syntactic_eq(3 + x)
-    assert interval.upper_bound.syntactic_eq(x + 5)
+    assert interval.upper_bound.syntactic_eq(5 + x)

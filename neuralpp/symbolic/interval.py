@@ -8,6 +8,7 @@ from .basic_expression import BasicExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
 from .sympy_expression import SymPyExpression, SymPyVariable
+from .constants import if_then_else
 
 _simplifier = SymPyInterpreter()
 
@@ -114,7 +115,6 @@ def _adjust(expression: Expression, variable: Variable) -> Expression:
     from sympy import oo
     sympy_expression = SymPyExpression.convert(expression)
     sympy_var = SymPyExpression.convert(variable).sympy_object
-    print(f"solving {sympy_expression.sympy_object}")
     answer = solve(sympy_expression.sympy_object, sympy_var)
     if len(answer.args) > 2:
         raise AttributeError("?")
@@ -125,8 +125,85 @@ def _adjust(expression: Expression, variable: Variable) -> Expression:
             answer = answer.args[0]
     if answer.has(oo) or answer.has(-oo):
         raise NotImplementedError(f"TODO {answer} {sympy_expression.sympy_object}")
-    print(f"-> {answer}")
     return SymPyExpression.from_sympy_object(answer, sympy_expression.type_dict)
+
+
+class MagicInterval:
+    """
+    One interval, but with non-deterministic lower/upperbounds, for exampel,
+    MagicInterval [{x,y}, {z,y}]  is
+    [x,z] if x < y and z > y
+    [y,z] if x >=y and z > y
+    [x,y] if x < y and z <= y
+    [y,y] if x >= y and z <= y
+    """
+    def __init__(self):
+        self._lower_bounds = []
+        self._upper_bounds = []
+
+    @property
+    def lower_bounds(self):
+        return self._lower_bounds
+
+    @property
+    def upper_bounds(self):
+        return self._upper_bounds
+
+    def add_lower_bound(self, lower_bound: Expression):
+        self._lower_bounds.append(lower_bound)
+
+    def add_upper_bound(self, upper_bound: Expression):
+        self._upper_bounds.append(upper_bound)
+
+    def to_conditional_intervals(self, context: Z3SolverExpression) -> Expression:
+        if len(self.lower_bounds) < 1 or len(self.upper_bounds) < 1:
+            raise AttributeError("bounds not set.")
+        return MagicInterval._to_conditional_intervals(self.lower_bounds, self.upper_bounds, context)
+
+    @staticmethod
+    def _to_conditional_intervals(lowers: List[Expression], uppers: List[Expression], context: Z3SolverExpression) -> Expression:
+        """ assume len(lowers) >= 1, len(uppers) >= 1. """
+        from .general_normalizer import conditional_given_context
+        if len(lowers) == 1 and len(uppers) == 1:
+            return DottedIntervals(ClosedInterval(lowers[0], uppers[0]), [])
+        if len(lowers) == 1:
+            condition = MagicInterval._first_is_min_condition(uppers)
+            return conditional_given_context(condition,
+                                             MagicInterval._to_conditional_intervals(lowers, [uppers[0]], context & condition),
+                                             MagicInterval._to_conditional_intervals(lowers, uppers[1:], context),
+                                             context)
+        else:
+            condition = MagicInterval._first_is_max_condition(lowers)
+            return conditional_given_context(condition,
+                                             MagicInterval._to_conditional_intervals([lowers[0]], uppers, context & condition),
+                                             MagicInterval._to_conditional_intervals(lowers[1:], uppers, context),
+                                             context)
+
+    @staticmethod
+    def _first_is_min_condition(uppers: List[Expression]) -> Expression:
+        """
+        @param uppers:
+        @return: Make a condition expression that the uppers[0] is the min of all uppers
+        """
+        from .constants import basic_true
+        min_upper = uppers[0]
+        result = basic_true
+        for other_upper in uppers[1:]:
+            return result & (min_upper < other_upper)
+        return result
+
+    @staticmethod
+    def _first_is_max_condition(lowers: List[Expression]) -> Expression:
+        """
+        @param lowers:
+        @return: Make a condition expression that the lowers[0] is the min of all lowers
+        """
+        from .constants import basic_true
+        max_lower = lowers[0]
+        result = basic_true
+        for other_lower in lowers[1:]:
+            return result & (max_lower > other_lower)
+        return result
 
 
 def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool) -> Expression:
@@ -141,32 +218,32 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     For example, x > 0 and x <= 5 should return an interval [1, 5]
     More complicated cases will be added later
     """
-    constraint = SymPyExpression.convert(constraint)  # make "and" structure plain
-    closed_interval = ClosedInterval(None, None)
-    exceptions = []
-    for subexpression in constraint.subexpressions:
-        if isinstance(subexpression, FunctionApplication):
-            subexpression = _adjust(subexpression, index)
-            closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval,
-                                                                         exceptions,
-                                                                         is_integral,
-                                                                         )
-
-    return DottedIntervals(closed_interval, exceptions)
+    from .sympy_interpreter import SymPyInterpreter
+    import operator
+    constraint = SymPyInterpreter().simplify(constraint)  # get an DNF
+    match constraint:
+        case FunctionApplication(function=Constant(value=operator.or_)):
+            raise NotImplementedError("Not expecting OR")
+        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
+            magic_interval = MagicInterval()
+            for argument in arguments:
+                argument = _adjust(argument, index)
+                _extract_bound_from_constraint(index, argument, magic_interval, is_integral)
+            return magic_interval.to_conditional_intervals(context)
+        case _:
+            raise NotImplementedError("Constraint should be AND of constraints")
 
 
 def _extract_bound_from_constraint(
     index: Variable,
     constraint: Expression,
-    closed_interval: ClosedInterval,
-    exceptions: List[Expression],
+    magic_interval: MagicInterval,
     is_integral: bool,
-) -> Tuple[ClosedInterval, List[Expression]]:
+):
     """
     @param index: the variable that the interval is for
     @param constraint: the context that constrains the variable
-    @param closed_interval: the current ClosedInterval
-    @param exceptions: a list of exceptions
+    @param magic_interval: record tracker
     @param is_integral: whether we're extracting bound for an integral (in which case don't round)
     @return: a tuple of closed_interval and list of exceptions
 
@@ -194,43 +271,42 @@ def _extract_bound_from_constraint(
     match possible_inequality:
         case operator.ge:
             if variable_index == 1:
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                _check_and_set_bounds(0, bound, magic_interval)
             elif variable_index == 2:
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                _check_and_set_bounds(1, bound, magic_interval)
         case operator.le:
             if variable_index == 1:
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                _check_and_set_bounds(1, bound, magic_interval)
             elif variable_index == 2:
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                _check_and_set_bounds(0, bound, magic_interval)
         case operator.gt:
             if variable_index == 1:
                 if not is_integral:
                     bound = _simplifier.simplify(bound + 1)
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                _check_and_set_bounds(0, bound, magic_interval)
             elif variable_index == 2:
                 if not is_integral:
                     bound = _simplifier.simplify(bound - 1)
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                _check_and_set_bounds(1, bound, magic_interval)
         case operator.lt:
             if variable_index == 1:
                 if not is_integral:
                     bound = _simplifier.simplify(bound - 1)
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                _check_and_set_bounds(1, bound, magic_interval)
             elif variable_index == 2:
                 if not is_integral:
                     bound = _simplifier.simplify(bound + 1)
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                _check_and_set_bounds(0, bound, magic_interval)
         case _:
             raise ValueError(f"interval doesn't support {possible_inequality} yet")
-    return closed_interval, exceptions
+    return magic_interval
 
 
 def _check_and_set_bounds(
     index: int,
     bound: Expression,
-    closed_interval: ClosedInterval,
-    exceptions: List[Expression]
-) -> Tuple[ClosedInterval, List[Expression]]:
+    magic_interval: MagicInterval
+):
     """
     @param index: indicates which bound we are checking => 0 is lower bound and 1 is upper bound
     @param bound: the Constant of the bound (the value inside will be an int)
@@ -247,17 +323,8 @@ def _check_and_set_bounds(
     """
     match index:
         case 0:
-            if closed_interval.lower_bound is None:
-                closed_interval = closed_interval.set(0, bound)
-            else:
-                raise NotImplementedError(f"TWO BOUNDS: {bound} {closed_interval.lower_bound}")
+            magic_interval.add_lower_bound(bound)
         case 1:
-            if closed_interval.upper_bound is None:
-                closed_interval = closed_interval.set(1, bound)
-            else:
-                # if bound <= closed_interval.upper_bound()
-                raise NotImplementedError(f"TWO BOUNDS: {bound} {closed_interval.upper_bound}")
+            magic_interval.add_upper_bound(bound)
         case _:
             raise IndexError(f"{index} is out of bounds")
-
-    return closed_interval, exceptions
