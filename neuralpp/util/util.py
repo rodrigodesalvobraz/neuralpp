@@ -2,7 +2,7 @@ import math
 import os
 import random
 from itertools import tee
-from typing import List, Iterable, Any, Set, TypeVar, Dict
+from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator
 
 import torch
 
@@ -36,7 +36,7 @@ def map_of_nested_list(f, o):
             raise e
 
 
-def pairwise(iterable):
+def pairwise(iterable) -> Iterator:
     """s -> (s0,s1), (s1,s2), (s2, s3), ..."""
     a, b = tee(iterable)
     next(b, None)
