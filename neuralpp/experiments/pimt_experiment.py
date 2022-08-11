@@ -69,7 +69,7 @@ def evaluation():
 
 
 if __name__ == "__main__":
-    evaluation0()
+    evaluation()
 
 
 # P(x, mu2) propto

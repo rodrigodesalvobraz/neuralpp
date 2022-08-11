@@ -79,7 +79,7 @@ def _normalize_quantifier_expression_given_literals(operation: AbelianOperation,
             else:
                 return if_then_else(condition,
                                     _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context),
-                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), contex),
+                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context),
                                     )
     else:
         condition = literals[0]
