@@ -30,6 +30,7 @@ def if_then_else(if_: Any, then_: Any, else_: Any):
     if (then_type == bool and else_type != bool) or (then_type != bool and else_type == bool):
         raise TypeError(f"Cannot accommodate types: {then_type} and {else_type}.")
     if then_type != else_type:
+        print(then_)
         print(else_)
         conditional_type = get_arithmetic_function_return_type_from_argument_types([then_type, else_type])
     else:

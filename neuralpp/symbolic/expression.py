@@ -55,7 +55,8 @@ def return_type_after_application(callable_: Callable, number_of_arguments: int)
         return Callable[argument_types[number_of_arguments:], return_type]
 
 
-type_order_in_arithmetic = [fractions.Fraction, float, int]
+# type_order_in_arithmetic = [fractions.Fraction, float, int]
+type_order_in_arithmetic = [float, fractions.Fraction, int]
 
 
 def get_arithmetic_function_return_type_from_argument_types(argument_types: List[ExpressionType]) -> Callable:
@@ -67,6 +68,15 @@ def get_arithmetic_function_type_from_argument_types(argument_types: List[Expres
         # e.g., if float + int, the return type is float
         return_type = get_arithmetic_function_return_type_from_argument_types(argument_types)
         return Callable[argument_types, return_type]
+    except ValueError as err:
+        raise ValueError(f"Can only infer the return type from arithmetic argument types: "
+                         f"fractions.Fraction, float and int. {argument_types}") from err
+
+def get_comparison_function_type_from_argument_types(argument_types: List[ExpressionType]) -> Callable:
+    try:
+        # e.g., if float + int, the return type is float
+        new_type = get_arithmetic_function_return_type_from_argument_types(argument_types)
+        return Callable[[new_type, new_type], bool]
     except ValueError as err:
         raise ValueError(f"Can only infer the return type from arithmetic argument types: "
                          f"fractions.Fraction, float and int. {argument_types}") from err
@@ -266,9 +276,11 @@ class Expression(ABC):
         return self._new_binary_operation(other, operator_, Callable[[bool, bool], bool], reverse, arithmetic=False)
 
     def _new_binary_comparison(self, other, operator_, function_type=None, reverse=False) -> Expression:
-        return self._new_binary_operation(other, operator_, function_type, reverse, arithmetic=False)
+        return self._new_binary_operation(other, operator_, function_type, reverse, arithmetic=False,
+                                          arithmetic_arguments=True)
 
-    def _new_binary_operation(self, other, operator_, function_type=None, reverse=False, arithmetic=True) -> Expression:
+    def _new_binary_operation(self, other, operator_, function_type=None, reverse=False, arithmetic=True,
+                              arithmetic_arguments=False) -> Expression:
         """
         Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
         an Expression.
@@ -287,8 +299,13 @@ class Expression(ABC):
                 function_type = get_arithmetic_function_type_from_argument_types([arguments[0].type, arguments[1].type])
             else:
                 if arguments[0].type != arguments[1].type:
-                    raise TypeError(f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}.")
-                function_type = Callable[[arguments[0].type, arguments[1].type], bool]
+                    if arithmetic_arguments:
+                        function_type = get_comparison_function_type_from_argument_types(
+                            [arguments[0].type, arguments[1].type])
+                    else:
+                        raise TypeError(f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}. {arguments[0]}, {arguments[1]}")
+                else:
+                    function_type = Callable[[arguments[0].type, arguments[1].type], bool]
         return self.new_function_application(self.new_constant(operator_, function_type), arguments)
 
     def __add__(self, other: Any) -> Expression:

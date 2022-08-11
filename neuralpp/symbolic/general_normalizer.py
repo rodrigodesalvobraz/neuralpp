@@ -5,7 +5,7 @@ from .expression import Expression, Constant, Variable, FunctionApplication, Qua
 from .z3_expression import Z3SolverExpression
 from .constants import basic_true, basic_false, if_then_else
 from .parameters import sympy_evaluate
-from .basic_expression import BasicQuantifierExpression, BasicExpression
+from .basic_expression import BasicQuantifierExpression, BasicExpression, BasicConstant
 from .eliminator import Eliminator
 import neuralpp.symbolic.functions as functions
 from typing import List
@@ -69,28 +69,33 @@ def _normalize_quantifier_expression_given_literals(operation: AbelianOperation,
     if len(literals) == 1:
         condition = literals[0]
         if condition.contains(index):
-            return _normalize(
-                operation(BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral),
-                          BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral)),
-                context)
+            return operation(_normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral), context),
+                             _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context))
         else:
-            return _normalize_conditional(condition,
-                                          BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral),
-                                          BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral),
-                                          context)
+            if context.is_known_to_imply(condition):
+                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context)
+            elif context.is_known_to_imply(~condition):
+                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context)
+            else:
+                return if_then_else(condition,
+                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context),
+                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), contex),
+                                    )
     else:
         condition = literals[0]
         if condition.contains(index):
-            return _normalize(
-                operation(_normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & condition, is_integral, literals[1:], then, else_, context),
-                          _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & ~condition, is_integral, literals[1:], else_, else_, context)),
-                context)
+            return operation(_normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & condition, is_integral, literals[1:], then, else_, context),
+                             _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & ~condition, is_integral, literals[1:], else_, else_, context))
         else:
-            return _normalize_conditional(condition,
-                                          _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context),
-                                          _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], else_, else_, context),
-                                          context)
-
+            if context.is_known_to_imply(condition):
+                return _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context & condition)
+            elif context.is_known_to_imply(~condition):
+                return _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], else_, else_, context & ~condition)
+            else:
+                return if_then_else(condition,
+                                    _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context & condition),
+                                    _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], else_, else_, context & ~condition),
+                                    )
 
 
 def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
@@ -105,7 +110,14 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
             return expression
         case FunctionApplication(function=Constant(value=functions.conditional),
                                  arguments=[condition, then, else_]):
-            return _normalize_conditional(condition, then, else_, context)
+            if context.is_known_to_imply(condition):
+                return _normalize(then, context)
+            elif context.is_known_to_imply(~condition):
+                return _normalize(else_, context)
+            else:
+                return if_then_else(condition,
+                                    _normalize(then, context & condition),
+                                    _normalize(else_, context & ~condition))
         case Expression(type=type_) if type_ == bool:
             if context.is_known_to_imply(expression):
                 return basic_true
@@ -195,9 +207,15 @@ def _move_down_and_normalize(function: Expression,
             then_arguments[i] = then
             else_arguments = arguments[:]
             else_arguments[i] = else_
-            return if_then_else(condition,
-                                _move_down_and_normalize(function, then_arguments, context & condition, i),
-                                _move_down_and_normalize(function, else_arguments, context & ~condition, i))
+
+            if context.is_known_to_imply(condition):
+                return _move_down_and_normalize(function, then_arguments, context & condition, i)
+            elif context.is_known_to_imply(~condition):
+                return _move_down_and_normalize(function, else_arguments, context & ~condition, i)
+            else:
+                return if_then_else(condition,
+                                    _move_down_and_normalize(function, then_arguments, context & condition, i),
+                                    _move_down_and_normalize(function, else_arguments, context & ~condition, i))
         case _:
             return _normalize_function_application(function, arguments, context, i + 1)
 

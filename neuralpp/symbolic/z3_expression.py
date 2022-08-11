@@ -319,6 +319,10 @@ class Z3Expression(Expression, ABC):
             try:
                 return _z3_function_to_python_callable(value)
             except Exception as exc:
+                if z3.is_to_real(value):
+                    return value
+                if value.kind() == z3.Z3_OP_TO_REAL:
+                    return lambda x: x
                 raise ValueError(f"Cannot pythonize {value}.") from exc
         else:
             raise ValueError("Cannot pythonize non-z3 object")

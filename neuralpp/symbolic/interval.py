@@ -157,7 +157,7 @@ class MagicInterval:
 
     def to_conditional_intervals(self, context: Z3SolverExpression) -> Expression:
         if len(self.lower_bounds) < 1 or len(self.upper_bounds) < 1:
-            raise AttributeError("bounds not set.")
+            raise AttributeError(f"bounds not set. {self.lower_bounds} {self.upper_bounds}")
         return MagicInterval._to_conditional_intervals(self.lower_bounds, self.upper_bounds, context)
 
     @staticmethod
