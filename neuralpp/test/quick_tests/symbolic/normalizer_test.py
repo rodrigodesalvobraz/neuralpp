@@ -7,6 +7,7 @@ from typing import Callable
 
 from neuralpp.symbolic.quantifier_free_normalizer import QuantifierFreeNormalizer
 from neuralpp.symbolic.general_normalizer import GeneralNormalizer
+from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation, BasicConstant, BasicIntegral
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Variable
@@ -282,6 +283,50 @@ def test_quantifier_normalizer_integration():
                      if_then_else(B > 4, product2, product3),
                      ))
     assert normalizer.normalize(expr, Z3SolverExpression.from_expression(A) & (B > 4)).syntactic_eq(product)
+
+
+def test_quantifier_lazy_normalizer():
+    i = BasicVariable('i', int)
+    empty_context = Z3SolverExpression()
+    normalizer = LazyNormalizer()
+
+    #          *
+    #       /    \
+    #     if A   Integral D\in(0,10)
+    #     /  \    |
+    #    B    C  B * if B>4
+    #                /    \
+    #               B+C   Integral C\in(0,10)
+    #                       |
+    #                      if B<5
+    #                      / \
+    #                     C   1
+    # should be normalized to
+    #              *
+    #       /             \
+    #     if A            if B>4
+    #     /  \       /                \
+    #    B    C  Integral D\in(0,10)  Integral(D,(0,10))    (= {body below} * 10 = 50 * B * 10 = 500 * B)
+    #                B*(B+C)              |
+    #                              B*Integral(C,(0,10))  (= B * Integral(C\in(0,10),C) = B * 1/2 * C ** 2 {C:[0,10]} = 50 * B)
+    #                                     |
+    #                                     C
+    f = BasicVariable('f', Callable[[int, int], int])
+    A = BasicVariable('A', bool)
+    B = BasicVariable('B', int)
+    C = BasicVariable('C', int)
+    D = BasicVariable('D', int)
+    expr = if_then_else(A, B, C) * BasicIntegral(D, Z3SolverExpression.from_expression(0 < D) & (D < 10),
+                                                 B * if_then_else(B > 4,
+                                                                  B + C,
+                                                                  BasicIntegral(C,
+                                                                                Z3SolverExpression.from_expression(0 < C) & (C < 10),
+                                                                                if_then_else(B < 5, C, 1))))
+    BB, CC = sympy.symbols('B C')
+    product = SymPyExpression.from_sympy_object(10 * BB * (BB + CC), {BB: int, CC: int})
+    print(normalizer.normalize(expr, empty_context))
+    assert normalizer.normalize(expr, empty_context).syntactic_eq(
+        if_then_else(A, B, C) * if_then_else(B > 4, product, 500 * B))
 
 
 def test_codegen():
