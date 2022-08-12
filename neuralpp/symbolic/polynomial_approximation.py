@@ -50,7 +50,8 @@ def piecewise_polynomial_approximation(
 
     conditions = [(start <= variable) & (variable < end) for (start, end) in pairwise(segment_boundaries)]
 
-    piecewise_polynomial = make_piecewise_expression(conditions, polynomials)
+    # piecewise_polynomial = make_piecewise_expression(conditions, polynomials)
+    piecewise_polynomial = make_piecewise_expression_quick(conditions, polynomials)
 
     return piecewise_polynomial
 
@@ -103,5 +104,5 @@ def make_piecewise_expression_quick(conditions, expressions):
     returns Expression if C1 then E1 else if C2 then E2 else ... else 0.
     assume C1, .., Cn are mutually exclusive
     """
-    from .constants import make_piecewise
+    from .sympy_expression import make_piecewise
     return make_piecewise(conditions, expressions)

@@ -63,6 +63,8 @@ def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Ba
             except KeyError:  # if it's not in type_dict, try figure out ourselves
                 # Here, sympy_object must be function applications like 'x+y'
                 if len(sympy_object.args) == 0:  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
+                    print(f"expect function application {sympy_object}")
+                    return None
                     raise TypeError("expect function application")
                 _, return_type = typing.get_args(_infer_sympy_function_type(sympy_object, type_dict))
                 return return_type
@@ -129,7 +131,10 @@ def _sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
         return sympy_function_python_callable_dict[sympy_function]
     except KeyError:
         if sympy_function == sympy.Piecewise:
-            return functions.conditional
+            return sympy_function
+        if sympy_function == functions.conditional:
+            return sympy_function
+            # return functions.conditional
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
@@ -164,7 +169,11 @@ def _build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]
     """
     result = {}
     for sympy_argument in sympy_arguments:
-        _build_type_dict(sympy_argument, result)
+        if isinstance(sympy_argument, tuple):
+            _build_type_dict(sympy_argument[0], result)
+            _build_type_dict(sympy_argument[1], result)
+        else:
+            _build_type_dict(sympy_argument, result)
     return result
 
 
@@ -395,8 +404,8 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def __new__(cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         if sympy_object.func == sympy.Piecewise:
-            return SymPyConditionalFunctionApplication(sympy_object, type_dict)
-            # return SymPyPiecewise(sympy_object, type_dict)
+            # return SymPyConditionalFunctionApplication(sympy_object, type_dict)
+            return SymPyPiecewise(sympy_object, type_dict)
         else:
             return super().__new__(cls)
 
@@ -435,7 +444,9 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression],
                                                   uninterpreted_function_type: ExpressionType = None,
                                                   ) -> SymPyExpression:
-        sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
+        sympy_arguments = [tuple(map(SymPyExpression._convert, argument))
+                           if isinstance(argument, tuple) else SymPyExpression._convert(argument)
+                           for argument in arguments]
         type_dict = _build_type_dict_from_sympy_arguments(sympy_arguments)
 
         if is_sympy_uninterpreted_function(sympy_function):
@@ -449,14 +460,13 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
             # see test/sympy_test.py: test_sympy_bug()
             sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
                                           evaluate=global_parameters.sympy_evaluate)
-        elif sympy_function == sympy.Piecewise:
-            sympy_object = sympy_piecewise_from_if_then_else(
-                *[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
         else:
             with sympy.evaluate(global_parameters.sympy_evaluate):
                 # If we want to preserve the symbolic structure, we need to stop evaluation by setting
                 # global_parameters.sympy_evaluate to False (or Add(1,1) will be 2 in sympy).
-                sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
+                sympy_object = sympy_function(*[(sympy_argument[0].sympy_object, sympy_argument[1].sympy_object)
+                                                if isinstance(sympy_argument, tuple) else sympy_argument.sympy_object
+                                                for sympy_argument in sympy_arguments])
 
         if global_parameters.sympy_evaluate:
             # if sympy_evaluate is True, we don't necessarily return a FunctionApplication.
@@ -532,11 +542,17 @@ class SymPyPiecewise(SymPyFunctionApplicationInterface):
 
     @property
     def number_of_arguments(self) -> int:
-        return len(self.sympy_object.args) * 2
+        return len(self.sympy_object.args)
 
     @property
     def native_arguments(self) -> Tuple[sympy.Basic, ...]:
-        return [arg[0] for arg in self.sympy_object.args] + [arg[1] for arg in self.sympy_object.args]
+        return self.sympy_object.args
+
+    @property
+    def arguments(self) -> List[Tuple[Expression, Expression]]:
+        return [(SymPyExpression.from_sympy_object(expr, self.type_dict),
+                 SymPyExpression.from_sympy_object(cond, self.type_dict))
+                for expr, cond in self.native_arguments]
 
 
 def _context_to_variable_value_dict_helper(context: FunctionApplication,
@@ -654,7 +670,7 @@ def make_piecewise(conditions: List[Expression], expressions: List[Expression]):
     type_dict = _build_type_dict_from_sympy_arguments(conditions + expressions)
     arguments = [(expression.sympy_object, condition.sympy_object)
                  for condition, expression in zip(conditions, expressions)]
-    sympy_piecewise = sympy.Piecewise(arguments)
+    sympy_piecewise = sympy.Piecewise(*arguments)
     return SymPyFunctionApplication(sympy_piecewise, type_dict)
 
 

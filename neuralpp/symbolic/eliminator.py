@@ -67,8 +67,8 @@ class Eliminator:
             return operation(result, inverse)
 
         try:
+            print(f"context: {SymPyExpression.convert(context).sympy_object}")
             conditional_intervals = from_constraint(index, constraint, context, is_integral)
-            print("finished getting intervals")
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
@@ -85,7 +85,9 @@ class Eliminator:
         if not isinstance(interval.upper_bound, Expression):
             raise NotImplementedError(type(interval.upper_bound))
         Eliminator.integration_counter = Eliminator.integration_counter + 1
-        print(f"{Eliminator.integration_counter}th integration: ({interval.lower_bound},{interval.upper_bound})")
+        print(f"{Eliminator.integration_counter}th integration: \n"
+              f"({SymPyExpression.convert(interval.lower_bound).sympy_object},\n"
+              f"{SymPyExpression.convert(interval.upper_bound).sympy_object})\n {SymPyExpression.convert(body).sympy_object}")
         return BasicConstant(0.0)
-        # result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
-        # return result
+        result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
+        return result
