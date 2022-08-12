@@ -4,7 +4,7 @@ import builtins
 import operator
 from typing import Iterable, List, Set, Tuple, Optional
 from .expression import Variable, Expression, Context, Constant, FunctionApplication
-from .basic_expression import BasicExpression
+from .basic_expression import BasicExpression, QuantifierExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
 
@@ -124,11 +124,21 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     exceptions = []
     for subexpression in constraint.subexpressions:
         if isinstance(subexpression, FunctionApplication):
-            closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval,
-                                                                         exceptions,
-                                                                         is_integral,
-                                                                         )
+            closed_interval, exceptions = _extract_bound_from_constraint(index, subexpression, closed_interval, exceptions, is_integral)
 
+    if isinstance(context, QuantifierExpression):
+        context_interval = from_constraint(context.index, context.constraint, None, context.is_integral)
+        context_lower_bound = context_interval.interval.lower_bound
+        context_upper_bound = context_interval.interval.upper_bound
+        if (context_lower_bound.contains(index)):
+            bound = _simplifier.simplify(context_upper_bound - context_lower_bound + index)
+            if bound.value < context_upper_bound.value:
+                closed_interval = closed_interval.set(1, bound)
+
+        if (context_upper_bound.contains(index)):
+            bound = _simplifier.simplify(context_lower_bound - context_upper_bound + index)
+            if bound.value > context_lower_bound.value:
+                closed_interval = closed_interval.set(0, bound)
     return DottedIntervals(closed_interval, exceptions)
 
 
