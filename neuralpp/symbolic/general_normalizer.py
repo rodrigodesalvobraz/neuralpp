@@ -86,16 +86,17 @@ def _normalize_quantifier_expression_given_literals(operation: AbelianOperation,
         condition = literals[0]
         if condition.contains(index):
             return operation(_normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & condition, is_integral, literals[1:], then, else_, context),
-                             _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & ~condition, is_integral, literals[1:], else_, else_, context))
+                             _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context, body_is_normalized=True),
+                             )
         else:
             if context.is_known_to_imply(condition):
                 return _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context & condition)
             elif context.is_known_to_imply(~condition):
-                return _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], else_, else_, context & ~condition)
+                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True)
             else:
                 return if_then_else(condition,
                                     _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context & condition),
-                                    _normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], else_, else_, context & ~condition),
+                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True),
                                     )
 
 

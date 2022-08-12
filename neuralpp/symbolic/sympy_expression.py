@@ -20,10 +20,24 @@ from neuralpp.symbolic.parameters import global_parameters
 from neuralpp.symbolic.basic_expression import BasicSummation
 import neuralpp.symbolic.functions as functions
 from neuralpp.util.sympy_util import is_sympy_uninterpreted_function
+from functools import cache
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
+
+
+# @cache
+# def _get_sympy_integral(sympy_expression, x):
+#     return sympy.Integral(sympy_expression, x).doit()
+_cache = {}
+def _get_sympy_integral(sympy_expression, x):
+    key = (sympy_expression, x)
+    if key in _cache:
+        return _cache[key]
+    else:
+        _cache[key] = sympy.Integral(sympy_expression, x).doit()
+        return -_cache[key]
 
 
 def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
@@ -197,6 +211,21 @@ class SymPyExpression(Expression, ABC):
                                                                      ),
                                                                     ).doit(),
                                                      type_dict)
+        except Exception as exc:
+            return None
+
+    @staticmethod
+    def symbolic_integral_cached(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
+            -> Optional[Expression]:
+        """ try to compute the integral symbolically, if fails, return None"""
+        try:
+            body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
+                                                     for argument in [body, index, lower_bound, upper_bound]]
+            print(f"body:{body.sympy_object}")
+            type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
+            indefinite_integral = _get_sympy_integral(body.sympy_object, index.sympy_object)
+            difference = indefinite_integral.subs(index.sympy_object, upper_bound.sympy_object) - indefinite_integral.subs(index.sympy_object, lower_bound.sympy_object)
+            return SymPyExpression.from_sympy_object(difference, type_dict)
         except Exception as exc:
             return None
 
@@ -506,8 +535,8 @@ def _context_to_variable_value_dict_helper(context: FunctionApplication,
                     _context_to_variable_value_dict_helper(sub_context, variable_to_value, unknown, unsatisfiable)
         case FunctionApplication(function=Constant(value=operator.eq),
                                  arguments=[Variable(name=variable), Constant(value=value)]) | \
-                FunctionApplication(function=Constant(value=operator.eq),
-                                    arguments=[Constant(value=value), Variable(name=variable)]):
+             FunctionApplication(function=Constant(value=operator.eq),
+                                 arguments=[Constant(value=value), Variable(name=variable)]):
             # the leaf case
             if variable in variable_to_value and variable_to_value[variable] != value:
                 unsatisfiable = True
@@ -531,6 +560,7 @@ class SymPyContext(SymPyFunctionApplication, Context):
     SymPyContext is just a SymPyFunctionApplication, which always raises when asked for satisfiability
     since we don't know.
     We create a dictionary from the function application at initialization. """
+
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         SymPyFunctionApplication.__init__(self, sympy_object, type_dict)
         self._dict, self._unknown, self._unsatisfiable = _context_to_variable_value_dict(self)

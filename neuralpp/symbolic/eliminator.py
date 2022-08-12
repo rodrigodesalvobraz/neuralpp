@@ -86,5 +86,5 @@ class Eliminator:
             raise NotImplementedError(type(interval.upper_bound))
         Eliminator.integration_counter = Eliminator.integration_counter + 1
         print(f"start {Eliminator.integration_counter}th integration: ({interval.lower_bound},{interval.upper_bound})")
-        result = SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound)
+        result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
         return result

@@ -8,6 +8,7 @@ from .basic_expression import BasicExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
 from .sympy_expression import SymPyExpression, SymPyVariable
+from .constants import min_, max_
 from .constants import if_then_else
 
 _simplifier = SymPyInterpreter()
@@ -162,11 +163,15 @@ class MagicInterval:
     def to_conditional_intervals(self, context: Z3SolverExpression) -> Expression:
         if len(self.lower_bounds) < 1 or len(self.upper_bounds) < 1:
             raise AttributeError(f"bounds not set. {self.lower_bounds} {self.upper_bounds}")
-        return MagicInterval._to_conditional_intervals(self.lower_bounds, self.upper_bounds, context)
+        return DottedIntervals(ClosedInterval(max_(self._lower_bounds),
+                                              min_(self.upper_bounds)), [])
+        # return MagicInterval._to_conditional_intervals(self.lower_bounds, self.upper_bounds, context)
 
     @staticmethod
     def _to_conditional_intervals(lowers: List[Expression], uppers: List[Expression], context: Z3SolverExpression) -> Expression:
-        """ assume len(lowers) >= 1, len(uppers) >= 1. """
+        """ assume len(lowers) >= 1, len(uppers) >= 1.
+        XXX: this might be buggy, but it's discarded anyways
+        """
         from .general_normalizer import conditional_given_context
         if len(lowers) == 1 and len(uppers) == 1:
             return DottedIntervals(ClosedInterval(lowers[0], uppers[0]), [])

@@ -1,6 +1,6 @@
 import fractions
 import operator
-from typing import Callable, Type, Any
+from typing import Callable, Type, Any, List
 
 import z3
 import sympy
@@ -10,7 +10,7 @@ from .basic_expression import BasicConstant
 from .functions import conditional
 from .expression import Expression
 from .z3_expression import Z3Constant
-from .sympy_expression import SymPyConstant
+from .sympy_expression import SymPyConstant, SymPyExpression
 from .expression import get_arithmetic_function_return_type_from_argument_types
 
 
@@ -132,3 +132,14 @@ z3_true = Z3Constant(z3.BoolVal(True))
 z3_false = Z3Constant(z3.BoolVal(False))
 sympy_true = SymPyConstant(sympy.S.true, bool)
 sympy_false = SymPyConstant(sympy.S.false, bool)
+
+
+def min_(expressions: List[Expression]) -> Expression:
+    # TODO fix type
+    return SymPyExpression.new_function_application(SymPyConstant(sympy.Min, Callable[[float, float], float]),
+                                                    expressions)
+
+
+def max_(expressions: List[Expression]) -> Expression:
+    return SymPyExpression.new_function_application(SymPyConstant(sympy.Max, Callable[[float, float], float]),
+                                                    expressions)
