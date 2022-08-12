@@ -93,12 +93,6 @@ def evaluation_simple():
     print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
 
 
-def evaluation_simple():
-    start = time.time()
-    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple)
-    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
-
-
 if __name__ == "__main__":
     # evaluation0()
     # evaluation_simple()

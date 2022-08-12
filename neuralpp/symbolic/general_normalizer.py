@@ -107,7 +107,10 @@ def _normalize(expression: Expression, context: Z3SolverExpression, body_is_norm
                             elements.append(_normalize(
                                 BasicQuantifierExpression(operation, index, constraint & condition, expression,
                                                           is_integral), context, body_is_normalized=True))
-                        return _simple_simplifier.simplify(SymPyExpression.new_function_application(operation, elements))
+                        result = SymPyExpression.new_function_application(operation, elements)
+                        print(f'result={result.sympy_object}')
+                        # return _simple_simplifier.simplify(result)
+                        return result
                     else:
                         new_expressions = []
                         conditions = []
@@ -142,7 +145,8 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
     # print(f"eliminating: {body}")
     result = _eliminator.eliminate(operation, index, constraint, body, is_integral, context)
     # print(f"done")
-    return _simplifier.simplify(result, context)
+    return result
+    # return _simplifier.simplify(result, context)
 
 
 def _normalize_function_application(function: Expression,

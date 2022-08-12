@@ -3,6 +3,7 @@ from .basic_expression import BasicQuantifierExpression, BasicConstant
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint
 from .util import map_leaves_of_if_then_else
+from .constants import if_then_else
 from functools import reduce
 from typing import Optional
 import operator
@@ -43,7 +44,7 @@ def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interv
                 return result
         else:
             if (result := Eliminator.symbolic_integral(body, index, interval)) is not None:
-                return result
+                return if_then_else(interval.upper_bound > interval.lower_bound, result, 0)
 
     if isinstance(body, Constant):
         # repeat addition: multiplication, repeat multiplication: power
@@ -88,6 +89,12 @@ class Eliminator:
         print(f"{Eliminator.integration_counter}th integration: \n"
               f"({SymPyExpression.convert(interval.lower_bound).sympy_object},\n"
               f"{SymPyExpression.convert(interval.upper_bound).sympy_object})\n {SymPyExpression.convert(body).sympy_object}")
-        return BasicConstant(0.0)
-        result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
-        return result
+        if DRY_RUN:
+            return BasicConstant(0.0)
+        else:
+            result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
+            print(f"done. {result.sympy_object}")
+            return result
+
+
+DRY_RUN = False
