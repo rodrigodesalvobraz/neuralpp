@@ -16,6 +16,10 @@ _simplifier = SymPyInterpreter()
 class ClosedInterval(BasicExpression):
     """ [lower_bound, upper_bound] """
     def __init__(self, lower_bound, upper_bound):
+        if not isinstance(lower_bound, Expression):
+            raise AttributeError(f"{lower_bound}")
+        if not isinstance(upper_bound, Expression):
+            raise AttributeError(f"{upper_bound}")
         super().__init__(Set)
         self._lower_bound = lower_bound
         self._upper_bound = upper_bound

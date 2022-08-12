@@ -99,6 +99,8 @@ python_callable_and_sympy_function_relation = [
     (builtins.max, sympy.Max),
     # conditional
     (functions.conditional, sympy_Cond),
+    # identity
+    (functions.identity, sympy.Id)
 ]
 sympy_function_python_callable_dict = \
     {sympy_function: python_callable
@@ -186,6 +188,7 @@ class SymPyExpression(Expression, ABC):
         try:
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
+            print(f"body:{body.sympy_object}")
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
             return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object,
                                                                     (index.sympy_object,

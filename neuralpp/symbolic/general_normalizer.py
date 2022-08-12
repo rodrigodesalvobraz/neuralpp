@@ -62,6 +62,7 @@ def _normalize_quantifier_expression_given_literals(operation: AbelianOperation,
                                                     then: Expression, else_: Expression,
                                                     context: Z3SolverExpression):
     """
+    then and else_ are normalized
     when conditions is Empty, return
     normalize operation{index:constraint, is_integral}(if literals then then else else_) given context
     in the else, literals are adjusted into "conjunctive form", a & b & c..
@@ -69,17 +70,17 @@ def _normalize_quantifier_expression_given_literals(operation: AbelianOperation,
     if len(literals) == 1:
         condition = literals[0]
         if condition.contains(index):
-            return operation(_normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral), context),
-                             _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context))
+            return operation(_normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral), context, body_is_normalized=True),
+                             _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context, body_is_normalized=True))
         else:
             if context.is_known_to_imply(condition):
-                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context)
+                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context, body_is_normalized=True)
             elif context.is_known_to_imply(~condition):
-                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context)
+                return _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True)
             else:
                 return if_then_else(condition,
-                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context),
-                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context),
+                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context, body_is_normalized=True),
+                                    _normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True),
                                     )
     else:
         condition = literals[0]
@@ -98,11 +99,12 @@ def _normalize_quantifier_expression_given_literals(operation: AbelianOperation,
                                     )
 
 
-def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
+def _normalize(expression: Expression, context: Z3SolverExpression, body_is_normalized: bool = False) -> Expression:
     """
     The function assumes context is satisfiable, otherwise the behavior is undefined.
     The input expression can be arbitrarily structured. The result expression is guaranteed to be
     `quantifiers-at-leaves`: quantifiers are at leaves and do not contain conditional function in their bodies.
+    `body_is_normalized`: used by QuantifierExpression only to indicate body is normalized
     """
     assert not context.unsatisfiable
     match expression:
@@ -134,7 +136,12 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                 raise ValueError(f"context {context} should not contain index {index}")
             if context.is_known_to_imply(~constraint):
                 return operation.identity
-            normalized_body = _normalize(body, context & constraint)
+
+            if body_is_normalized:
+                normalized_body = body
+            else:
+                normalized_body = _normalize(body, context & constraint)
+
             match normalized_body:
                 case FunctionApplication(function=Constant(value=functions.conditional),
                                          arguments=[condition, then, else_]):
@@ -145,6 +152,9 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                     # if A then (if B then T {A&B} else E {A&~B}) else (if B then E {~A&B} else E{~A&~B})
                     #                        [2,y]        x<=y and x < 2           x>y and x>=2     x>y and x<=2
                     literals = _split_into_literals(condition)
+                    # then and else should have been normalized
+                    if len(literals) > 1:
+                        print(f"having {len(literals)} literals")
                     return _normalize_quantifier_expression_given_literals(operation, index, constraint, is_integral,
                                                                            literals, then, else_, context)
                     if condition.contains(index):
@@ -176,9 +186,13 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
     1. supports more operations (add, multiply, and, or, ...)
     2. supports multiple intervals & complicated constraints (e.g, 1 <= x <= 100, x != y)
     """
+    if isinstance(body, FunctionApplication) and body.function.value == functions.conditional:
+        raise AttributeError("WHAT")
     if context.is_known_to_imply(~constraint):
         return operation.identity
+    print(f"eliminating: {body}")
     result = _eliminator.eliminate(operation, index, constraint, body, is_integral, context)
+    print(f"done")
     return _simplifier.simplify(result, context)
 
 
@@ -186,7 +200,8 @@ def _normalize_function_application(function: Expression,
                                     arguments: List[Expression],
                                     context: Z3SolverExpression, i: int = 0) -> Expression:
     if i >= len(arguments):
-        return _simplifier.simplify(function(*arguments), context)
+        return function(*arguments)
+        # return _simplifier.simplify(function(*arguments), context)
     arguments[i] = _normalize(arguments[i], context)
     return _move_down_and_normalize(function, arguments, context, i)
 
@@ -217,7 +232,17 @@ def _move_down_and_normalize(function: Expression,
                                     _move_down_and_normalize(function, then_arguments, context & condition, i),
                                     _move_down_and_normalize(function, else_arguments, context & ~condition, i))
         case _:
+            # _check_no_conditional(arguments[i])
             return _normalize_function_application(function, arguments, context, i + 1)
+
+
+def _check_no_conditional(argument: Expression):
+    match argument:
+        case FunctionApplication(function=Constant(value=functions.conditional)):
+            raise AttributeError("WRONG")
+        case _:
+            for subexpression in argument.subexpressions:
+                _check_no_conditional(subexpression)
 
 
 class GeneralNormalizer(Normalizer):

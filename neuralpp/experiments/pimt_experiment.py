@@ -18,12 +18,17 @@ mu1 = BasicVariable("mu1", float)
 mu2 = BasicVariable("mu2", float)
 
 # P(x, mu1, mu2) = Normal(x | mu1, 1.0) * Normal(mu1 | mu2, 1.0) * Normal(mu2 | 0.0, 1.0) propto
-joint0 = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0)
+formula = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0)
 joint1 = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
         * \
         get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0) \
         * \
         get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0)
+simple_polynomials = (x ** 3 + x ** 2 + x ** 1) * (mu1 ** 3 + mu1 ** 2 + mu1 ** 1)
+
+joint_simple = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
+               * \
+               get_normal_piecewise_polynomial_approximation(mu1, BasicExpression.new_constant(0.0), 1.0) \
 
 #  if A & B then C else D
 # if A then if B then C else D
@@ -31,7 +36,7 @@ joint1 = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
 
 def evaluation0():
     start = time.time()
-    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint0)
+    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula)
     result = LazyNormalizer.normalize(goal, Z3SolverExpression())
     end = time.time()
     print(f"evaluation result: {result}")
@@ -68,8 +73,35 @@ def evaluation():
     print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
 
 
+def evaluation_simple():
+    start = time.time()
+    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple)
+    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
+    end = time.time()
+    print(f"evaluation result: {result}")
+    sympy_formula = SymPyExpression.convert(result).sympy_object
+    print(f"evaluation result: {sympy_formula}")
+
+    print(f"in time {end - start}")
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    print("sympy_formula.subs")
+    xx = sympy.symbols('x')
+    print(sympy_formula.subs({xx: 1.0}))
+    print("sympy_formula_cython")
+    print(sympy_formula_cython(1.0))
+    print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
+
+
+def evaluation_simple():
+    start = time.time()
+    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple)
+    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
+
+
 if __name__ == "__main__":
-    evaluation()
+    evaluation0()
+    # evaluation_simple()
+    # evaluation()
 
 
 # P(x, mu2) propto

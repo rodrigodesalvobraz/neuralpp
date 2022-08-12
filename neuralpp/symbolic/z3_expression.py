@@ -322,7 +322,7 @@ class Z3Expression(Expression, ABC):
                 if z3.is_to_real(value):
                     return value
                 if value.kind() == z3.Z3_OP_TO_REAL:
-                    return lambda x: x
+                    return functions.identity
                 raise ValueError(f"Cannot pythonize {value}.") from exc
         else:
             raise ValueError("Cannot pythonize non-z3 object")

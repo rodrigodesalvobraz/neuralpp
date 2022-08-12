@@ -52,6 +52,8 @@ def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interv
 
 
 class Eliminator:
+    integration_counter = 0
+
     @staticmethod
     def eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                   is_integral: bool, context: Context) -> Expression:
@@ -66,6 +68,7 @@ class Eliminator:
 
         try:
             conditional_intervals = from_constraint(index, constraint, context, is_integral)
+            print("finished getting intervals")
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
@@ -77,4 +80,11 @@ class Eliminator:
 
     @staticmethod
     def symbolic_integral(body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
-        return SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound)
+        if not isinstance(interval.lower_bound, Expression):
+            raise NotImplementedError(type(interval.lower_bound))
+        if not isinstance(interval.upper_bound, Expression):
+            raise NotImplementedError(type(interval.upper_bound))
+        Eliminator.integration_counter = Eliminator.integration_counter + 1
+        print(f"start {Eliminator.integration_counter}th integration: ({interval.lower_bound},{interval.upper_bound})")
+        result = SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound)
+        return result
