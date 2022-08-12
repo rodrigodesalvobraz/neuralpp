@@ -7,6 +7,7 @@ from typing import Callable
 
 from neuralpp.symbolic.quantifier_free_normalizer import QuantifierFreeNormalizer
 from neuralpp.symbolic.general_normalizer import GeneralNormalizer
+from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation, BasicConstant, BasicIntegral
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Variable
@@ -282,3 +283,85 @@ def test_quantifier_normalizer_integration():
                      if_then_else(B > 4, product2, product3),
                      ))
     assert normalizer.normalize(expr, Z3SolverExpression.from_expression(A) & (B > 4)).syntactic_eq(product)
+
+
+def test_quantifier_lazy_normalizer():
+    i = BasicVariable('i', int)
+    empty_context = Z3SolverExpression()
+    normalizer = LazyNormalizer()
+
+    #          *
+    #       /    \
+    #     if A   Integral D\in(0,10)
+    #     /  \    |
+    #    B    C  B * if B>4
+    #                /    \
+    #               B+C   Integral C\in(0,10)
+    #                       |
+    #                      if B<5
+    #                      / \
+    #                     C   1
+    # should be normalized to
+    #              *
+    #       /             \
+    #     if A            if B>4
+    #     /  \       /                \
+    #    B    C  Integral D\in(0,10)  Integral(D,(0,10))    (= {body below} * 10 = 50 * B * 10 = 500 * B)
+    #                B*(B+C)              |
+    #                              B*Integral(C,(0,10))  (= B * Integral(C\in(0,10),C) = B * 1/2 * C ** 2 {C:[0,10]} = 50 * B)
+    #                                     |
+    #                                     C
+    f = BasicVariable('f', Callable[[int, int], int])
+    A = BasicVariable('A', bool)
+    B = BasicVariable('B', int)
+    C = BasicVariable('C', int)
+    D = BasicVariable('D', int)
+    expr = if_then_else(A, B, C) * BasicIntegral(D, Z3SolverExpression.from_expression(0 < D) & (D < 10),
+                                                 B * if_then_else(B > 4,
+                                                                  B + C,
+                                                                  BasicIntegral(C,
+                                                                                Z3SolverExpression.from_expression(0 < C) & (C < 10),
+                                                                                if_then_else(B < 5, C, 1))))
+    BB, CC = sympy.symbols('B C')
+    product = SymPyExpression.from_sympy_object(10 * BB * (BB + CC), {BB: int, CC: int})
+    print(normalizer.normalize(expr, empty_context))
+    assert normalizer.normalize(expr, empty_context).syntactic_eq(
+        if_then_else(A, B, C) * if_then_else(B > 4, product, 500 * B))
+
+
+def test_codegen():
+    from sympy.utilities.codegen import codegen
+    from sympy.utilities.autowrap import autowrap
+    from timeit import timeit
+    i = BasicVariable('i', int)
+    empty_context = Z3SolverExpression()
+
+    normalizer = GeneralNormalizer()
+    A = BasicVariable('A', bool)
+    B = BasicVariable('B', int)
+    C = BasicVariable('C', int)
+    D = BasicVariable('D', int)
+    expr = if_then_else(A, B, C) * BasicIntegral(D, empty_context & (0 < D) & (D < 10),
+                                                 B * if_then_else(B > 4,
+                                                                  B + C,
+                                                                  BasicIntegral(C,
+                                                                                empty_context & (0 < C) & (C < 10),
+                                                                                if_then_else(B < 5, C, 1))))
+    AA, BB, CC = sympy.symbols('A B C')
+    product = SymPyExpression.from_sympy_object(10 * BB ** 2 * (BB + CC), {BB: int, CC: int})
+    product2 = SymPyExpression.from_sympy_object(10 * BB * CC * (BB + CC), {BB: int, CC: int})
+    product3 = SymPyExpression.from_sympy_object(500 * BB * CC, {BB: int, CC: int})
+    result = normalizer.normalize(expr, empty_context)
+    assert result.syntactic_eq(if_then_else(A,
+                                            if_then_else(B > 4, product, 500 * B ** 2),
+                                            if_then_else(B > 4, product2, product3),
+                                            ))
+    sympy_formula = SymPyExpression.convert(result).sympy_object
+    print(f"formula:{sympy_formula}")
+    print(timeit(lambda: sympy_formula.subs({AA: True, BB: 100, CC: 888}), number=1000))
+    # we don't have to use codegen, since sympy provides `autowrap`
+    # though I assume codegen can be faster without the wrapper
+    # [(c_name, c_code), (h_name, c_header)] = codegen(('sympy_formula', sympy_formula), language='c')
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    assert sympy_formula.subs({AA: True, BB: 100, CC: 888}) == sympy_formula_cython(True, 100, 888)
+    print(timeit(lambda: sympy_formula_cython(True, 100, 888), number=1000))
