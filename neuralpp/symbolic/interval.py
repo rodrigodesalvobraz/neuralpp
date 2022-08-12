@@ -132,11 +132,11 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
         context_upper_bound = context_interval.interval.upper_bound
         if (context_lower_bound.contains(index)):
             bound = _simplifier.simplify(context_upper_bound - context_lower_bound + index)
-            closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+            closed_interval = _check_and_set_bounds(1, bound, closed_interval)
 
         elif (context_upper_bound.contains(index)):
             bound = _simplifier.simplify(context_lower_bound - context_upper_bound + index)
-            closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+            closed_interval = _check_and_set_bounds(0, bound, closed_interval)
 
     return DottedIntervals(closed_interval, exceptions)
 
@@ -180,32 +180,38 @@ def _extract_bound_from_constraint(
     match possible_inequality:
         case operator.ge:
             if variable_index == 1:
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(0, bound, closed_interval)
             elif variable_index == 2:
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(1, bound, closed_interval)
         case operator.le:
             if variable_index == 1:
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(1, bound, closed_interval)
             elif variable_index == 2:
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(0, bound, closed_interval)
         case operator.gt:
             if variable_index == 1:
                 if not is_integral:
                     bound = _simplifier.simplify(bound + 1)
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(0, bound, closed_interval)
             elif variable_index == 2:
                 if not is_integral:
                     bound = _simplifier.simplify(bound - 1)
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(1, bound, closed_interval)
         case operator.lt:
             if variable_index == 1:
                 if not is_integral:
                     bound = _simplifier.simplify(bound - 1)
-                closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(1, bound, closed_interval)
             elif variable_index == 2:
                 if not is_integral:
                     bound = _simplifier.simplify(bound + 1)
-                closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+                closed_interval = _check_and_set_bounds(0, bound, closed_interval)
+        case operator.eq:
+            closed_interval = _check_and_set_bounds(0, bound, closed_interval)
+            closed_interval = _check_and_set_bounds(1, bound, closed_interval)
+        case operator.ne:
+            exceptions.append(bound)
+
         case _:
             raise ValueError(f"interval doesn't support {possible_inequality} yet")
     return closed_interval, exceptions
@@ -214,8 +220,7 @@ def _extract_bound_from_constraint(
 def _check_and_set_bounds(
     index: int,
     bound: Expression,
-    closed_interval: ClosedInterval,
-    exceptions: List[Expression]
+    closed_interval: ClosedInterval
 ) -> Tuple[ClosedInterval, List[Expression]]:
     """
     @param index: indicates which bound we are checking => 0 is lower bound and 1 is upper bound
@@ -241,16 +246,12 @@ def _check_and_set_bounds(
             elif isinstance(lower_bound, Constant) and isinstance(bound, Constant) and bound.value >= lower_bound.value:
                 lower_bound = bound
                 closed_interval = closed_interval.set(0, bound)
-            else:
-                closed_interval = closed_interval.set(0, lower_bound and bound)
         case 1:
             if upper_bound is None:
                 closed_interval = closed_interval.set(1, bound)
             elif isinstance(upper_bound, Constant) and isinstance(bound, Constant) and bound.value <= upper_bound.value:
                 upper_bound = bound
                 closed_interval = closed_interval.set(1, bound)
-            else:
-                closed_interval = closed_interval.set(1, upper_bound and bound)
         case _:
             raise IndexError(f"{index} is out of bounds")
 
@@ -258,4 +259,4 @@ def _check_and_set_bounds(
         if lower_bound.value > upper_bound.value:
             raise ValueError(f"the lower bound ({lower_bound}) is greater than upper bound ({upper_bound})")
 
-    return closed_interval, exceptions
+    return closed_interval

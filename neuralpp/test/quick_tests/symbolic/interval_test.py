@@ -17,6 +17,16 @@ def test_basic_constant_intervals():
     assert interval.lower_bound.syntactic_eq(Z3Expression.new_constant(1))
     assert interval.upper_bound.syntactic_eq(Z3Expression.new_constant(4))
 
+def test_basic_constant_exceptions():
+    i = BasicVariable('i', int)
+
+    empty_context = Z3SolverExpression()
+    constant_context = empty_context & (i != 0)
+
+    dotted_interval = from_constraint(i, constant_context, empty_context, False)
+    dots = dotted_interval.dots
+
+    assert dots[0] == 0
 
 def test_basic_symbolic_intervals():
     i = BasicVariable('i', int)
