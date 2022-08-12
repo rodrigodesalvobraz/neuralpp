@@ -27,17 +27,17 @@ from functools import cache
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
 
 
-# @cache
-# def _get_sympy_integral(sympy_expression, x):
-#     return sympy.Integral(sympy_expression, x).doit()
-_cache = {}
+@cache
 def _get_sympy_integral(sympy_expression, x):
-    key = (sympy_expression, x)
-    if key in _cache:
-        return _cache[key]
-    else:
-        _cache[key] = sympy.Integral(sympy_expression, x).doit()
-        return -_cache[key]
+    return sympy.Integral(sympy_expression, x).doit()
+# _cache = {}
+# def _get_sympy_integral(sympy_expression, x):
+#     key = (sympy_expression, x)
+#     if key in _cache:
+#         return _cache[key]
+#     else:
+#         _cache[key] = sympy.Integral(sympy_expression, x).doit()
+#         return -_cache[key]
 
 
 def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
@@ -202,7 +202,6 @@ class SymPyExpression(Expression, ABC):
         try:
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
-            print(f"body:{body.sympy_object}")
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
             return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object,
                                                                     (index.sympy_object,
@@ -221,7 +220,6 @@ class SymPyExpression(Expression, ABC):
         try:
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
-            print(f"body:{body.sympy_object}")
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
             indefinite_integral = _get_sympy_integral(body.sympy_object, index.sympy_object)
             difference = indefinite_integral.subs(index.sympy_object, upper_bound.sympy_object) - indefinite_integral.subs(index.sympy_object, lower_bound.sympy_object)
@@ -398,6 +396,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def __new__(cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         if sympy_object.func == sympy.Piecewise:
             return SymPyConditionalFunctionApplication(sympy_object, type_dict)
+            # return SymPyPiecewise(sympy_object, type_dict)
         else:
             return super().__new__(cls)
 
@@ -516,6 +515,30 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
         return sympy_piecewise_to_if_then_else(self.sympy_object)
 
 
+class SymPyPiecewise(SymPyFunctionApplicationInterface):
+    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
+        if sympy_object.func != sympy.Piecewise:
+            raise TypeError("Can only create piecewise function application when function is sympy.Piecewise.")
+        self._then_type = _infer_sympy_object_type(sympy_object.args[0][0], type_dict)
+        SymPyExpression.__init__(self, sympy_object, self._then_type, type_dict)
+
+    @property
+    def function_type(self) -> ExpressionType:
+        return Callable[[bool, self._then_type, self._then_type], self._then_type]
+
+    @property
+    def function(self) -> Expression:
+        return SymPyConstant(self._sympy_object.func, self.function_type)
+
+    @property
+    def number_of_arguments(self) -> int:
+        return len(self.sympy_object.args) * 2
+
+    @property
+    def native_arguments(self) -> Tuple[sympy.Basic, ...]:
+        return [arg[0] for arg in self.sympy_object.args] + [arg[1] for arg in self.sympy_object.args]
+
+
 def _context_to_variable_value_dict_helper(context: FunctionApplication,
                                            variable_to_value: Dict[str, Any],
                                            unknown: bool = False,
@@ -623,3 +646,15 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
     @property
     def body(self) -> Expression:
         return SymPyExpression.from_sympy_object(self.sympy_object.args[0], self.type_dict)
+
+
+def make_piecewise(conditions: List[Expression], expressions: List[Expression]):
+    expressions = [SymPyExpression.convert(expression) for expression in expressions]
+    conditions = [SymPyExpression.convert(condition) for condition in conditions]
+    type_dict = _build_type_dict_from_sympy_arguments(conditions + expressions)
+    arguments = [(expression.sympy_object, condition.sympy_object)
+                 for condition, expression in zip(conditions, expressions)]
+    sympy_piecewise = sympy.Piecewise(arguments)
+    return SymPyFunctionApplication(sympy_piecewise, type_dict)
+
+

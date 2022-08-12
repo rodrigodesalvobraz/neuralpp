@@ -10,7 +10,7 @@ from .basic_expression import BasicConstant
 from .functions import conditional
 from .expression import Expression
 from .z3_expression import Z3Constant
-from .sympy_expression import SymPyConstant, SymPyExpression
+from .sympy_expression import SymPyConstant, SymPyExpression, SymPyFunctionApplication
 from .expression import get_arithmetic_function_return_type_from_argument_types
 
 

@@ -191,9 +191,9 @@ def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context
         raise AttributeError("WHAT")
     if context.is_known_to_imply(~constraint):
         return operation.identity
-    print(f"eliminating: {body}")
+    # print(f"eliminating: {body}")
     result = _eliminator.eliminate(operation, index, constraint, body, is_integral, context)
-    print(f"done")
+    # print(f"done")
     return _simplifier.simplify(result, context)
 
 

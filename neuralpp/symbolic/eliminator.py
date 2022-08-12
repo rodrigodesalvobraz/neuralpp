@@ -1,5 +1,5 @@
 from .expression import Context, Expression, Constant, AbelianOperation, Variable
-from .basic_expression import BasicQuantifierExpression
+from .basic_expression import BasicQuantifierExpression, BasicConstant
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint
 from .util import map_leaves_of_if_then_else
@@ -85,6 +85,7 @@ class Eliminator:
         if not isinstance(interval.upper_bound, Expression):
             raise NotImplementedError(type(interval.upper_bound))
         Eliminator.integration_counter = Eliminator.integration_counter + 1
-        print(f"start {Eliminator.integration_counter}th integration: ({interval.lower_bound},{interval.upper_bound})")
-        result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
-        return result
+        print(f"{Eliminator.integration_counter}th integration: ({interval.lower_bound},{interval.upper_bound})")
+        return BasicConstant(0.0)
+        # result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
+        # return result

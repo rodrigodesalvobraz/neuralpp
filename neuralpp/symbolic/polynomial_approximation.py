@@ -95,3 +95,13 @@ def make_piecewise_expression(conditions, expressions):
     for condition, expression in zip(reversed(conditions), reversed(expressions)):
         current_piecewise_expression = if_then_else(condition, expression, current_piecewise_expression)
     return current_piecewise_expression
+
+
+def make_piecewise_expression_quick(conditions, expressions):
+    """
+    Given conditions C1, ..., Cn and expressions E1, ..., En,
+    returns Expression if C1 then E1 else if C2 then E2 else ... else 0.
+    assume C1, .., Cn are mutually exclusive
+    """
+    from .constants import make_piecewise
+    return make_piecewise(conditions, expressions)

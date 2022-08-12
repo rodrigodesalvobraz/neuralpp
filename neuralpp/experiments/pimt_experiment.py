@@ -99,9 +99,9 @@ def evaluation_simple():
 
 
 if __name__ == "__main__":
-    evaluation0()
+    # evaluation0()
     # evaluation_simple()
-    # evaluation()
+    evaluation()
 
 
 # P(x, mu2) propto
