@@ -65,13 +65,26 @@ def evaluation():
 
     print(f"in time {end - start}")
 
-    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
     print("sympy_formula.subs")
     xx, mu2mu2 = sympy.symbols('x mu2')
     print(sympy_formula.subs({xx: 1.0, mu2mu2: 0.0}))
+    print(timeit(lambda: sympy_formula.subs({xx: 1.0, mu2mu2: 0.0}), number=1000))
     print("sympy_formula_cython")
+    # note the following might not run since sympy's C generation code requires last entry of piecewise to have condition `True`
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
     print(sympy_formula_cython(1.0, 0.0))
-    print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
+    print(timeit(lambda: sympy_formula_cython(1.0, 0.0), number=1000))
+
+
+def print_piecewise_test():
+    from sympy import Piecewise
+    a, b = sympy.symbols('a b')
+    formula = Piecewise((2, a), (3, b))
+    sympy_formula_cython = autowrap(formula, backend='cython', tempdir='../../../../autowraptmp')
+    print(sympy_formula_cython(True, False))
+    print(sympy_formula_cython(True, True))
+    print(sympy_formula_cython(False, True))
+    print(sympy_formula_cython(False, False))
 
 
 def evaluation_simple():
@@ -97,6 +110,7 @@ if __name__ == "__main__":
     # evaluation0()
     # evaluation_simple()
     evaluation()
+    # print_piecewise_test()
 
 
 # P(x, mu2) propto
