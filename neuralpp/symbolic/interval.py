@@ -3,8 +3,8 @@ from __future__ import annotations
 import builtins
 import operator
 from typing import Iterable, List, Set, Tuple, Optional
-from .expression import Variable, Expression, Context, Constant, FunctionApplication
-from .basic_expression import BasicExpression, QuantifierExpression
+from .expression import Variable, Expression, Context, Constant, FunctionApplication, QuantifierExpression
+from .basic_expression import BasicExpression
 from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
 
@@ -132,13 +132,12 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
         context_upper_bound = context_interval.interval.upper_bound
         if (context_lower_bound.contains(index)):
             bound = _simplifier.simplify(context_upper_bound - context_lower_bound + index)
-            if bound.value < context_upper_bound.value:
-                closed_interval = closed_interval.set(1, bound)
+            closed_interval, exceptions = _check_and_set_bounds(1, bound, closed_interval, exceptions)
 
-        if (context_upper_bound.contains(index)):
+        elif (context_upper_bound.contains(index)):
             bound = _simplifier.simplify(context_lower_bound - context_upper_bound + index)
-            if bound.value > context_lower_bound.value:
-                closed_interval = closed_interval.set(0, bound)
+            closed_interval, exceptions = _check_and_set_bounds(0, bound, closed_interval, exceptions)
+
     return DottedIntervals(closed_interval, exceptions)
 
 
@@ -232,14 +231,31 @@ def _check_and_set_bounds(
     When checking the upper bounds: if the bound is <= the current lower bound, replace the current
     upper bound with the bound.
     """
+    lower_bound = closed_interval.lower_bound
+    upper_bound = closed_interval.upper_bound
     match index:
         case 0:
-            if closed_interval.lower_bound is None or bound >= closed_interval.lower_bound():
+            if lower_bound is None:
+                lower_bound = bound
                 closed_interval = closed_interval.set(0, bound)
+            elif isinstance(lower_bound, Constant) and isinstance(bound, Constant) and bound.value >= lower_bound.value:
+                lower_bound = bound
+                closed_interval = closed_interval.set(0, bound)
+            else:
+                closed_interval = closed_interval.set(0, lower_bound and bound)
         case 1:
-            if closed_interval.upper_bound is None or bound <= closed_interval.upper_bound():
+            if upper_bound is None:
                 closed_interval = closed_interval.set(1, bound)
+            elif isinstance(upper_bound, Constant) and isinstance(bound, Constant) and bound.value <= upper_bound.value:
+                upper_bound = bound
+                closed_interval = closed_interval.set(1, bound)
+            else:
+                closed_interval = closed_interval.set(1, upper_bound and bound)
         case _:
             raise IndexError(f"{index} is out of bounds")
+
+    if isinstance(lower_bound, Constant) and isinstance(upper_bound, Constant):
+        if lower_bound.value > upper_bound.value:
+            raise ValueError(f"the lower bound ({lower_bound}) is greater than upper bound ({upper_bound})")
 
     return closed_interval, exceptions

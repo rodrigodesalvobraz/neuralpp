@@ -1,3 +1,4 @@
+import pytest
 from neuralpp.symbolic.interval import from_constraint
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Expression
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation
@@ -62,3 +63,15 @@ def test_intervals_with_summation():
 
     assert interval.lower_bound.syntactic_eq(Z3Expression.new_constant(12))
     assert interval.upper_bound.syntactic_eq(Z3Expression.new_constant(19))
+
+def test_invalid_constant_intervals():
+    i = BasicVariable('i', int)
+    j = BasicVariable('j', int)
+
+    empty_context = Z3SolverExpression()
+    constant_context = empty_context & (j < 20) & (j > 0)
+
+    sum_invalid = BasicSummation(int, i, Z3SolverExpression.from_expression(j < i) & (i < 0), i + j)
+
+    with pytest.raises(ValueError):
+        dotted_interval = from_constraint(i, constant_context, empty_context, False)
