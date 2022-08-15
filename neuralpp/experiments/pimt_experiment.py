@@ -11,6 +11,7 @@ from fractions import Fraction
 from sympy.utilities.autowrap import autowrap
 from timeit import timeit
 from pickle import dump, load
+from typing import Dict, Any
 import time
 
 x = BasicVariable("x", float)
@@ -19,7 +20,7 @@ mu2 = BasicVariable("mu2", float)
 
 # P(x, mu1, mu2) = Normal(x | mu1, 1.0) * Normal(mu1 | mu2, 1.0) * Normal(mu2 | 0.0, 1.0) propto
 formula = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0)
-joint1 = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
+joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
         * \
         get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0) \
         * \
@@ -54,9 +55,9 @@ def evaluation0():
 
 
 def evaluation():
-    print(f"joint: {SymPyExpression.convert(joint1).sympy_object.args}")
+    print(f"joint: {SymPyExpression.convert(joint).sympy_object.args}")
     start = time.time()
-    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint1)
+    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint)
     result = LazyNormalizer.normalize(goal, Z3SolverExpression())
     end = time.time()
     print(f"evaluation result: {result}")
@@ -98,18 +99,53 @@ def evaluation_simple():
 
     print(f"in time {end - start}")
     sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
-    print("sympy_formula.subs")
     xx = sympy.symbols('x')
-    print(sympy_formula.subs({xx: 1.0}))
-    print("sympy_formula_cython")
-    print(sympy_formula_cython(1.0))
+    python_answer = sympy_formula.subs({xx: 1.0})
+    print(f"[Python native]sympy.subs answer is {python_answer}")
+    cython_answer = sympy_formula_cython(1.0)
+    print(f"[Cython]autowrap answer is {cython_answer}")
     print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
+
+
+def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
+    normalizer = LazyNormalizer()
+    prefix = f"[{test_name}]"
+    start = time.time()
+    result = normalizer.normalize(goal, Z3SolverExpression())
+    end = time.time()
+    sympy_formula = SymPyExpression.convert(result).sympy_object
+    print(f"{prefix}evaluation result: {sympy_formula}")
+    print(f"{prefix}in time {end - start} seconds")
+    normalizer.evaluator.print_result(prefix)
+
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    sympy_sub_dict = {sympy.symbols(k): v for k, v in variable_value_pairs.items()}
+    python_answer = sympy_formula.subs(sympy_sub_dict)
+    print(f"{prefix}[Python native]sympy.subs answer is {python_answer}")
+    # the following line requires dict to be ordered (supported after Python 3.5)
+    cython_arguments = [v for _, v in variable_value_pairs.items()]
+    cython_answer = sympy_formula_cython(*cython_arguments)
+    print(f"{prefix}[Cython]autowrap answer is {cython_answer}")
+    python_run_time = timeit(lambda: sympy_formula.subs(sympy_sub_dict), number=1000)
+    print(f"{prefix}[Python native]run time is {python_run_time * 1000} microseconds")
+    cython_run_time = timeit(lambda: sympy_formula_cython(*cython_arguments), number=1000)
+    # 1000 times of test run in {cython_run_time} seconds --> 1 time of test run in {cython_run_time} miliseconds
+    print(f"{prefix}[Cython]run time is {cython_run_time * 1000} microseconds")
 
 
 if __name__ == "__main__":
     # evaluation0()
+    evaluation_general("1 Normal",
+                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula),
+                       {'x': 0.0})
+    evaluation_general("2 Normals",
+                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple),
+                       {'x': 1.0})
+    evaluation_general("Joint",
+                       BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
+                       {'x': 1.0, 'mu2': 0.0})
     # evaluation_simple()
-    evaluation()
+    # evaluation()
     # print_piecewise_test()
 
 

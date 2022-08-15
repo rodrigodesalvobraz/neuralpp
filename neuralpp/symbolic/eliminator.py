@@ -6,25 +6,8 @@ from .util import map_leaves_of_if_then_else
 from .constants import if_then_else
 from functools import reduce
 from typing import Optional
+from .evaluator import Evaluator
 import operator
-
-
-def _eliminate_interval(operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
-                        is_integral: bool) \
-        -> Expression:
-    # try to solve symbolically
-    result = _symbolically_eliminate(operation, index, interval, body, is_integral)
-    if result is not None:
-        return result
-
-    raise NotImplementedError("sympy cannot eliminate?")
-    # TODO: enable this
-    # if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
-    #     # iterate through the interval if we can
-    #     return reduce(operation,
-    #                   map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
-    #                   operation.identity)
-    return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
 
 
 def _repeat_n(operation: AbelianOperation, expression: Expression, size: Expression) -> Optional[Expression]:
@@ -35,66 +18,84 @@ def _repeat_n(operation: AbelianOperation, expression: Expression, size: Express
     return None  # TODO: expand this
 
 
-def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
-                            is_integral: bool) \
-        -> Optional[Expression]:
-    if operation.value == operator.add:
-        if not is_integral:
-            if (result := Eliminator.symbolic_sum(body, index, interval)) is not None:
-                return result
-        else:
-            if (result := Eliminator.symbolic_integral(body, index, interval)) is not None:
-                return if_then_else(interval.upper_bound > interval.lower_bound, result, 0)
-
-    if isinstance(body, Constant):
-        # repeat addition: multiplication, repeat multiplication: power
-        return _repeat_n(operation, body, interval.size)
-    return None
-
-
 class Eliminator:
-    integration_counter = 0
+    def __init__(self, evaluator=None):
+        if evaluator is None:
+            self.evaluator = Evaluator()
+        else:
+            self.evaluator = evaluator
 
-    @staticmethod
-    def eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
+    def eliminate(self, operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                   is_integral: bool, context: Context) -> Expression:
         def eliminate_at_leaves(dotted_interval: DottedIntervals) -> Expression:
             if not isinstance(dotted_interval, DottedIntervals):
                 raise AttributeError("Expect leaves to be DottedIntervals")
-            result = _eliminate_interval(operation, index, dotted_interval.interval, body, is_integral)
+            result = self._eliminate_interval(operation, index, dotted_interval.interval, body, is_integral)
             if not dotted_interval.dots:  # empty dots
                 return result
             inverse = operation.inverse(reduce(operation, dotted_interval.dots, operation.identity))
             return operation(result, inverse)
 
         try:
-            print(f"context: {SymPyExpression.convert(context).sympy_object}")
+            # print(f"context: {SymPyExpression.convert(context).sympy_object}")
             conditional_intervals = from_constraint(index, constraint, context, is_integral)
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
             return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
-    @staticmethod
-    def symbolic_sum(body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
+    def _eliminate_interval(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
+                            is_integral: bool) \
+            -> Expression:
+        # try to solve symbolically
+        result = self._symbolically_eliminate(operation, index, interval, body, is_integral)
+        if result is not None:
+            return result
+
+        raise NotImplementedError("sympy cannot eliminate?")
+        # TODO: enable this
+        # if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
+        #     # iterate through the interval if we can
+        #     return reduce(operation,
+        #                   map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
+        #                   operation.identity)
+        return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
+
+    def _symbolically_eliminate(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval,
+                                body: Expression,
+                                is_integral: bool) \
+            -> Optional[Expression]:
+        if operation.value == operator.add:
+            if not is_integral:
+                if (result := self.symbolic_sum(body, index, interval)) is not None:
+                    return result
+            else:
+                if (result := self.symbolic_integral(body, index, interval)) is not None:
+                    return if_then_else(interval.upper_bound > interval.lower_bound, result, 0)
+
+        if isinstance(body, Constant):
+            # repeat addition: multiplication, repeat multiplication: power
+            return _repeat_n(operation, body, interval.size)
+        return None
+
+    def symbolic_sum(self, body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
         return SymPyExpression.symbolic_sum(body, index, interval.lower_bound, interval.upper_bound)
 
-    @staticmethod
-    def symbolic_integral(body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
+    def symbolic_integral(self, body: Expression, index: Variable, interval: ClosedInterval) -> Optional[Expression]:
         if not isinstance(interval.lower_bound, Expression):
             raise NotImplementedError(type(interval.lower_bound))
         if not isinstance(interval.upper_bound, Expression):
             raise NotImplementedError(type(interval.upper_bound))
-        Eliminator.integration_counter = Eliminator.integration_counter + 1
-        print(f"{Eliminator.integration_counter}th integration: \n"
-              f"({SymPyExpression.convert(interval.lower_bound).sympy_object},\n"
-              f"{SymPyExpression.convert(interval.upper_bound).sympy_object})\n {SymPyExpression.convert(body).sympy_object}")
-        if DRY_RUN:
-            return BasicConstant(0.0)
-        else:
-            result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
-            print(f"done. {result.sympy_object}")
-            return result
+        # print(f"{Eliminator.integration_counter}th integration: \n"
+        #       f"({SymPyExpression.convert(interval.lower_bound).sympy_object},\n"
+        #       f"{SymPyExpression.convert(interval.upper_bound).sympy_object})\n {SymPyExpression.convert(body).sympy_object}")
+        with self.evaluator.log_section("integration"):
+            if DRY_RUN:
+                return BasicConstant(0.0)
+            else:
+                result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
+                # print(f"done. {result.sympy_object}")
+                return result
 
 
 DRY_RUN = False
