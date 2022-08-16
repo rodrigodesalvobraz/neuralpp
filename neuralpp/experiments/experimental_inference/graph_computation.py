@@ -106,3 +106,5 @@ class ExpansionValueComputation(PartialTreeComputation):
         # to the highest available child result, then propagate through ancestors:
         self.recompute_and_propagate_result_to_parents(expand_to_node)
 
+    def is_complete(self):
+        return all(self.result_dict[k] is None for k in self.result_dict)

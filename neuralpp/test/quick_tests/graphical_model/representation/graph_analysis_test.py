@@ -1,3 +1,5 @@
+from neuralpp.experiments.experimental_inference.approximations import uniform_approximation_fn
+from neuralpp.experiments.experimental_inference.exact_belief_propagation import IncrementalAnytimeBeliefPropagation
 from neuralpp.experiments.experimental_inference.graph_analysis import *
 from neuralpp.experiments.experimental_inference.graph_computation import *
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
