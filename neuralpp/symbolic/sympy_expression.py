@@ -116,7 +116,7 @@ python_callable_and_sympy_function_relation = [
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
     # conditional
-    (functions.conditional, sympy_Cond),
+    # (functions.conditional, sympy_Cond),  # disabled, so we can get SymPyConditionalFunctionApplication
     # identity
     (functions.identity, sympy.Id)
 ]
@@ -285,6 +285,14 @@ class SymPyExpression(Expression, ABC):
             # if function is not of SymPyConstant but of Constant, then it is assumed to be a python callable
             case Constant(value=python_callable):
                 # during the call, ValueError will be implicitly raised if we cannot convert
+                if python_callable == functions.conditional:
+                    # special case of Conditional, this allows us to differentiate
+                    # SymPyConditionalFunctionApplication (for if-then-else) and SymPyPiecewise (for piecewise)
+                    if_, then, else_ = [SymPyExpression._convert(argument) for argument in arguments]
+                    type_dict = _build_type_dict_from_sympy_arguments([if_, then, else_])
+                    return SymPyConditionalFunctionApplication(sympy.Piecewise((then.sympy_object, if_.sympy_object),
+                                                                               (else_.sympy_object, True)),
+                                                               type_dict)
                 sympy_function = _python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
             case Variable(name=name, type=type_):
@@ -408,7 +416,6 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def __new__(cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         if sympy_object.func == sympy.Piecewise:
-            # return SymPyConditionalFunctionApplication(sympy_object, type_dict)
             return SymPyPiecewise(sympy_object, type_dict)
         else:
             return super().__new__(cls)
@@ -421,7 +428,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         The old value, if exists, is only used for consistency checking.
         """
         if not sympy_object.args:
-            raise TypeError("not a function application.")
+            raise TypeError(f"not a function application. {sympy_object}")
 
         if sympy_object.func in type_dict:
             # this happens iff sympy_object is an uninterpreted function, whose type cannot be inferred

@@ -18,18 +18,26 @@ class EvaluationLog:
 class Evaluator:
     def __init__(self):
         self._logs: Dict[str, EvaluationLog] = {}
+        self._current_section = None
+        self._current_start_time = None
 
     @contextmanager
     def log_section(self, section_name):
+        old_section, old_time = self._current_section, self._current_start_time
+        start = monotonic()
+        self._current_section, self._current_start_time = section_name, start
+
         if section_name not in self._logs:
             self._logs[section_name] = EvaluationLog()
-
         self._logs[section_name].increase_counter()
-        start = monotonic()
         try:
+            if old_section is not None:
+                self._logs[old_section].add_time_delta(start - old_time)
             yield
         finally:
-            self._logs[section_name].add_time_delta(monotonic() - start)
+            end = monotonic()
+            self._logs[section_name].add_time_delta(end - self._current_start_time)
+            self._current_section, self._current_start_time = old_section, end
 
     def print_result(self, prefix):
         for section_name, log in self._logs.items():

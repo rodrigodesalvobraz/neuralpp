@@ -12,6 +12,7 @@ from .expression import Expression
 from .z3_expression import Z3Constant
 from .sympy_expression import SymPyConstant, SymPyExpression, SymPyFunctionApplication
 from .expression import get_arithmetic_function_return_type_from_argument_types
+from .parameters import sympy_evaluate
 
 
 def if_then_else_function(type_: Type) -> Expression:
@@ -135,11 +136,10 @@ sympy_false = SymPyConstant(sympy.S.false, bool)
 
 
 def min_(expressions: List[Expression]) -> Expression:
-    # TODO fix type
-    return SymPyExpression.new_function_application(SymPyConstant(sympy.Min, Callable[[float, float], float]),
-                                                    expressions)
+    with sympy_evaluate(True):
+        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy.Min, expressions)
 
 
 def max_(expressions: List[Expression]) -> Expression:
-    return SymPyExpression.new_function_application(SymPyConstant(sympy.Max, Callable[[float, float], float]),
-                                                    expressions)
+    with sympy_evaluate(True):
+        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy.Max, expressions)
