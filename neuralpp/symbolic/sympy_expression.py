@@ -11,6 +11,8 @@ import builtins
 import fractions
 
 from functools import cached_property
+
+from neuralpp.symbolic.evaluator import Evaluator
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression, \
     AbelianOperation
@@ -223,15 +225,17 @@ class SymPyExpression(Expression, ABC):
             return None
 
     @staticmethod
-    def symbolic_integral_cached(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
+    def symbolic_integral_cached(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression,
+                                 evaluator: Evaluator) \
             -> Optional[Expression]:
         """ try to compute the integral symbolically, if fails, return None"""
         try:
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            indefinite_integral = _get_sympy_integral(body.sympy_object, index.sympy_object)
-            difference = indefinite_integral.subs(index.sympy_object, upper_bound.sympy_object) - indefinite_integral.subs(index.sympy_object, lower_bound.sympy_object)
+            with evaluator.log_section("sympy integration"):
+                indefinite_integral = _get_sympy_integral(body.sympy_object, index.sympy_object)
+                difference = indefinite_integral.subs(index.sympy_object, upper_bound.sympy_object) - indefinite_integral.subs(index.sympy_object, lower_bound.sympy_object)
             return SymPyExpression.from_sympy_object(difference, type_dict)
         except Exception as exc:
             return None

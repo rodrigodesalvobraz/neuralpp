@@ -128,7 +128,8 @@ class GeneralNormalizer(Normalizer):
                                 elements.append(self._normalize(
                                     BasicQuantifierExpression(operation, index, constraint & condition, expression,
                                                               is_integral), context, body_is_normalized=True))
-                            result = SymPyExpression.new_function_application(operation, elements)
+                            with self.evaluator.log_section("symbolic addition"):
+                                result = SymPyExpression.new_function_application(operation, elements)
                             # print(f'result={result.sympy_object}')
                             # return _simple_simplifier.simplify(result)
                             return result
@@ -139,7 +140,8 @@ class GeneralNormalizer(Normalizer):
                                 assert not condition.contains(index)
                                 conditions.append(condition)
                                 new_expressions.append(self._normalize(BasicQuantifierExpression(operation, index, constraint, expression, is_integral), context & condition, body_is_normalized=True))
-                            return make_piecewise(conditions, new_expressions)
+                            with self.evaluator.log_section("make piecewise"):
+                                return make_piecewise(conditions, new_expressions)
 
                     case FunctionApplication(function=Constant(value=functions.conditional),
                                              arguments=[condition, then, else_]):

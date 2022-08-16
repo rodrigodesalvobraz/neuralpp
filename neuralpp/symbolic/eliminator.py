@@ -93,7 +93,8 @@ class Eliminator:
             if DRY_RUN:
                 return BasicConstant(0.0)
             else:
-                result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound)
+                result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound,
+                                                                  self.evaluator)
                 # print(f"done. {result.sympy_object}")
                 return result
 

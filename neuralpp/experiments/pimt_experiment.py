@@ -20,61 +20,14 @@ mu2 = BasicVariable("mu2", float)
 
 # P(x, mu1, mu2) = Normal(x | mu1, 1.0) * Normal(mu1 | mu2, 1.0) * Normal(mu2 | 0.0, 1.0) propto
 formula = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0)
-joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
-        * \
-        get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0) \
-        * \
-        get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0)
-simple_polynomials = (x ** 3 + x ** 2 + x ** 1) * (mu1 ** 3 + mu1 ** 2 + mu1 ** 1)
-
 joint_simple = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
                * \
-               get_normal_piecewise_polynomial_approximation(mu1, BasicExpression.new_constant(0.0), 1.0) \
-
-#  if A & B then C else D
-# if A then if B then C else D
-
-
-def evaluation0():
-    start = time.time()
-    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula)
-    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
-    end = time.time()
-    print(f"evaluation result: {result}")
-    sympy_formula = SymPyExpression.convert(result).sympy_object
-    print(f"evaluation result: {sympy_formula}")
-
-    print(f"in time {end - start}")
-    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
-    print("sympy_formula.subs")
-    xx = sympy.symbols('x')
-    print(sympy_formula.subs({xx: 0.0}))
-    print("sympy_formula_cython")
-    print(sympy_formula_cython(0.0))
-    print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
-
-
-def evaluation():
-    print(f"joint: {SymPyExpression.convert(joint).sympy_object.args}")
-    start = time.time()
-    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint)
-    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
-    end = time.time()
-    print(f"evaluation result: {result}")
-    sympy_formula = SymPyExpression.convert(result).sympy_object
-    print(f"evaluation result: {sympy_formula}")
-
-    print(f"in time {end - start}")
-
-    print("sympy_formula.subs")
-    xx, mu2mu2 = sympy.symbols('x mu2')
-    print(sympy_formula.subs({xx: 1.0, mu2mu2: 0.0}))
-    print(timeit(lambda: sympy_formula.subs({xx: 1.0, mu2mu2: 0.0}), number=1000))
-    print("sympy_formula_cython")
-    # note the following might not run since sympy's C generation code requires last entry of piecewise to have condition `True`
-    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
-    print(sympy_formula_cython(1.0, 0.0))
-    print(timeit(lambda: sympy_formula_cython(1.0, 0.0), number=1000))
+               get_normal_piecewise_polynomial_approximation(mu1, BasicExpression.new_constant(0.0), 1.0)
+joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
+    * \
+    get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0) \
+    * \
+    get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0)
 
 
 def print_piecewise_test():
@@ -86,25 +39,6 @@ def print_piecewise_test():
     print(sympy_formula_cython(True, True))
     print(sympy_formula_cython(False, True))
     print(sympy_formula_cython(False, False))
-
-
-def evaluation_simple():
-    start = time.time()
-    goal = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple)
-    result = LazyNormalizer.normalize(goal, Z3SolverExpression())
-    end = time.time()
-    print(f"evaluation result: {result}")
-    sympy_formula = SymPyExpression.convert(result).sympy_object
-    print(f"evaluation result: {sympy_formula}")
-
-    print(f"in time {end - start}")
-    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
-    xx = sympy.symbols('x')
-    python_answer = sympy_formula.subs({xx: 1.0})
-    print(f"[Python native]sympy.subs answer is {python_answer}")
-    cython_answer = sympy_formula_cython(1.0)
-    print(f"[Cython]autowrap answer is {cython_answer}")
-    print(timeit(lambda: sympy_formula_cython(1.0), number=1000))
 
 
 def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
@@ -134,19 +68,15 @@ def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
 
 
 if __name__ == "__main__":
-    # evaluation0()
     evaluation_general("1 Normal",
                        BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula),
                        {'x': 0.0})
     evaluation_general("2 Normals",
                        BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple),
                        {'x': 1.0})
-    evaluation_general("Joint",
-                       BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
-                       {'x': 1.0, 'mu2': 0.0})
-    # evaluation_simple()
-    # evaluation()
-    # print_piecewise_test()
+    # evaluation_general("Joint",
+    #                    BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
+    #                    {'x': 1.0, 'mu2': 0.0})
 
 
 # P(x, mu2) propto
