@@ -2,7 +2,7 @@ import sympy
 
 from neuralpp.symbolic.basic_expression import BasicExpression
 from neuralpp.symbolic.expression import Variable
-from neuralpp.symbolic.basic_expression import BasicIntegral, BasicVariable
+from neuralpp.symbolic.basic_expression import BasicIntegral, BasicVariable, BasicConstant
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3SolverExpressionDummy
 from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation, make_piecewise_expression_quick
 from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
@@ -83,12 +83,18 @@ if __name__ == "__main__":
     evaluation_general("1 Normal",
                        BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula),
                        {'x': 0.0})
+    evaluation_general("2 Normals-concrete x=1",
+                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(1.0))),
+                       {})
+    evaluation_general("2 Normals-concrete x=0",
+                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(0.0))),
+                       {})
     evaluation_general("2 Normals",
                        BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple),
                        {'x': 1.0})
-    evaluation_general("Joint",
-                       BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
-                       {'x': 1.0, 'mu2': 0.0})
+    # evaluation_general("Joint",
+    #                    BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
+    #                    {'x': 1.0, 'mu2': 0.0})
 
 
 # P(x, mu2) propto
