@@ -3,8 +3,8 @@ import sympy
 from neuralpp.symbolic.basic_expression import BasicExpression
 from neuralpp.symbolic.expression import Variable
 from neuralpp.symbolic.basic_expression import BasicIntegral, BasicVariable
-from neuralpp.symbolic.z3_expression import Z3SolverExpression
-from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation
+from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3SolverExpressionDummy
+from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation, make_piecewise_expression_quick
 from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
 from neuralpp.symbolic.sympy_expression import SymPyExpression
 from fractions import Fraction
@@ -29,6 +29,13 @@ joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0) \
     * \
     get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0)
 
+E1 = x < 0
+E2 = x >= 0
+E3 = mu1 < 0
+E4 = mu1 >= 0
+two_piecewise = make_piecewise_expression_quick([E1, E2], [x ** 2, x]) * \
+                make_piecewise_expression_quick([E3, E4], [mu1 ** 2, mu1])
+
 
 def print_piecewise_test():
     from sympy import Piecewise
@@ -45,11 +52,12 @@ def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
     normalizer = LazyNormalizer()
     prefix = f"[{test_name}]"
     start = time.time()
-    result = normalizer.normalize(goal, Z3SolverExpression())
+    result = normalizer.normalize(goal, Z3SolverExpressionDummy())
+    # result = normalizer.normalize(goal, Z3SolverExpression())
     end = time.time()
     sympy_formula = SymPyExpression.convert(result).sympy_object
     print(f"{prefix}evaluation result: {sympy_formula}")
-    print(f"{prefix}in time {end - start} seconds")
+    print(f"{prefix}in time {end - start:.3g} seconds")
     normalizer.evaluator.print_result(prefix)
 
     sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
@@ -61,13 +69,17 @@ def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
     cython_answer = sympy_formula_cython(*cython_arguments)
     print(f"{prefix}[Cython]autowrap answer is {cython_answer}")
     python_run_time = timeit(lambda: sympy_formula.subs(sympy_sub_dict), number=1000)
-    print(f"{prefix}[Python native]run time is {python_run_time * 1000} microseconds")
+    print(f"{prefix}[Python native]run time is {python_run_time * 1000:.3g} microseconds")
     cython_run_time = timeit(lambda: sympy_formula_cython(*cython_arguments), number=1000)
     # 1000 times of test run in {cython_run_time} seconds --> 1 time of test run in {cython_run_time} miliseconds
-    print(f"{prefix}[Cython]run time is {cython_run_time * 1000} microseconds")
+    print(f"{prefix}[Cython]run time is {cython_run_time * 1000:.3g} microseconds")
 
 
 if __name__ == "__main__":
+    evaluation_general("two piecewise",
+                       BasicIntegral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise),
+                       {'x': 10.0, 'mu1': 10.0})
+
     evaluation_general("1 Normal",
                        BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula),
                        {'x': 0.0})

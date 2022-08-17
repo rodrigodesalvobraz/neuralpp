@@ -5,6 +5,7 @@ import typing
 from typing import List, Any, Callable, Tuple, Optional, Type, Dict, FrozenSet
 from abc import ABC, abstractmethod
 
+import sympy
 import z3
 import operator
 import builtins
@@ -709,3 +710,51 @@ def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | 
     result: Dict[z3.ExprRef, EquivalenceClass] = {}
     _traverse_equalities(assertions, key_to_equivalence_class_accumulator)
     return frozenset(result.values())
+
+
+class Z3SolverExpressionDummy(Z3SolverExpression):
+    """
+    A Z3SolverExpression that knows nothing.
+    """
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.function] + self.arguments
+
+    @property
+    def unsatisfiable(self) -> bool:  # self should always be satisfiable
+        """ Always False because I know nothing. """
+        return False
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return True
+
+    @property
+    def number_of_arguments(self) -> int:
+        return 0
+
+    @cached_property
+    def z3_expression(self) -> z3.AstRef:
+        return z3.BoolVal(True)
+
+    def __and__(self, other: Any) -> Context:
+        """ I know nothing so I learn nothing. """
+        return self
+
+    __rand__ = __and__
+
+    @staticmethod
+    def from_expression(expression: Expression) -> Z3SolverExpression:
+        raise NotImplementedError("?")
+
+    def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
+        from .sympy_expression import SymPyExpression
+        sympy_object = SymPyExpression.convert(expression).sympy_object
+        if sympy_object == sympy.true:
+            return True
+        if sympy_object == sympy.false:
+            return False
+

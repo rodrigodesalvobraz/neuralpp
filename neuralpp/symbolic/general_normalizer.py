@@ -75,20 +75,21 @@ class GeneralNormalizer(Normalizer):
                 return expression
             case FunctionApplication(function=Constant(value=sympy.Piecewise),
                                      arguments=arguments):
-                new_conditions = []
-                new_expressions = []
-                for expression, condition in arguments:
-                    if context.is_known_to_imply(condition):
-                        print(f"shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")
-                        return self._normalize(expression, context)
-                    elif context.is_known_to_imply(~condition):
-                        print(f"eliminate: {SymPyExpression.convert(condition).sympy_object}")
-                        pass
-                    else:
-                        new_conditions.append(condition)
-                        new_expressions.append(self._normalize(expression, context & condition))
-                # print(f"len: {len(new_expressions)}, {len(new_conditions)}")
-                return make_piecewise(new_conditions, new_expressions)
+                with self.evaluator.log_section("piecewise-normalization"):
+                    new_conditions = []
+                    new_expressions = []
+                    for expression, condition in arguments:
+                        if context.is_known_to_imply(condition):
+                            print(f"normalize shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object} : {expression}")
+                            return self._normalize(expression, context)
+                        elif context.is_known_to_imply(~condition):
+                            print(f"normalize eliminate: {SymPyExpression.convert(condition).sympy_object}")
+                            pass
+                        else:
+                            new_conditions.append(condition)
+                            new_expressions.append(self._normalize(expression, context & condition))
+                    # print(f"len: {len(new_expressions)}, {len(new_conditions)}")
+                    return make_piecewise(new_conditions, new_expressions)
             case FunctionApplication(function=Constant(value=functions.conditional),
                                      arguments=[condition, then, else_]):
                 if context.is_known_to_imply(condition):
@@ -120,7 +121,8 @@ class GeneralNormalizer(Normalizer):
                 if body_is_normalized:
                     normalized_body = body
                 else:
-                    normalized_body = self._normalize(body, context & constraint)
+                    with self.evaluator.log_section("quantifier-body-normalization"):
+                        normalized_body = self._normalize(body, context & constraint)
                 match normalized_body:
                     case FunctionApplication(function=Constant(value=sympy.Piecewise),
                                              arguments=arguments):
@@ -128,9 +130,8 @@ class GeneralNormalizer(Normalizer):
                             elements = []
                             for expression, condition in arguments:
                                 assert condition.contains(index)
-                                elements.append(self._normalize(
-                                    BasicQuantifierExpression(operation, index, constraint & condition, expression,
-                                                              is_integral), context, body_is_normalized=True))
+                                with self.evaluator.log_section("quantifier-normalization-after-body"):
+                                    elements.append(self._normalize(BasicQuantifierExpression(operation, index, constraint & condition, expression, is_integral), context, body_is_normalized=True))
                             with self.evaluator.log_section("symbolic addition"):
                                 result = SymPyExpression.new_function_application(operation, elements)
                             # print(f'result={result.sympy_object}')
@@ -160,7 +161,8 @@ class GeneralNormalizer(Normalizer):
                             print(f"having {len(literals)} literals")
                         return self._normalize_quantifier_expression_given_literals(operation, index, constraint, is_integral, literals, then, else_, context)
                     case _:
-                        return self._eliminate(operation, index, constraint, normalized_body, is_integral, context)
+                        with self.evaluator.log_section("quantifier-normalization-eliminate"):
+                            return self._eliminate(operation, index, constraint, normalized_body, is_integral, context)
 
     def _normalize_function_application(self, function: Expression,
                                         arguments: List[Expression],
@@ -189,11 +191,11 @@ class GeneralNormalizer(Normalizer):
                 for expression, condition in piecewise_arguments:
                     if context.is_known_to_imply(condition):
                         print(
-                            f"shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")
+                            f"movedown shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")
                         arguments[i] = expression
                         return self._move_down_and_normalize(function, arguments, context & condition, i)
                     elif context.is_known_to_imply(~condition):
-                        print(f"eliminate: {SymPyExpression.convert(condition).sympy_object}")
+                        print(f"movedown eliminate: {SymPyExpression.convert(condition).sympy_object}")
                         pass
                     else:
                         new_conditions.append(condition)

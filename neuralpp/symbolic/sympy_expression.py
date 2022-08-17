@@ -290,9 +290,8 @@ class SymPyExpression(Expression, ABC):
                     # SymPyConditionalFunctionApplication (for if-then-else) and SymPyPiecewise (for piecewise)
                     if_, then, else_ = [SymPyExpression._convert(argument) for argument in arguments]
                     type_dict = _build_type_dict_from_sympy_arguments([if_, then, else_])
-                    return SymPyConditionalFunctionApplication(sympy.Piecewise((then.sympy_object, if_.sympy_object),
-                                                                               (else_.sympy_object, True)),
-                                                               type_dict)
+                    piecewise = sympy.Piecewise((then.sympy_object, if_.sympy_object), (else_.sympy_object, True))
+                    return SymPyConditionalFunctionApplication(piecewise, type_dict)
                 sympy_function = _python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
             case Variable(name=name, type=type_):
@@ -525,7 +524,10 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
 
     @property
     def function(self) -> Expression:
-        return SymPyConstant(self._sympy_object.func, self.function_type)
+        from .constants import if_then_else_function
+        return if_then_else_function(self._then_type)  # should be treated as "if" instead of piecewise
+    #     return SymPyConstant(self._sympy_object.func, self.function_type)
+
 
     @property
     def number_of_arguments(self) -> int:
@@ -681,7 +683,10 @@ def make_piecewise(conditions: List[Expression], expressions: List[Expression]):
     type_dict = _build_type_dict_from_sympy_arguments(conditions + expressions)
     arguments = [(expression.sympy_object, condition.sympy_object)
                  for condition, expression in zip(conditions, expressions)]
-    sympy_piecewise = sympy.Piecewise(*arguments)
+    # must turn off evaluate to prevent sympy from doing this:
+    # Piecewise((x, x > 0), (1, x <=0)) --> Piecewise((x, x > 0), (1, True))
+    # the latter is no longer mutually exclusive
+    sympy_piecewise = sympy.Piecewise(*arguments, evaluate=False)
     return SymPyFunctionApplication(sympy_piecewise, type_dict)
 
 

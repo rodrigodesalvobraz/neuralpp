@@ -30,7 +30,7 @@ class Eliminator:
         def eliminate_at_leaves(dotted_interval: DottedIntervals) -> Expression:
             if not isinstance(dotted_interval, DottedIntervals):
                 raise AttributeError("Expect leaves to be DottedIntervals")
-            result = self._eliminate_interval(operation, index, dotted_interval.interval, body, is_integral)
+            result = self._eliminate_interval(operation, index, dotted_interval.interval, body, is_integral, context)
             if not dotted_interval.dots:  # empty dots
                 return result
             inverse = operation.inverse(reduce(operation, dotted_interval.dots, operation.identity))
@@ -38,17 +38,18 @@ class Eliminator:
 
         try:
             # print(f"context: {SymPyExpression.convert(context).sympy_object}")
-            conditional_intervals = from_constraint(index, constraint, context, is_integral)
+            with self.evaluator.log_section("from-constraint"):
+                conditional_intervals = from_constraint(index, constraint, context, is_integral, self.evaluator)
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
             return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
     def _eliminate_interval(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
-                            is_integral: bool) \
+                            is_integral: bool, context: Context) \
             -> Expression:
         # try to solve symbolically
-        result = self._symbolically_eliminate(operation, index, interval, body, is_integral)
+        result = self._symbolically_eliminate(operation, index, interval, body, is_integral, context)
         if result is not None:
             return result
 
@@ -63,14 +64,19 @@ class Eliminator:
 
     def _symbolically_eliminate(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval,
                                 body: Expression,
-                                is_integral: bool) \
+                                is_integral: bool, context: Context) \
             -> Optional[Expression]:
+        if context.is_known_to_imply(interval.upper_bound <= interval.lower_bound):
+            return BasicConstant(0)
+
         if operation.value == operator.add:
             if not is_integral:
                 if (result := self.symbolic_sum(body, index, interval)) is not None:
                     return result
             else:
                 if (result := self.symbolic_integral(body, index, interval)) is not None:
+                    if context.is_known_to_imply(interval.upper_bound >= interval.lower_bound):
+                        return result
                     return if_then_else(interval.upper_bound > interval.lower_bound, result, 0)
 
         if isinstance(body, Constant):

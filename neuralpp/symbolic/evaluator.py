@@ -41,4 +41,4 @@ class Evaluator:
 
     def print_result(self, prefix):
         for section_name, log in self._logs.items():
-            print(f"{prefix}{section_name}: {log.counter} times in {log.time} seconds")
+            print(f"{prefix}{section_name}: {log.counter} times in {log.time:.3f} seconds")

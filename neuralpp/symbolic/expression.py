@@ -528,6 +528,9 @@ class Context(Expression, ABC):
     def dict(self) -> Dict[str, Any]:
         pass
 
+    def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
+        return None
+
     def is_known_to_imply(self, expression: Expression) -> bool:
         """
         context implies expression iff (context => expression) is valid;
@@ -535,6 +538,9 @@ class Context(Expression, ABC):
         which means not (not context or expression) is unsatisfiable;
         which means context and not expression is unsatisfiable.
         """
+        if (fast_result := self._is_known_to_imply_fastpath(expression)) is not None:
+            return fast_result
+
         new_context = self & ~expression
         if new_context.satisfiability_is_known:
             return new_context.unsatisfiable

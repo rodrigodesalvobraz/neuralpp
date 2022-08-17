@@ -9,6 +9,7 @@ from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
 from .sympy_expression import SymPyExpression, SymPyVariable
 from .constants import min_, max_
+from .evaluator import Evaluator
 from .constants import if_then_else
 
 _simplifier = SymPyInterpreter()
@@ -165,62 +166,17 @@ class MagicInterval:
             raise AttributeError(f"bounds not set. {self.lower_bounds} {self.upper_bounds}")
         return DottedIntervals(ClosedInterval(max_(self._lower_bounds),
                                               min_(self.upper_bounds)), [])
-        # return MagicInterval._to_conditional_intervals(self.lower_bounds, self.upper_bounds, context)
-
-    @staticmethod
-    def _to_conditional_intervals(lowers: List[Expression], uppers: List[Expression], context: Z3SolverExpression) -> Expression:
-        """ assume len(lowers) >= 1, len(uppers) >= 1.
-        XXX: this might be buggy, but it's discarded anyways
-        """
-        from .general_normalizer import conditional_given_context
-        if len(lowers) == 1 and len(uppers) == 1:
-            return DottedIntervals(ClosedInterval(lowers[0], uppers[0]), [])
-        if len(lowers) == 1:
-            condition = MagicInterval._first_is_min_condition(uppers)
-            return conditional_given_context(condition,
-                                             MagicInterval._to_conditional_intervals(lowers, [uppers[0]], context & condition),
-                                             MagicInterval._to_conditional_intervals(lowers, uppers[1:], context),
-                                             context)
-        else:
-            condition = MagicInterval._first_is_max_condition(lowers)
-            return conditional_given_context(condition,
-                                             MagicInterval._to_conditional_intervals([lowers[0]], uppers, context & condition),
-                                             MagicInterval._to_conditional_intervals(lowers[1:], uppers, context),
-                                             context)
-
-    @staticmethod
-    def _first_is_min_condition(uppers: List[Expression]) -> Expression:
-        """
-        @param uppers:
-        @return: Make a condition expression that the uppers[0] is the min of all uppers
-        """
-        from .constants import basic_true
-        min_upper = uppers[0]
-        result = basic_true
-        for other_upper in uppers[1:]:
-            return result & (min_upper < other_upper)
-        return result
-
-    @staticmethod
-    def _first_is_max_condition(lowers: List[Expression]) -> Expression:
-        """
-        @param lowers:
-        @return: Make a condition expression that the lowers[0] is the min of all lowers
-        """
-        from .constants import basic_true
-        max_lower = lowers[0]
-        result = basic_true
-        for other_lower in lowers[1:]:
-            return result & (max_lower > other_lower)
-        return result
 
 
-def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool) -> Expression:
+def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool,
+                    evaluator: Optional[Evaluator] = None,
+                    ) -> Expression:
     """
     @param index: the variable that the interval is for
     @param constraint: the constraint of the quantifier expression
     @param context: the context that the expression is in
     @param is_integral: whether asking for an integration (if yes return as is, instead of rounding), a bit hacky
+    @param evaluator: optional evaluator
     @return: an DottedInterval
 
     This currently only supports the most basic of constraints
@@ -229,16 +185,18 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     """
     from .sympy_interpreter import SymPyInterpreter
     import operator
-    constraint = SymPyInterpreter().simplify(constraint)  # get an DNF
+    with evaluator.log_section("to-dnf"):
+        constraint = SymPyInterpreter().simplify(constraint)  # get an DNF
     match constraint:
         case FunctionApplication(function=Constant(value=operator.or_)):
             raise NotImplementedError("Not expecting OR")
         case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
-            magic_interval = MagicInterval()
-            for argument in arguments:
-                argument = _adjust(argument, index)
-                _extract_bound_from_constraint(index, argument, magic_interval, is_integral)
-            return magic_interval.to_conditional_intervals(context)
+            with evaluator.log_section("compute magic interval"):
+                magic_interval = MagicInterval()
+                for argument in arguments:
+                    argument = _adjust(argument, index)
+                    _extract_bound_from_constraint(index, argument, magic_interval, is_integral)
+                return magic_interval.to_conditional_intervals(context)
         case _:
             raise NotImplementedError("Constraint should be AND of constraints")
 
