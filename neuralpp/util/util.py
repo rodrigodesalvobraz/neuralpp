@@ -637,3 +637,7 @@ def update_consistent_dict(dict1: Dict, dict2: Dict):
     """
     check_consistency_of_two_dicts(dict1, dict2)
     dict1.update(dict2)
+
+
+def argmax(iterable, func):
+    return max(iterable, key=func)

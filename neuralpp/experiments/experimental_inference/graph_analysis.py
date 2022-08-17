@@ -11,6 +11,9 @@ class Graph:
     def neighbors(self, node):
         raise NotImplemented()
 
+    def __contains__(self, item):
+        raise NotImplemented()
+
 
 class FactorGraph(Graph):
 
@@ -57,10 +60,13 @@ class LazySpanningTree(Tree):
         self.graph = graph
         self.root = root
         self._children = {}
-        self._parents = {}
+        self._parents = {id(root): None}
+
+    def __contains__(self, item):
+        return id(item) in self._parents
 
     def children(self, node):
-        if not self._children.get(id(node)):
+        if self._children.get(id(node)) is None:
             available_neighbors = [n for n in self.graph.neighbors(node) if id(n) not in self._parents]
             for n in available_neighbors:
                 self._parents[id(n)] = node
@@ -85,7 +91,6 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
 
     def __init__(self, graph: FactorGraph, root):
         super().__init__(graph, root)
-        self._parents[id(root)] = None
 
     @cache_by_id
     def variables(self, node) -> Iterable[Variable]:
@@ -118,3 +123,20 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
             return self.variables_at(node)
         else:
             return local_external_variables(node) | self.external_variables(self.parent(node))
+
+
+class PartialFactorSpanningTree(LazyFactorSpanningTree):
+    # Unlike the base LazyFactorSpanningTree, the partial spanning tree only returns possible children
+    # when the edge has been explicitly added.
+
+    def children(self, node):
+        return self._children.get(id(node), [])
+
+    def add_edge(self, parent, child):
+        if child in self:
+            raise Exception(f"Child node {child} has already been added to the tree")
+        elif id(parent) in self._children:
+            self._children[id(parent)].append(child)
+        else:
+            self._children[id(parent)] = [child]
+        self._parents[id(child)] = parent

@@ -1,6 +1,5 @@
 from neuralpp.experiments.experimental_inference.graph_analysis import LazyFactorSpanningTree, FactorGraph, FactorTree
 from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
-from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 
 
