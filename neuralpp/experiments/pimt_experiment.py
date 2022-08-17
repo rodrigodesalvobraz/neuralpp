@@ -86,9 +86,9 @@ if __name__ == "__main__":
     evaluation_general("2 Normals",
                        BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple),
                        {'x': 1.0})
-    # evaluation_general("Joint",
-    #                    BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
-    #                    {'x': 1.0, 'mu2': 0.0})
+    evaluation_general("Joint",
+                       BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
+                       {'x': 1.0, 'mu2': 0.0})
 
 
 # P(x, mu2) propto

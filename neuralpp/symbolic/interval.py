@@ -186,7 +186,8 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     from .sympy_interpreter import SymPyInterpreter
     import operator
     with evaluator.log_section("to-dnf"):
-        constraint = SymPyInterpreter().simplify(constraint)  # get an DNF
+        constraint = SymPyExpression.convert(constraint)
+        # constraint = SymPyInterpreter().simplify(constraint)  # get an DNF
     match constraint:
         case FunctionApplication(function=Constant(value=operator.or_)):
             raise NotImplementedError("Not expecting OR")
