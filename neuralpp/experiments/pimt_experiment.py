@@ -49,12 +49,12 @@ def print_piecewise_test():
 
 
 def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
-    normalizer = LazyNormalizer()
+    normalizer.evaluator.reset()
     prefix = f"[{test_name}]"
     start = time.time()
-    result = normalizer.normalize(goal, Z3SolverExpressionDummy())
-    # result = normalizer.normalize(goal, Z3SolverExpression())
+    result = goal()
     end = time.time()
+    print(f"{prefix}evaluation result: {result}")
     sympy_formula = SymPyExpression.convert(result).sympy_object
     print(f"{prefix}evaluation result: {sympy_formula}")
     print(f"{prefix}in time {end - start:.3g} seconds")
@@ -75,26 +75,52 @@ def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
     print(f"{prefix}[Cython]run time is {cython_run_time * 1000:.3g} microseconds")
 
 
+normalizer = LazyNormalizer()
+
+
+def normalization_generator(goal):
+    """
+    @param goal: a Callable that takes no argument and returns the goal
+    @return: a callable that returns the normalized result
+    we're returning callable so that this can be evaluated lazily
+    """
+    return lambda: normalizer.normalize(goal(), Z3SolverExpressionDummy()) # Z3SolverExpressionDummy is faster when few branch prunings happen
+    # result = normalizer.normalize(goal, Z3SolverExpression())
+
+
+def two_normals_expectation():
+    joint_simple_x_eq_0 = joint_simple.replace(x, BasicConstant(0.0))
+    P_x_eq_0 = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple_x_eq_0)
+    P_x_eq_0 = normalizer.normalize(P_x_eq_0, Z3SolverExpressionDummy())
+    print(P_x_eq_0)
+    P_mu1_given_x_eq_0 = joint_simple_x_eq_0 / P_x_eq_0
+    E_mu1 = BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), mu1 * P_mu1_given_x_eq_0)
+    return normalizer.normalize(E_mu1, Z3SolverExpressionDummy())
+
+
 if __name__ == "__main__":
     evaluation_general("two piecewise",
-                       BasicIntegral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise),
+                       normalization_generator(lambda: BasicIntegral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise)),
                        {'x': 10.0, 'mu1': 10.0})
-
+    evaluation_general("2 Normals-expectation", two_normals_expectation, {})
     evaluation_general("1 Normal",
-                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula),
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula)),
                        {'x': 0.0})
     evaluation_general("2 Normals-concrete x=1",
-                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(1.0))),
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(1.0)))),
                        {})
     evaluation_general("2 Normals-concrete x=0",
-                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(0.0))),
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(0.0)))),
                        {})
     evaluation_general("2 Normals",
-                       BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple),
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple)),
                        {'x': 1.0})
-    # evaluation_general("Joint",
-    #                    BasicIntegral(mu1, Z3SolverExpression.from_expression((mu1 > -20.0) & (mu1 < 20.0)), joint),
-    #                    {'x': 1.0, 'mu2': 0.0})
+    evaluation_general("Joint-concrete x",
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint.replace(x, BasicConstant(0.0)))),
+                       {'mu2': 0.0})
+    evaluation_general("Joint",
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint)),
+                       {'x': 0.0, 'mu2': 0.0})
 
 
 # P(x, mu2) propto

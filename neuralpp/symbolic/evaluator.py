@@ -21,6 +21,11 @@ class Evaluator:
         self._current_section = None
         self._current_start_time = None
 
+    def reset(self):
+        self._logs: Dict[str, EvaluationLog] = {}
+        self._current_section = None
+        self._current_start_time = None
+
     @contextmanager
     def log_section(self, section_name):
         old_section, old_time = self._current_section, self._current_start_time
