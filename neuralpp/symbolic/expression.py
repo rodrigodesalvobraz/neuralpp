@@ -494,9 +494,7 @@ class FunctionApplication(Expression, ABC):
             return to_expression
 
         # recursively do the replacement
-        new_subexpressions = [(e[0].replace(from_expression, to_expression),
-                               e[1].replace(from_expression, to_expression))
-                              if isinstance(e, tuple) else e.replace(from_expression, to_expression) for e in self.subexpressions]
+        new_subexpressions = [e.replace(from_expression, to_expression) for e in self.subexpressions]
         return self.new_function_application(new_subexpressions[0], new_subexpressions[1:])
 
     def __str__(self) -> str:

@@ -4,7 +4,7 @@ from neuralpp.symbolic.basic_expression import BasicExpression
 from neuralpp.symbolic.expression import Variable
 from neuralpp.symbolic.basic_expression import BasicIntegral, BasicVariable, BasicConstant
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3SolverExpressionDummy
-from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation, make_piecewise_expression_quick
+from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation, make_piecewise_expression
 from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
 from neuralpp.symbolic.sympy_expression import SymPyExpression
 from fractions import Fraction
@@ -33,8 +33,8 @@ E1 = x < 0
 E2 = x >= 0
 E3 = mu1 < 0
 E4 = mu1 >= 0
-two_piecewise = make_piecewise_expression_quick([E1, E2], [x ** 2, x]) * \
-                make_piecewise_expression_quick([E3, E4], [mu1 ** 2, mu1])
+two_piecewise = make_piecewise_expression([E1, E2], [x ** 2, x]) * \
+                make_piecewise_expression([E3, E4], [mu1 ** 2, mu1])
 
 
 def print_piecewise_test():
@@ -99,19 +99,19 @@ def two_normals_expectation():
 
 
 if __name__ == "__main__":
-    # evaluation_general("two piecewise",
-    #                    normalization_generator(lambda: BasicIntegral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise)),
-    #                    {'x': 10.0, 'mu1': 10.0})
-    # evaluation_general("2 Normals-expectation", two_normals_expectation, {})
-    # evaluation_general("1 Normal",
-    #                    normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula)),
-    #                    {'x': 0.0})
-    # evaluation_general("2 Normals-concrete x=1",
-    #                    normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(1.0)))),
-    #                    {})
-    # evaluation_general("2 Normals-concrete x=0",
-    #                    normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(0.0)))),
-    #                    {})
+    evaluation_general("two piecewise",
+                       normalization_generator(lambda: BasicIntegral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise)),
+                       {'x': 10.0, 'mu1': 10.0})
+    evaluation_general("2 Normals-expectation", two_normals_expectation, {})
+    evaluation_general("1 Normal",
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula)),
+                       {'x': 0.0})
+    evaluation_general("2 Normals-concrete x=1",
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(1.0)))),
+                       {})
+    evaluation_general("2 Normals-concrete x=0",
+                       normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple.replace(x, BasicConstant(0.0)))),
+                       {})
     evaluation_general("2 Normals",
                        normalization_generator(lambda: BasicIntegral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), joint_simple)),
                        {'x': 1.0})

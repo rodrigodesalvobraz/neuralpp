@@ -1,5 +1,6 @@
 import sympy
 
+from neuralpp.util.util import distinct_pairwise
 from .normalizer import Normalizer
 from .sympy_interpreter import SymPyInterpreter
 from .context_simplifier import ContextSimplifier
@@ -78,7 +79,7 @@ class GeneralNormalizer(Normalizer):
                 with self.profiler.profile_section("piecewise-normalization"):
                     new_conditions = []
                     new_expressions = []
-                    for expression, condition in arguments:
+                    for expression, condition in distinct_pairwise(arguments):
                         if context.is_known_to_imply(condition):
                             print(f"normalize shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object} : {expression}")
                             return self._normalize(expression, context)
@@ -126,9 +127,9 @@ class GeneralNormalizer(Normalizer):
                 match normalized_body:
                     case FunctionApplication(function=Constant(value=sympy.Piecewise),
                                              arguments=arguments):
-                        if arguments[0][1].contains(index):
+                        if arguments[1].contains(index):
                             elements = []
-                            for expression, condition in arguments:
+                            for expression, condition in distinct_pairwise(arguments):
                                 assert condition.contains(index)
                                 with self.profiler.profile_section("quantifier-normalization-after-body"):
                                     elements.append(self._normalize(BasicQuantifierExpression(operation, index, constraint & condition, expression, is_integral), context, body_is_normalized=True))
@@ -140,7 +141,7 @@ class GeneralNormalizer(Normalizer):
                         else:
                             new_expressions = []
                             conditions = []
-                            for expression, condition in arguments:
+                            for expression, condition in distinct_pairwise(arguments):
                                 assert not condition.contains(index)
                                 conditions.append(condition)
                                 new_expressions.append(self._normalize(BasicQuantifierExpression(operation, index, constraint, expression, is_integral), context & condition, body_is_normalized=True))
@@ -188,7 +189,7 @@ class GeneralNormalizer(Normalizer):
                                      arguments=piecewise_arguments):
                 new_conditions = []
                 new_expressions = []
-                for expression, condition in piecewise_arguments:
+                for expression, condition in distinct_pairwise(piecewise_arguments):
                     if context.is_known_to_imply(condition):
                         print(
                             f"movedown shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")

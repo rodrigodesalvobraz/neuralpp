@@ -26,10 +26,7 @@ def _bfs_first_non_constant_formula_of_expression(expression: Expression, queue:
                 # E.g. if x > 3 then (if x > 2 then .. else ..) else ..
                 # if we do not split on x > 3, then the simplification x > 2 -> True cannot be made
                 for argument in arguments:
-                    if isinstance(argument, tuple):
-                        queue.extend(argument)
-                    else:
-                        queue.append(argument)
+                    queue.append(argument)
             case _:
                 pass  # non_constant_formulaic expression has no subexpressions
     return None

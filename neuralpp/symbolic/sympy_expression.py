@@ -171,11 +171,7 @@ def _build_type_dict_from_sympy_arguments(sympy_arguments: List[SymPyExpression]
     """
     result = {}
     for sympy_argument in sympy_arguments:
-        if isinstance(sympy_argument, tuple):
-            _build_type_dict(sympy_argument[0], result)
-            _build_type_dict(sympy_argument[1], result)
-        else:
-            _build_type_dict(sympy_argument, result)
+        _build_type_dict(sympy_argument, result)
     return result
 
 
@@ -472,9 +468,8 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression],
                                                   uninterpreted_function_type: ExpressionType = None,
                                                   ) -> SymPyExpression:
-        sympy_arguments = [tuple(map(SymPyExpression._convert, argument))
-                           if isinstance(argument, tuple) else SymPyExpression._convert(argument)
-                           for argument in arguments]
+        from neuralpp.util.util import distinct_pairwise
+        sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = _build_type_dict_from_sympy_arguments(sympy_arguments)
 
         if is_sympy_uninterpreted_function(sympy_function):
@@ -492,9 +487,11 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
             with sympy.evaluate(global_parameters.sympy_evaluate):
                 # If we want to preserve the symbolic structure, we need to stop evaluation by setting
                 # global_parameters.sympy_evaluate to False (or Add(1,1) will be 2 in sympy).
-                sympy_object = sympy_function(*[(sympy_argument[0].sympy_object, sympy_argument[1].sympy_object)
-                                                if isinstance(sympy_argument, tuple) else sympy_argument.sympy_object
-                                                for sympy_argument in sympy_arguments])
+                native_arguments = [sympy_argument.sympy_object for sympy_argument in sympy_arguments]
+                if sympy_function == sympy.Piecewise:
+                    sympy_object = sympy_function(*distinct_pairwise(native_arguments))  # pairwise turns [a,b,c,d,..] into [(a,b),(c,d),..] which is exactly what we need
+                else:
+                    sympy_object = sympy_function(*native_arguments)
 
         if global_parameters.sympy_evaluate:
             # if sympy_evaluate is True, we don't necessarily return a FunctionApplication.
@@ -569,21 +566,19 @@ class SymPyPiecewise(SymPyFunctionApplicationInterface):
 
     @property
     def function(self) -> Expression:
-        return SymPyConstant(self._sympy_object.func, self.function_type)
+        return SymPyConstant(sympy.Piecewise, self.function_type)
 
     @property
     def number_of_arguments(self) -> int:
-        return len(self.sympy_object.args)
+        return len(self.sympy_object.args) * 2
 
     @property
     def native_arguments(self) -> Tuple[sympy.Basic, ...]:
         return self.sympy_object.args
 
     @property
-    def arguments(self) -> List[Tuple[Expression, Expression]]:
-        return [(SymPyExpression.from_sympy_object(expr, self.type_dict),
-                 SymPyExpression.from_sympy_object(cond, self.type_dict))
-                for expr, cond in self.native_arguments]
+    def arguments(self) -> List[Expression]:
+        return [SymPyExpression.from_sympy_object(element, self.type_dict) for expr, cond in self.native_arguments for element in (expr, cond)]
 
 
 def _context_to_variable_value_dict_helper(context: FunctionApplication,

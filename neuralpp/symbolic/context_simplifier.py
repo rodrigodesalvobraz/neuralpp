@@ -24,11 +24,7 @@ def _collect_subset_expressions_helper(expression: Expression, test: Callable[[E
     if test(expression):
         result.add(expression)
     for sub_expression in expression.subexpressions:
-        if isinstance(sub_expression, tuple):
-            for sub in sub_expression:
-                _collect_subset_expressions_helper(sub, test, result)
-        else:
-            _collect_subset_expressions_helper(sub_expression, test, result)
+        _collect_subset_expressions_helper(sub_expression, test, result)
 
 
 def _collect_subset_expressions(expression: Expression,

@@ -50,8 +50,7 @@ def piecewise_polynomial_approximation(
 
     conditions = [(start <= variable) & (variable < end) for (start, end) in pairwise(segment_boundaries)]
 
-    # piecewise_polynomial = make_piecewise_expression(conditions, polynomials)
-    piecewise_polynomial = make_piecewise_expression_quick(conditions, polynomials)
+    piecewise_polynomial = make_piecewise_expression(conditions, polynomials)
 
     return piecewise_polynomial
 
@@ -88,17 +87,6 @@ def from_coefficients_to_polynomial(variable: Expression, coefficients: Sized) -
 
 
 def make_piecewise_expression(conditions, expressions):
-    """
-    Given conditions C1, ..., Cn and expressions E1, ..., En,
-    returns Expression if C1 then E1 else if C2 then E2 else ... else 0.
-    """
-    current_piecewise_expression = BasicExpression.new_constant(0.)
-    for condition, expression in zip(reversed(conditions), reversed(expressions)):
-        current_piecewise_expression = if_then_else(condition, expression, current_piecewise_expression)
-    return current_piecewise_expression
-
-
-def make_piecewise_expression_quick(conditions, expressions):
     """
     Given conditions C1, ..., Cn and expressions E1, ..., En,
     returns Expression if C1 then E1 else if C2 then E2 else ... else 0.
