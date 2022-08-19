@@ -3,7 +3,7 @@ from time import monotonic
 from typing import Dict
 
 
-class EvaluationLog:
+class ProfileLog:
     def __init__(self):
         self.counter = 0
         self.time = 0
@@ -15,25 +15,25 @@ class EvaluationLog:
         self.time = self.time + delta
 
 
-class Evaluator:
+class Profiler:
     def __init__(self):
-        self._logs: Dict[str, EvaluationLog] = {}
+        self._logs: Dict[str, ProfileLog] = {}
         self._current_section = None
         self._current_start_time = None
 
     def reset(self):
-        self._logs: Dict[str, EvaluationLog] = {}
+        self._logs: Dict[str, ProfileLog] = {}
         self._current_section = None
         self._current_start_time = None
 
     @contextmanager
-    def log_section(self, section_name):
+    def profile_section(self, section_name):
         old_section, old_time = self._current_section, self._current_start_time
         start = monotonic()
         self._current_section, self._current_start_time = section_name, start
 
         if section_name not in self._logs:
-            self._logs[section_name] = EvaluationLog()
+            self._logs[section_name] = ProfileLog()
         self._logs[section_name].increase_counter()
         try:
             if old_section is not None:

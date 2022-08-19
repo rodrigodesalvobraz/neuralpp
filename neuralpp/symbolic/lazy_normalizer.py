@@ -5,19 +5,19 @@ from .constants import if_then_else
 from .parameters import sympy_evaluate
 import neuralpp.symbolic.functions as functions
 from .general_normalizer import GeneralNormalizer
-from .evaluator import Evaluator
+from .profiler import Profiler
 
 
 class LazyNormalizer(Normalizer):
-    def __init__(self, evaluator: Evaluator = None):
-        if evaluator is None:
-            self.evaluator = Evaluator()
+    def __init__(self, profiler: Profiler = None):
+        if profiler is None:
+            self.profiler = Profiler()
         else:
-            self.evaluator = evaluator
-        self._general_normalizer = GeneralNormalizer(self.evaluator)
+            self.profiler = profiler
+        self._general_normalizer = GeneralNormalizer(self.profiler)
 
     def normalize(self, expression: Expression, context: Z3SolverExpression) -> Expression:
-        with self.evaluator.log_section("normalization"):
+        with self.profiler.profile_section("normalization"):
             return self._normalize(expression, context)
 
     def _normalize(self, expression: Expression, context: Z3SolverExpression) -> Expression:

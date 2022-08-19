@@ -12,7 +12,7 @@ import fractions
 
 from functools import cached_property
 
-from neuralpp.symbolic.evaluator import Evaluator
+from neuralpp.symbolic.profiler import Profiler
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression, \
     AbelianOperation
@@ -189,6 +189,14 @@ class SymPyExpression(Expression, ABC):
         self._type_dict = type_dict
 
     @staticmethod
+    def collect(expression: Expression, index: Variable) -> Expression:
+        from sympy import collect
+        assert isinstance(expression, SymPyExpression)
+        assert isinstance(index, SymPyExpression)
+        new_sympy_object = collect(expression.sympy_object, index.sympy_object)
+        return SymPyExpression.from_sympy_object(new_sympy_object, expression.type_dict)
+
+    @staticmethod
     def symbolic_sum(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
             -> Optional[Expression]:
         """ try to compute the sum symbolically, if fails, return None"""
@@ -206,34 +214,44 @@ class SymPyExpression(Expression, ABC):
         except Exception as exc:
             return None
 
-    @staticmethod
-    def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
-            -> Optional[Expression]:
-        """ try to compute the integral symbolically, if fails, return None"""
-        try:
-            body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
-                                                     for argument in [body, index, lower_bound, upper_bound]]
-            type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object,
-                                                                    (index.sympy_object,
-                                                                     lower_bound.sympy_object,
-                                                                     upper_bound.sympy_object,
-                                                                     ),
-                                                                    ).doit(),
-                                                     type_dict)
-        except Exception as exc:
-            return None
+    # @staticmethod
+    # def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression,
+    #                       profiler: Profiler) \
+    #         -> Optional[Expression]:
+    #     """ try to compute the integral symbolically, if fails, return None"""
+    #     from sympy.integrals.rationaltools import ratint
+    #     from sympy import collect, Poly
+    #     try:
+    #         body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
+    #                                                  for argument in [body, index, lower_bound, upper_bound]]
+    #         type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
+    #
+    #         # with profiler.profile_section("to poly"):
+    #         #     body = Poly(body.sympy_object, index.sympy_object)
+    #         # with profiler.profile_section("poly integrate"):
+    #         #     big_f = body.integrate()
+    #         # with profiler.profile_section("compute diff"):
+    #         #     # print(body, big_f)
+    #         #     # print(f"replace {big_f.replace(index.sympy_object, upper_bound.sympy_object)}")
+    #         #     diff = big_f.eval(upper_bound.sympy_object) - big_f.eval(lower_bound.sympy_object)
+    #         #     # print(f"diff {diff}")
+    #         # return SymPyExpression.from_sympy_object(diff, type_dict)
+    #
+    #         with profiler.profile_section("symbolic integrate"):
+    #             return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object, (index.sympy_object, lower_bound.sympy_object, upper_bound.sympy_object, ), ).doit(), type_dict)
+    #     except Exception as exc:
+    #         return None
 
     @staticmethod
-    def symbolic_integral_cached(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression,
-                                 evaluator: Evaluator) \
+    def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression,
+                                 profiler: Profiler) \
             -> Optional[Expression]:
-        """ try to compute the integral symbolically, if fails, return None"""
+        """ try to compute the integral symbolically, if fails, return None. Cached version. """
         try:
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            with evaluator.log_section("sympy integration"):
+            with profiler.profile_section("sympy integration"):
                 indefinite_integral = _get_sympy_integral(body.sympy_object, index.sympy_object)
                 difference = indefinite_integral.subs(index.sympy_object, upper_bound.sympy_object) - indefinite_integral.subs(index.sympy_object, lower_bound.sympy_object)
             return SymPyExpression.from_sympy_object(difference, type_dict)

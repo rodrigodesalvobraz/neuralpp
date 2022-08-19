@@ -9,7 +9,7 @@ from .z3_expression import Z3SolverExpression, Z3Expression
 from .sympy_interpreter import SymPyInterpreter
 from .sympy_expression import SymPyExpression, SymPyVariable
 from .constants import min_, max_
-from .evaluator import Evaluator
+from .profiler import Profiler
 from .constants import if_then_else
 
 _simplifier = SymPyInterpreter()
@@ -169,14 +169,14 @@ class MagicInterval:
 
 
 def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool,
-                    evaluator: Optional[Evaluator] = None,
+                    profiler: Optional[Profiler] = None,
                     ) -> Expression:
     """
     @param index: the variable that the interval is for
     @param constraint: the constraint of the quantifier expression
     @param context: the context that the expression is in
     @param is_integral: whether asking for an integration (if yes return as is, instead of rounding), a bit hacky
-    @param evaluator: optional evaluator
+    @param profiler: optional profiler
     @return: an DottedInterval
 
     This currently only supports the most basic of constraints
@@ -185,14 +185,14 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     """
     from .sympy_interpreter import SymPyInterpreter
     import operator
-    with evaluator.log_section("to-dnf"):
+    with profiler.profile_section("to-dnf"):
         constraint = SymPyExpression.convert(constraint)
         # constraint = SymPyInterpreter().simplify(constraint)  # get an DNF
     match constraint:
         case FunctionApplication(function=Constant(value=operator.or_)):
             raise NotImplementedError("Not expecting OR")
         case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
-            with evaluator.log_section("compute magic interval"):
+            with profiler.profile_section("compute magic interval"):
                 magic_interval = MagicInterval()
                 for argument in arguments:
                     argument = _adjust(argument, index)

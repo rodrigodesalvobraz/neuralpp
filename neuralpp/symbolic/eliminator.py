@@ -6,7 +6,7 @@ from .util import map_leaves_of_if_then_else
 from .constants import if_then_else
 from functools import reduce
 from typing import Optional
-from .evaluator import Evaluator
+from .profiler import Profiler
 import operator
 
 
@@ -19,11 +19,11 @@ def _repeat_n(operation: AbelianOperation, expression: Expression, size: Express
 
 
 class Eliminator:
-    def __init__(self, evaluator=None):
-        if evaluator is None:
-            self.evaluator = Evaluator()
+    def __init__(self, profiler=None):
+        if profiler is None:
+            self.profiler = Profiler()
         else:
-            self.evaluator = evaluator
+            self.profiler = profiler
 
     def eliminate(self, operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
                   is_integral: bool, context: Context) -> Expression:
@@ -38,8 +38,8 @@ class Eliminator:
 
         try:
             # print(f"context: {SymPyExpression.convert(context).sympy_object}")
-            with self.evaluator.log_section("from-constraint"):
-                conditional_intervals = from_constraint(index, constraint, context, is_integral, self.evaluator)
+            with self.profiler.profile_section("from-constraint"):
+                conditional_intervals = from_constraint(index, constraint, context, is_integral, self.profiler)
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
@@ -95,12 +95,12 @@ class Eliminator:
         # print(f"{Eliminator.integration_counter}th integration: \n"
         #       f"({SymPyExpression.convert(interval.lower_bound).sympy_object},\n"
         #       f"{SymPyExpression.convert(interval.upper_bound).sympy_object})\n {SymPyExpression.convert(body).sympy_object}")
-        with self.evaluator.log_section("integration"):
+        with self.profiler.profile_section("integration"):
             if DRY_RUN:
                 return BasicConstant(0.0)
             else:
-                result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound,
-                                                                  self.evaluator)
+                result = SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound, self.profiler)
+                # result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound, self.profiler)
                 # print(f"done. {result.sympy_object}")
                 return result
 
