@@ -91,9 +91,6 @@ class FactorTree(Tree, FactorGraph):
 
 class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
 
-    def __init__(self, graph: FactorGraph, root):
-        super().__init__(graph, root)
-
     def variables(self, node) -> Iterable[Variable]:
         """ All variables appearing in the subtree rooted at node. """
         return util.union(
