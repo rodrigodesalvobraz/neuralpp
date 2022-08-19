@@ -15,23 +15,6 @@ _simplifier = ContextSimplifier()
 _eliminator = Eliminator()
 
 
-def _normalize_conditional(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
-    """
-    Arguments condition-then-else_ forms an if-then-else statement.
-    If either branch can be pruned (its negation implied by context), it is pruned.
-    It is not just an optimization but a requirement that every prunable be pruned:
-    otherwise we'd call normalize() with an unsatisfiable context, which is not well-defined.
-    """
-    if context.is_known_to_imply(condition):
-        return _normalize(then, context)
-    elif context.is_known_to_imply(~condition):
-        return _normalize(else_, context)
-    else:
-        return if_then_else(condition,
-                            _normalize(then, context & condition),
-                            _normalize(else_, context & ~condition))
-
-
 def _normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
     """
     The function assumes context is satisfiable, otherwise the behavior is undefined.
@@ -81,6 +64,23 @@ def _normalize(expression: Expression, context: Z3SolverExpression) -> Expressio
                                                       context)
                 case _:
                     return _eliminate(operation, index, constraint, normalized_body, is_integral, context)
+
+
+def _normalize_conditional(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
+    """
+    Arguments condition-then-else_ forms an if-then-else statement.
+    If either branch can be pruned (its negation implied by context), it is pruned.
+    It is not just an optimization but a requirement that every prunable be pruned:
+    otherwise we'd call normalize() with an unsatisfiable context, which is not well-defined.
+    """
+    if context.is_known_to_imply(condition):
+        return _normalize(then, context)
+    elif context.is_known_to_imply(~condition):
+        return _normalize(else_, context)
+    else:
+        return if_then_else(condition,
+                            _normalize(then, context & condition),
+                            _normalize(else_, context & ~condition))
 
 
 def _eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,

@@ -111,78 +111,16 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
                 return False
 
 
-class BasicVariable(BasicAtomicExpression, Variable):
-    def __init__(self, name: str, type_: ExpressionType):
-        if type_ is None:
-            raise VariableNotTypedError
-        BasicAtomicExpression.__init__(self, name, type_)
-
-
 class BasicConstant(BasicAtomicExpression, Constant):
     def __init__(self, value: Any, type_: Optional[ExpressionType] = None):
         BasicAtomicExpression.__init__(self, value, type_)
 
 
-class TrueContext(BasicConstant, Context):
-    @property
-    def dict(self) -> Dict[str, Any]:
-        return {}
-
-    @property
-    def unsatisfiable(self) -> bool:
-        return False
-
-    @property
-    def satisfiability_is_known(self) -> bool:
-        return True
-
-    def __init__(self):
-        BasicConstant.__init__(self, True, bool)
-
-    def __and__(self, other: Any) -> Expression:
-        return other
-
-    __rand__ = __and__
-
-    @property
-    def and_priority(self) -> int:
-        """
-        set and_priority to be higher than normal Context() to simplify __and__ operation.
-        E.g., say we have a Z3SolverExpression z3_solver_expression:
-        >>> z3_solver_expression & TrueContext()
-        would normally call
-        >>> z3_solver_expression.__and__(TrueContext())
-        but by setting and_priority to 2 here, the above expression will call
-        >>> TrueContext().__and__(z3_solver_expression)
-        which just returns the other side.
-        """
-        return 2
-
-
-class FalseContext(BasicConstant, Context):
-    @property
-    def dict(self) -> Dict[str, Any]:
-        return {}
-
-    @property
-    def unsatisfiable(self) -> bool:
-        return True
-
-    @property
-    def satisfiability_is_known(self) -> bool:
-        return True
-
-    def __init__(self):
-        BasicConstant.__init__(self, False, bool)
-
-    def __and__(self, other: Any) -> Expression:
-        return self
-
-    __rand__ = __and__
-
-    @property
-    def and_priority(self) -> int:
-        return 2
+class BasicVariable(BasicAtomicExpression, Variable):
+    def __init__(self, name: str, type_: ExpressionType):
+        if type_ is None:
+            raise VariableNotTypedError
+        BasicAtomicExpression.__init__(self, name, type_)
 
 
 class BasicFunctionApplication(BasicExpression, FunctionApplication):
@@ -199,16 +137,16 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
         return self._subexpressions[0]
 
     @property
+    def number_of_arguments(self) -> int:
+        return len(self.arguments)
+
+    @property
     def arguments(self) -> List[Expression]:
         return self._subexpressions[1:]
 
     @property
     def subexpressions(self) -> List[Expression]:
         return self._subexpressions
-
-    @property
-    def number_of_arguments(self) -> int:
-        return len(self.arguments)
 
     def internal_object_eq(self, other) -> bool:
         match other:
@@ -217,6 +155,86 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
                        all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
+
+
+class TrueContext(BasicConstant, Context):
+    def __init__(self):
+        BasicConstant.__init__(self, True, bool)
+
+    @property
+    def unsatisfiable(self) -> bool:
+        return False
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return True
+
+    @property
+    def and_priority(self) -> int:
+        """
+        set and_priority to be higher than normal Context() to simplify __and__ operation.
+        E.g., say we have a Z3SolverExpression z3_solver_expression:
+        >>> z3_solver_expression & TrueContext()
+        would normally call
+        >>> z3_solver_expression.__and__(TrueContext())
+        but by setting and_priority to 2 here, the above expression will call
+        >>> TrueContext().__and__(z3_solver_expression)
+        which just returns the other side.
+        """
+        return 2
+
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return {}
+
+    def __and__(self, other: Any) -> Expression:
+        return other
+
+    __rand__ = __and__
+
+
+class FalseContext(BasicConstant, Context):
+    def __init__(self):
+        BasicConstant.__init__(self, False, bool)
+
+    @property
+    def unsatisfiable(self) -> bool:
+        return True
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return True
+
+    @property
+    def and_priority(self) -> int:
+        return 2
+
+    @property
+    def dict(self) -> Dict[str, Any]:
+        return {}
+
+    def __and__(self, other: Any) -> Expression:
+        return self
+
+    __rand__ = __and__
+
+
+class BasicAbelianOperation(BasicConstant, AbelianOperation):
+    def __init__(self, operation: Callable, identity: Constant, inverse_function: Callable[[Expression], Expression]):
+        # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
+        self._identity = identity
+        self._inverse_function = inverse_function
+        element_type = identity.type
+        super().__init__(operation, Callable[[element_type, element_type], element_type])
+
+
+    @property
+    def identity(self) -> Constant:
+        assert isinstance(self._identity, Constant)
+        return self._identity
+
+    def inverse(self, expr: Expression) -> Expression:
+        return self._inverse_function(expr)
 
 
 class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
@@ -266,23 +284,6 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
                        all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
             case _:
                 return False
-
-
-class BasicAbelianOperation(BasicConstant, AbelianOperation):
-    def __init__(self, operation: Callable, identity: Constant, inverse_function: Callable[[Expression], Expression]):
-        # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
-        self._identity = identity
-        self._inverse_function = inverse_function
-        element_type = identity.type
-        super().__init__(operation, Callable[[element_type, element_type], element_type])
-
-    def inverse(self, expr: Expression) -> Expression:
-        return self._inverse_function(expr)
-
-    @property
-    def identity(self) -> Constant:
-        assert isinstance(self._identity, Constant)
-        return self._identity
 
 
 def basic_add_operation(type_) -> BasicAbelianOperation:

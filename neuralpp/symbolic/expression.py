@@ -3,8 +3,10 @@ from __future__ import annotations  # to support forward reference for recursive
 import fractions
 import typing
 import operator
+import z3
 from typing import List, Any, Optional, Type, Callable, Dict
 from abc import ABC, abstractmethod
+
 
 # typing.Callable can be ambiguous.
 # Consider the following two tests:
@@ -38,7 +40,6 @@ from abc import ABC, abstractmethod
 #
 # It should be noted that our usage of `Callable` here means the first, i.e., "the type of all function types"
 # And in our code we use `isinstance()` for cases like `isinstance(Callable[[int],int], Callable)`.
-import z3
 
 ExpressionType = Callable | Type
 
@@ -53,7 +54,6 @@ def return_type_after_application(callable_: Callable, number_of_arguments: int)
         return return_type
     else:
         return Callable[argument_types[number_of_arguments:], return_type]
-
 
 type_order_in_arithmetic = [fractions.Fraction, float, int]
 
@@ -120,8 +120,8 @@ class Expression(ABC):
         """
         Returns if self and other are of subclass of Expression and their internal representation are equal.
         This method usually depends on subclass-specific library calls,
-        e.g., Z3Expression.syntactic_eq() would leverage z3.eq().
-        This method should be considered as a cheap way to check syntactic equality of two symbolic expressions.
+        e.g., Z3Expression.internal_object_eq() would leverage z3.eq().
+        This method should be considered as a cheap way to check internal object equality of two symbolic expressions.
         """
         pass
 
@@ -402,19 +402,6 @@ class AtomicExpression(Expression, ABC):
         raise IndexError(f"{type(self)} has no subexpressions, so you cannot set().")
 
 
-class Variable(AtomicExpression, ABC):
-    @property
-    def base_type(self) -> str:
-        return "Variable"
-
-    @property
-    def name(self) -> str:
-        return self.atom
-
-    def __str__(self) -> str:
-        return f'{self.name}'
-
-
 class Constant(AtomicExpression, ABC):
     @property
     def base_type(self) -> str:
@@ -426,6 +413,19 @@ class Constant(AtomicExpression, ABC):
 
     def __str__(self) -> str:
         return f"{self.value}"
+
+
+class Variable(AtomicExpression, ABC):
+    @property
+    def base_type(self) -> str:
+        return "Variable"
+
+    @property
+    def name(self) -> str:
+        return self.atom
+
+    def __str__(self) -> str:
+        return f'{self.name}'
 
 
 class FunctionApplication(Expression, ABC):

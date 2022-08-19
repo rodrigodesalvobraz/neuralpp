@@ -24,13 +24,6 @@ class SymPyInterpreter(Interpreter, Simplifier):
                 result = result.replace(sympy.symbols(variable), sympy.sympify(value))
         return result
 
-    def eval(self, expression: SymPyExpression, context: Context = TrueContext()):
-        result = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
-        if _is_sympy_value(result):
-            return result
-        else:
-            raise RuntimeError(f"cannot evaluate to a value. The best effort result is {result}.")
-
     @staticmethod
     def purge_type_dict(type_dict: Dict[sympy.Basic, ExpressionType], sympy_object: sympy.Basic) -> \
             Dict[sympy.Basic, ExpressionType]:
@@ -62,3 +55,10 @@ class SymPyInterpreter(Interpreter, Simplifier):
             result_expression = SymPyExpression.from_sympy_object(simplified_sympy_expression, type_dict)
             assert result_expression is not None
             return result_expression
+
+    def eval(self, expression: SymPyExpression, context: Context = TrueContext()):
+        result = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
+        if _is_sympy_value(result):
+            return result
+        else:
+            raise RuntimeError(f"cannot evaluate to a value. The best effort result is {result}.")

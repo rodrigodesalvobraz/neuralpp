@@ -198,6 +198,14 @@ class SymPyExpression(Expression, ABC):
             return None
 
     @classmethod
+    def new_variable(cls, name: str, type_: ExpressionType) -> SymPyVariable:
+        # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
+        if ' ' in name:
+            raise ValueError(f"`{name}` should not contain a whitespace!")
+        sympy_var = sympy.symbols(name)
+        return SymPyVariable(sympy_var, type_)
+
+    @classmethod
     def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> SymPyConstant:
         # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
         if isinstance(value, sympy.Basic):
@@ -222,13 +230,6 @@ class SymPyExpression(Expression, ABC):
                                  f"unable to turn into a sympy representation internally") from exc
         return SymPyConstant(sympy_object, type_)
 
-    @classmethod
-    def new_variable(cls, name: str, type_: ExpressionType) -> SymPyVariable:
-        # if a string contains a whitespace it'll be treated as multiple variables in sympy.symbols
-        if ' ' in name:
-            raise ValueError(f"`{name}` should not contain a whitespace!")
-        sympy_var = sympy.symbols(name)
-        return SymPyVariable(sympy_var, type_)
 
     @classmethod
     def new_function_application(cls, function: Expression, arguments: List[Expression]) -> SymPyExpression:
@@ -543,14 +544,14 @@ class SymPyContext(SymPyFunctionApplication, Context):
             return self._unsatisfiable
 
     @property
-    def dict(self) -> Dict[str, Any]:
-        """ User should not write to the return value. """
-        return self._dict
-
-    @property
     def satisfiability_is_known(self) -> bool:
         return not self._unknown
 
+
+    @property
+    def dict(self) -> Dict[str, Any]:
+        """ User should not write to the return value. """
+        return self._dict
 
 class SymPySummation(SymPyExpression, QuantifierExpression):
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):

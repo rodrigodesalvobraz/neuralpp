@@ -333,9 +333,16 @@ class Z3ObjectExpression(Z3Expression, ABC):
         Expression.__init__(self, _get_type_from_z3_object(z3_object))
         self._z3_object = z3_object
 
+    def __hash__(self):
+        return self.z3_object.__hash__()
+
     @property
     def z3_object(self):
         return self._z3_object
+
+    @property
+    def z3_expression(self) -> z3.AstRef:
+        return self.z3_object
 
     def internal_object_eq(self, other) -> bool:
         match other:
@@ -344,24 +351,16 @@ class Z3ObjectExpression(Z3Expression, ABC):
             case _:
                 return False
 
+class Z3Constant(Z3ObjectExpression, Constant):
     @property
-    def z3_expression(self) -> z3.AstRef:
-        return self.z3_object
-
-    def __hash__(self):
-        return self.z3_object.__hash__()
+    def atom(self) -> Any:
+        return Z3Expression.pythonize_value(self._z3_object)
 
 
 class Z3Variable(Z3ObjectExpression, Variable):
     @property
     def atom(self) -> str:
         return str(self._z3_object)
-
-
-class Z3Constant(Z3ObjectExpression, Constant):
-    @property
-    def atom(self) -> Any:
-        return Z3Expression.pythonize_value(self._z3_object)
 
 
 class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
@@ -379,6 +378,10 @@ class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
             return Z3Constant(self._z3_object.decl())
 
     @property
+    def number_of_arguments(self) -> int:
+        return self.z3_object.num_args()
+
+    @property
     def arguments(self) -> List[Expression]:
         return list(map(_z3_object_to_expression, self._z3_object.children()))
 
@@ -390,10 +393,6 @@ class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
     @property
     def subexpressions(self) -> List[Expression]:
         return [self.function] + self.arguments
-
-    @property
-    def number_of_arguments(self) -> int:
-        return self.z3_object.num_args()
 
 
 z3_false = z3.BoolVal(False)
@@ -436,43 +435,6 @@ def _extract_key_to_value_from_assertions(assertions: List[z3.ExprRef] | z3.AstV
 
 
 class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
-    def __hash__(self):
-        return self._solver.__hash__()
-
-    @property
-    def dict(self) -> Dict[str, Any]:
-        return self._dict
-
-    def internal_object_eq(self, other) -> bool:
-        return False  # why do we need to compare two Z3ConjunctiveClause?
-
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Context:
-        """
-        If we do not override this replace(), the default replace() will cause the return value to be
-        a Z3FunctionApplication, where the result is no longer a Context.
-        """
-        if self.syntactic_eq(from_expression):
-            match to_expression:
-                case Constant(value=True):
-                    return TrueContext()
-                case Constant(value=False):
-                    return FalseContext()
-                case _:
-                    raise NotImplementedError("replace a SolverExpression with a non-constant value is not supported.")
-
-        from_expression = Z3Expression.convert(from_expression)
-        to_expression = Z3Expression.convert(to_expression)
-
-        if not isinstance(from_expression, Z3ObjectExpression):
-            # only possible when from_expression is Z3SolverExpression
-            # don't replace
-            return self
-        if not isinstance(to_expression, Z3ObjectExpression):
-            raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
-
-        new_solver = z3_replace_in_solver(self._solver, from_expression.z3_object, to_expression.z3_object)
-        return Z3SolverExpression(new_solver)
-
     def __init__(self, z3_solver: z3.Solver = None, value_dict: Dict[str, Any] | None = None):
         """
         Assume z3_solver is satisfiable, otherwise user should use Z3UnsatContext() instead.
@@ -500,14 +462,17 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             case z3.unknown:
                 self._unknown = True
 
-    @cached_property
-    def assertions(self) -> z3.AstVector:
-        return self._solver.assertions()
+    def __hash__(self):
+        return self._solver.__hash__()
 
     @property
     def function(self) -> Expression:
         # conjunctive clause is an "and" of all arguments
         return Z3Constant(z3.And(True, True).decl())
+
+    @property
+    def number_of_arguments(self) -> int:
+        return len(self.assertions)
 
     @cached_property
     def arguments(self) -> List[Expression]:
@@ -516,6 +481,14 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     @property
     def subexpressions(self) -> List[Expression]:
         return [self.function] + self.arguments
+
+    @cached_property
+    def z3_expression(self) -> z3.AstRef:
+        return z3.And(self.assertions)
+
+    @cached_property
+    def assertions(self) -> z3.AstVector:
+        return self._solver.assertions()
 
     @property
     def unsatisfiable(self) -> bool:  # self should always be satisfiable
@@ -529,55 +502,8 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         return not self._unknown
 
     @property
-    def number_of_arguments(self) -> int:
-        return len(self.assertions)
-
-    @cached_property
-    def z3_expression(self) -> z3.AstRef:
-        return z3.And(self.assertions)
-
-    @staticmethod
-    def make(solver: z3.Solver, dict_: Dict[str, Any]) -> Context:
-        match solver.check():
-            case z3.unsat:
-                return FalseContext()
-            case z3.sat | z3.unknown:
-                return Z3SolverExpression(solver, dict_)
-
-    def __and__(self, other: Any) -> Context:
-        if self.unsatisfiable:
-            # if an expression is unsatisfiable, its conjunction with anything is still unsatisfiable
-            return self
-
-        if isinstance(other, Z3SolverExpression):
-            if other.unsatisfiable:
-                return other
-            new_solver = z3_merge_solvers(self._solver, other._solver)
-            new_dict = self._dict | other._dict
-        else:
-            if not isinstance(other, Expression):
-                other = Z3Expression.new_constant(other, None)
-            elif not isinstance(other, Z3Expression):
-                other = Z3Expression.convert(other)
-            # Always treat `other` as a literal. Will raise if it cannot be converted to a boolean in Z3.
-            new_solver = z3_add_solver_and_literal(self._solver, other.z3_object)
-            new_dict = self._dict | _extract_key_to_value_from_assertions([other.z3_object])
-        return Z3SolverExpression.make(new_solver, new_dict)
-
-    __rand__ = __and__
-
-    @staticmethod
-    def from_expression(expression: Expression) -> Z3SolverExpression:
-        # a possible improvement is to split expression into subexpressions if it's an "And"
-        assert isinstance(expression, Expression)
-        if isinstance(expression, Z3SolverExpression):
-            return expression
-
-        if not isinstance(expression, Z3Expression):
-            expression = Z3Expression.convert(expression)
-        new_solver = z3.Solver()
-        new_solver.add(expression.z3_object)
-        return Z3SolverExpression(new_solver)
+    def dict(self) -> Dict[str, Any]:
+        return self._dict
 
     @cached_property
     def variable_replacement_dict(self):
@@ -609,6 +535,79 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
             for element in equivalence_class:
                 result[element.as_z3_expression()] = equivalence_class.minimum.as_z3_expression()
         return result
+
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Context:
+        """
+        If we do not override this replace(), the default replace() will cause the return value to be
+        a Z3FunctionApplication, where the result is no longer a Context.
+        """
+        if self.syntactic_eq(from_expression):
+            match to_expression:
+                case Constant(value=True):
+                    return TrueContext()
+                case Constant(value=False):
+                    return FalseContext()
+                case _:
+                    raise NotImplementedError("replace a SolverExpression with a non-constant value is not supported.")
+
+        from_expression = Z3Expression.convert(from_expression)
+        to_expression = Z3Expression.convert(to_expression)
+
+        if not isinstance(from_expression, Z3ObjectExpression):
+            # only possible when from_expression is Z3SolverExpression
+            # don't replace
+            return self
+        if not isinstance(to_expression, Z3ObjectExpression):
+            raise ValueError(f"{to_expression}({type(to_expression)}) does not have a z3_object.")
+
+        new_solver = z3_replace_in_solver(self._solver, from_expression.z3_object, to_expression.z3_object)
+        return Z3SolverExpression(new_solver)
+
+    def internal_object_eq(self, other) -> bool:
+        return False  # why do we need to compare two Z3ConjunctiveClause?
+
+    @staticmethod
+    def make(solver: z3.Solver, dict_: Dict[str, Any]) -> Context:
+        match solver.check():
+            case z3.unsat:
+                return FalseContext()
+            case z3.sat | z3.unknown:
+                return Z3SolverExpression(solver, dict_)
+
+    @staticmethod
+    def from_expression(expression: Expression) -> Z3SolverExpression:
+        # a possible improvement is to split expression into subexpressions if it's an "And"
+        assert isinstance(expression, Expression)
+        if isinstance(expression, Z3SolverExpression):
+            return expression
+
+        if not isinstance(expression, Z3Expression):
+            expression = Z3Expression.convert(expression)
+        new_solver = z3.Solver()
+        new_solver.add(expression.z3_object)
+        return Z3SolverExpression(new_solver)
+
+    def __and__(self, other: Any) -> Context:
+        if self.unsatisfiable:
+            # if an expression is unsatisfiable, its conjunction with anything is still unsatisfiable
+            return self
+
+        if isinstance(other, Z3SolverExpression):
+            if other.unsatisfiable:
+                return other
+            new_solver = z3_merge_solvers(self._solver, other._solver)
+            new_dict = self._dict | other._dict
+        else:
+            if not isinstance(other, Expression):
+                other = Z3Expression.new_constant(other, None)
+            elif not isinstance(other, Z3Expression):
+                other = Z3Expression.convert(other)
+            # Always treat `other` as a literal. Will raise if it cannot be converted to a boolean in Z3.
+            new_solver = z3_add_solver_and_literal(self._solver, other.z3_object)
+            new_dict = self._dict | _extract_key_to_value_from_assertions([other.z3_object])
+        return Z3SolverExpression.make(new_solver, new_dict)
+
+    __rand__ = __and__
 
 
 class EquivalenceClass:
@@ -644,18 +643,6 @@ class EquivalenceClass:
 
 @total_ordering
 class OrderedZ3Expression:
-    @cached_property
-    def expression_level(self):
-        if _is_z3_value(self._expr):
-            return 0
-        elif _is_z3_variable(self._expr):
-            return 1
-        else:
-            return 2
-
-    def as_z3_expression(self):
-        return self._expr
-
     def __init__(self, expr: z3.ExprRef):
         self._expr = expr
 
@@ -663,9 +650,6 @@ class OrderedZ3Expression:
         if not isinstance(other, OrderedZ3Expression):
             return False
         return self._expr.eq(other._expr)
-
-    def __hash__(self):
-        return self._expr.__hash__()
 
     def __lt__(self, other: OrderedZ3Expression) -> bool:
         """
@@ -679,6 +663,21 @@ class OrderedZ3Expression:
             return False
         else:  # same level
             return str(self._expr) < str(other._expr)
+
+    def __hash__(self):
+        return self._expr.__hash__()
+
+    @cached_property
+    def expression_level(self):
+        if _is_z3_value(self._expr):
+            return 0
+        elif _is_z3_variable(self._expr):
+            return 1
+        else:
+            return 2
+
+    def as_z3_expression(self):
+        return self._expr
 
 
 def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | z3.AstVector) \
