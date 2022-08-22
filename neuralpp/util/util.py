@@ -640,4 +640,6 @@ def update_consistent_dict(dict1: Dict, dict2: Dict):
 
 
 def argmax(iterable, func):
+    if empty(iterable):
+        return None
     return max(iterable, key=func)

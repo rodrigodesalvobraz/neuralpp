@@ -1,8 +1,8 @@
 import random
 
-from neuralpp.experiments.experimental_inference.approximations import uniform_approximation_fn
+from neuralpp.experiments.experimental_inference.approximations import message_approximation
 from neuralpp.experiments.experimental_inference.exact_belief_propagation import ExactBeliefPropagation, \
-    IncrementalAnytimeBeliefPropagation
+    AnytimeExactBeliefPropagation
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
@@ -130,11 +130,11 @@ def test_incremental_anytime_with_uniform_approximation():
             assert (isinstance(x, Factor))
             return sum([ord(var.name) for var in x.variables])
 
-    aebp_computation = IncrementalAnytimeBeliefPropagation.from_factors(
+    aebp_computation = AnytimeExactBeliefPropagation.from_factors(
         factors=factors,
         query=w,
-        approximation_fn=uniform_approximation_fn,
-        expansion_fn=scoring_function
+        approximation=message_approximation,
+        expansion_value_function=scoring_function
     )
 
     approximations = []
@@ -160,11 +160,11 @@ def test_random_model_aebp():
             return sum([total_ord(var.name) for var in x.variables])
 
     def run_incremental_aebp_to_completion(factors, query):
-        aebp = IncrementalAnytimeBeliefPropagation.from_factors(
+        aebp = AnytimeExactBeliefPropagation.from_factors(
             factors,
             query,
-            expansion_fn=scoring_function,
-            approximation_fn=uniform_approximation_fn
+            expansion_value_function=scoring_function,
+            approximation=message_approximation
         )
         while not aebp.is_complete():
             aebp.expand_partial_tree_and_recompute(query)

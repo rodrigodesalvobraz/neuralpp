@@ -16,6 +16,9 @@ class Graph:
     def __contains__(self, item):
         raise NotImplemented()
 
+    def contains_edge(self, parent, child):
+        raise NotImplemented()
+
 
 class FactorGraph(Graph):
 
@@ -40,7 +43,7 @@ class FactorGraph(Graph):
     @staticmethod
     def variables_at(node):
         """ All variables which are used directly by a node. """
-        return set(node.variables) if isinstance(node, Factor) else {node}
+        return node.variables if isinstance(node, Factor) else [node]
 
 
 class Tree:
@@ -53,6 +56,9 @@ class Tree:
 
     def parent(self, node):
         raise NotImplemented()
+
+    def contains_edge(self, parent, child):
+        return self.parent(child) == parent
 
 
 class LazySpanningTree(Tree):
@@ -113,10 +119,10 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
         """ Variables appearing outside subtree of node """
 
         def local_external_variables(n):
-            return self.siblings_variables(n) | self.variables_at(node)
+            return self.siblings_variables(n) | set(self.variables_at(node))
 
         if self.parent(node) is None:
-            return self.variables_at(node)
+            return set(self.variables_at(node))
         else:
             return local_external_variables(node) | self.external_variables(self.parent(node))
 
@@ -125,10 +131,14 @@ class PartialFactorSpanningTree(LazyFactorSpanningTree):
     # Unlike the base LazyFactorSpanningTree, the partial spanning tree only returns possible children
     # when the edge has been explicitly added.
 
+    def __init__(self, full_tree: FactorTree):
+        super().__init__(full_tree, full_tree.root)
+
     def children(self, node):
         return self._children.get(id(node), [])
 
     def add_edge(self, parent, child):
+        assert(self.graph.contains_edge(parent, child))
         if child in self:
             raise Exception(f"Child node {child} has already been added to the tree")
         elif id(parent) in self._children:

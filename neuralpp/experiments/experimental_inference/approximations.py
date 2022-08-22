@@ -1,9 +1,11 @@
-from neuralpp.experiments.experimental_inference.graph_analysis import FactorTree
+from neuralpp.experiments.experimental_inference.graph_analysis import FactorTree, FactorGraph
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
-from neuralpp.inference.graphical_model.variable.variable import Variable
+
+"""
+Approximations for use in [AnytimeExactBeliefPropagation]. Each approximation should be a function
+with three parameters: node (Variable or Factor), partial_tree: FactorTree, and full_tree: FactorTree.
+"""
 
 
-def uniform_approximation_fn(node, partial_tree: FactorTree, full_tree: FactorTree):
-    variables = [node] if isinstance(node, Variable) else node.variables
-    # TODO: probably good to implement this with a UniformFactor which doesn't store an actual table
-    return PyTorchTableFactor.from_function(variables, lambda *args: 1.0)
+def message_approximation(node, partial_tree: FactorTree, full_tree: FactorTree):
+    return PyTorchTableFactor.from_function(FactorGraph.variables_at(node), lambda *args: 1.0)
