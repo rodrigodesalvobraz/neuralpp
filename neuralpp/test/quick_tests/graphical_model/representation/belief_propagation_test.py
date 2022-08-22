@@ -3,6 +3,7 @@ import random
 from neuralpp.experiments.experimental_inference.approximations import message_approximation
 from neuralpp.experiments.experimental_inference.exact_belief_propagation import ExactBeliefPropagation, \
     AnytimeExactBeliefPropagation
+from neuralpp.experiments.experimental_inference.graph_analysis import FactorGraph
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
@@ -148,8 +149,54 @@ def test_incremental_anytime_with_uniform_approximation():
     assert (approximations[0] == PyTorchTableFactor([w], [0.25, 0.25, 0.25, 0.25]))
     assert (approximations[-1] == PyTorchTableFactor([w], [0.192, 0.332, 0.34, 0.136]))
 
+    # Verify intermediates by constructing factor trees equivalent to the expected approximation step and
+    # referencing with variable elimination
+    variable_elimination_results = []
+
+    def run_against_variable_elimination(approximate_factors):
+        variable_elimination_results.append(VariableElimination().run(w, approximate_factors))
+
+    def uniform_on_variables_at(node):
+        # TODO: Replace with a UniformFactor once this exists
+        return PyTorchTableFactor.from_function(FactorGraph.variables_at(node), lambda *args: 1.0)
+
+    uniform_r = uniform_on_variables_at(r)
+    uniform_s = uniform_on_variables_at(s)
+    uniform_c = uniform_on_variables_at(c)
+
+    run_against_variable_elimination([
+        uniform_r,
+        uniform_s,
+        PyTorchTableFactor.from_function([w, r, s], prob_wet_grass)
+    ])
+
+    run_against_variable_elimination([
+        uniform_r,
+        PyTorchTableFactor([s], prob_sprinkler),
+        PyTorchTableFactor.from_function([w, r, s], prob_wet_grass)
+    ])
+
+    run_against_variable_elimination([
+        uniform_c,
+        PyTorchTableFactor([c, r], prob_rain_given_cloudy),
+        PyTorchTableFactor([s], prob_sprinkler),
+        PyTorchTableFactor.from_function([w, r, s], prob_wet_grass)
+    ])
+
+    # Some approximations share the same value, since approximations on a variable or a factor on that variable
+    # create the same messages.
+    assert(approximations[1] == variable_elimination_results[0])
+    assert(approximations[2] == variable_elimination_results[0])
+    assert(approximations[3] == variable_elimination_results[1])
+    assert(approximations[4] == variable_elimination_results[1])
+    assert(approximations[5] == variable_elimination_results[2])
+    assert(approximations[6] == variable_elimination_results[2])
+
 
 def test_random_model_aebp():
+    # Test that complete runs of AEBP give the same result as variable elimination.
+    # Note that this test does not verify any intermediate values.
+
     # Prefers nodes with more variable names later in the alphabet
     def scoring_function(x, partial_tree, full_tree):
         total_ord = lambda s: sum(ord(c) for c in s)
