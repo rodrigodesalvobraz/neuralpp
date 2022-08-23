@@ -1,10 +1,15 @@
 from __future__ import annotations
-
-import operator
 import builtins
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, AtomicExpression, \
+import operator
+
+from neuralpp.symbolic.expression import (
+    Expression,
+    FunctionApplication,
+    Variable,
+    Constant, AtomicExpression, \
     VariableNotTypedError, ExpressionType, get_arithmetic_function_type_from_argument_types, Context, \
     QuantifierExpression, AbelianOperation
+)
 from abc import ABC
 from typing import Any, List, Optional, Callable, Dict, get_args
 import neuralpp.symbolic.functions as functions
@@ -25,14 +30,17 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
         # boolean operation
         case operator.and_ | operator.or_ | operator.xor:
             if argument_types is None:
-                raise AmbiguousTypeError(python_callable)  # this is also ambiguous because the arity could be arbitrary
-            if not all([argument_type == bool for argument_type in argument_types]):
+                # this is also ambiguous because the arity could be arbitrary
+                raise AmbiguousTypeError(python_callable)
+            if not all(
+                    [argument_type == bool for argument_type in argument_types]):
                 raise TypeError(f"Argument types to boolean function {python_callable} should all be booleans. "
                                 f"Got {argument_types}.")
             return Callable[argument_types, bool]
         case operator.invert:
             if argument_types is not None and argument_types != [bool]:
-                raise TypeError(f"Invert expect only one boolean argument. Got {argument_types}.")
+                raise TypeError(
+                    f"Invert expect only one boolean argument. Got {argument_types}.")
             return Callable[[bool], bool]
         # comparison
         case operator.le | operator.lt | operator.ge | operator.gt | operator.eq | operator.ne:
@@ -43,7 +51,8 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
         case operator.add | operator.mul | operator.pow | operator.sub | builtins.min | builtins.max:
             if argument_types is None:
                 raise AmbiguousTypeError(python_callable)
-            return get_arithmetic_function_type_from_argument_types(argument_types)
+            return get_arithmetic_function_type_from_argument_types(
+                argument_types)
         case operator.neg:
             if argument_types is None:
                 raise AmbiguousTypeError(python_callable)
@@ -54,16 +63,19 @@ def infer_python_callable_type(python_callable: Callable, argument_types: List[E
         case functions.conditional:
             if argument_types is None:
                 raise AmbiguousTypeError(python_callable)
-            if len(argument_types) != 3 or argument_types[0] != bool or argument_types[1] != argument_types[2]:
+            if len(
+                    argument_types) != 3 or argument_types[0] != bool or argument_types[1] != argument_types[2]:
                 raise TypeError("Wrong conditional expression type.")
             return Callable[argument_types, argument_types[1]]
         case _:
-            raise ValueError(f"Python callable {python_callable} is not recognized.")
+            raise ValueError(
+                f"Python callable {python_callable} is not recognized.")
 
 
 class BasicExpression(Expression, ABC):
     @classmethod
-    def new_constant(cls, value: Any, type_: Optional[ExpressionType] = None) -> BasicConstant:
+    def new_constant(cls, value: Any,
+                     type_: Optional[ExpressionType] = None) -> BasicConstant:
         return BasicConstant(value, type_)
 
     @classmethod
@@ -71,7 +83,8 @@ class BasicExpression(Expression, ABC):
         return BasicVariable(name, type_)
 
     @classmethod
-    def new_function_application(cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
+    def new_function_application(
+            cls, function: Expression, arguments: List[Expression]) -> BasicFunctionApplication:
         return BasicFunctionApplication(function, arguments)
 
     @classmethod
@@ -82,11 +95,13 @@ class BasicExpression(Expression, ABC):
         if constraint.satisfiability_is_known and constraint.unsatisfiable:
             return operation.identity
         else:
-            return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
+            return BasicQuantifierExpression(
+                operation, index, constraint, body, is_integral)
 
 
 class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
-    def __init__(self, atom: Any, expression_type: Optional[ExpressionType] = None):
+    def __init__(self, atom: Any,
+                 expression_type: Optional[ExpressionType] = None):
         if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
             if isinstance(atom, Callable):
@@ -214,7 +229,8 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
         match other:
             case BasicFunctionApplication(subexpressions=other_subexpressions):
                 return len(self.subexpressions) == len(other_subexpressions) and \
-                       all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                    all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(
+                        self.subexpressions, other_subexpressions))
             case _:
                 return False
 
@@ -228,7 +244,8 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
         self._body = body
         self._is_integral = is_integral
         argument_types, return_type = get_args(operation.type)
-        if len(argument_types) != 2 or not (argument_types[0] == argument_types [1] == return_type):
+        if len(argument_types) != 2 or not (
+                argument_types[0] == argument_types[1] == return_type):
             raise ValueError(f"Wrong operation type {operation.type}.")
         super().__init__(return_type)
 
@@ -263,18 +280,22 @@ class BasicQuantifierExpression(QuantifierExpression, BasicExpression):
         match other:
             case BasicQuantifierExpression(subexpressions=other_subexpressions, is_integral=other_is_integral):
                 return self.is_integral == other_is_integral and \
-                       all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(self.subexpressions, other_subexpressions))
+                    all(lhs.internal_object_eq(rhs) for lhs, rhs in zip(
+                        self.subexpressions, other_subexpressions))
             case _:
                 return False
 
 
 class BasicAbelianOperation(BasicConstant, AbelianOperation):
-    def __init__(self, operation: Callable, identity: Constant, inverse_function: Callable[[Expression], Expression]):
-        # technically, the type of identity should be element_type, but there seems no way to declare that in Python?
+    def __init__(self, operation: Callable, identity: Constant,
+                 inverse_function: Callable[[Expression], Expression]):
+        # technically, the type of identity should be element_type, but there
+        # seems no way to declare that in Python?
         self._identity = identity
         self._inverse_function = inverse_function
         element_type = identity.type
-        super().__init__(operation, Callable[[element_type, element_type], element_type])
+        super().__init__(
+            operation, Callable[[element_type, element_type], element_type])
 
     def inverse(self, expr: Expression) -> Expression:
         return self._inverse_function(expr)
@@ -286,17 +307,22 @@ class BasicAbelianOperation(BasicConstant, AbelianOperation):
 
 
 def basic_add_operation(type_) -> BasicAbelianOperation:
-    return BasicAbelianOperation(operator.add, BasicConstant(0, type_), operator.neg)
+    return BasicAbelianOperation(
+        operator.add, BasicConstant(0, type_), operator.neg)
 
 
-def BasicSummation(type_: type, index: Variable, constraint: Context, body: Expression) -> BasicQuantifierExpression:
+def BasicSummation(type_: type, index: Variable, constraint: Context,
+                   body: Expression) -> BasicQuantifierExpression:
     """
     Expect type_ to be the argument type/return type of the summation.
     E.g., the type_ of Summation{i in [0,100]}(i) should be `int`.
     """
-    return BasicQuantifierExpression(basic_add_operation(type_), index, constraint, body, False)
+    return BasicQuantifierExpression(
+        basic_add_operation(type_), index, constraint, body, False)
 
 
-def BasicIntegral(index: Variable, constraint: Context, body: Expression) -> BasicQuantifierExpression:
+def BasicIntegral(index: Variable, constraint: Context,
+                  body: Expression) -> BasicQuantifierExpression:
     # basic_add_operation.element_type is redundant here
-    return BasicQuantifierExpression(basic_add_operation(int), index, constraint, body, True)
+    return BasicQuantifierExpression(
+        basic_add_operation(int), index, constraint, body, True)
