@@ -48,7 +48,7 @@ def return_type_after_application(callable_: Callable, number_of_arguments: int)
     argument_types, return_type = typing.get_args(callable_)
     arity = len(argument_types)
     if number_of_arguments > arity:
-        # raise ValueError(f"number_of_arguments {number_of_arguments} > arity {arity}.")
+        # sometimes we can have more arguments than arity. E.g., a * b * c in SymPy would be (* a b c), which has 3 arguments.
         return return_type
     elif number_of_arguments == arity:
         return return_type
@@ -73,9 +73,10 @@ def get_arithmetic_function_type_from_argument_types(argument_types: List[Expres
         raise ValueError(f"Can only infer the return type from arithmetic argument types: "
                          f"fractions.Fraction, float and int. {argument_types}") from err
 
+
 def get_comparison_function_type_from_argument_types(argument_types: List[ExpressionType]) -> Callable:
     try:
-        # e.g., if float + int, the return type is float
+        # e.g., if float > int, the return [[float, float], bool]
         new_type = get_arithmetic_function_return_type_from_argument_types(argument_types)
         return Callable[[new_type, new_type], bool]
     except ValueError as err:

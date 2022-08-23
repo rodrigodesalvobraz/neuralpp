@@ -5,12 +5,11 @@ from typing import Callable, Type, Any, List
 import z3
 import sympy
 
-from .expression import Expression
 from .basic_expression import BasicConstant
 from .functions import conditional
 from .expression import Expression
 from .z3_expression import Z3Constant
-from .sympy_expression import SymPyConstant, SymPyExpression, SymPyFunctionApplication
+from .sympy_expression import SymPyConstant, SymPyFunctionApplication
 from .expression import get_arithmetic_function_return_type_from_argument_types
 from .parameters import sympy_evaluate
 
@@ -30,7 +29,7 @@ def if_then_else(if_: Any, then_: Any, else_: Any):
     else_type = _type_of(else_)
     if (then_type == bool and else_type != bool) or (then_type != bool and else_type == bool):
         raise TypeError(f"Cannot accommodate types: {then_type} and {else_type}.")
-    if then_type != else_type:
+    elif then_type != else_type:
         conditional_type = get_arithmetic_function_return_type_from_argument_types([then_type, else_type])
     else:
         conditional_type = then_type

@@ -44,8 +44,8 @@ def _split_into_literals(condition: Expression) -> List[Expression]:
 
 def _check_no_conditional(argument: Expression):
     match argument:
-        case FunctionApplication(function=Constant(value=sympy.Piecewise)):
-            raise AttributeError("WRONG")
+        case FunctionApplication(function=Constant(value=sympy.Piecewise)) | FunctionApplication(function=Constant(value=functions.conditional)):
+            raise AttributeError(f"Expression contains conditional/piecewise expression {argument}!")
         case _:
             for subexpression in argument.subexpressions:
                 _check_no_conditional(subexpression)
@@ -89,7 +89,6 @@ class GeneralNormalizer(Normalizer):
                         else:
                             new_conditions.append(condition)
                             new_expressions.append(self._normalize(expression, context & condition))
-                    # print(f"len: {len(new_expressions)}, {len(new_conditions)}")
                     return make_piecewise(new_conditions, new_expressions)
             case FunctionApplication(function=Constant(value=functions.conditional),
                                      arguments=[condition, then, else_]):
@@ -135,8 +134,6 @@ class GeneralNormalizer(Normalizer):
                                     elements.append(self._normalize(BasicQuantifierExpression(operation, index, constraint & condition, expression, is_integral), context, body_is_normalized=True))
                             with self.profiler.profile_section("symbolic addition"):
                                 result = SymPyExpression.new_function_application(operation, elements)
-                            # print(f'result={result.sympy_object}')
-                            # return _simple_simplifier.simplify(result)
                             return result
                         else:
                             new_expressions = []
@@ -191,8 +188,7 @@ class GeneralNormalizer(Normalizer):
                 new_expressions = []
                 for expression, condition in distinct_pairwise(piecewise_arguments):
                     if context.is_known_to_imply(condition):
-                        print(
-                            f"movedown shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")
+                        print(f"movedown shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")
                         arguments[i] = expression
                         return self._move_down_and_normalize(function, arguments, context & condition, i)
                     elif context.is_known_to_imply(~condition):
@@ -204,7 +200,6 @@ class GeneralNormalizer(Normalizer):
                         new_arguments[i] = expression
                         new_expressions.append(
                             self._move_down_and_normalize(function, new_arguments, context & condition, i))
-                # print(f"moving down {function} {i} {len(piecewise_arguments)}")
                 return make_piecewise(new_conditions, new_expressions)
             case FunctionApplication(function=Constant(value=functions.conditional),
                                      arguments=[condition, then, else_]):
@@ -240,11 +235,8 @@ class GeneralNormalizer(Normalizer):
             raise AttributeError("WHAT")
         if context.is_known_to_imply(~constraint):
             return operation.identity
-        # print(f"eliminating: {body}")
         result = self._eliminator.eliminate(operation, index, constraint, body, is_integral, context)
-        # print(f"done")
-        return result
-        # return _simplifier.simplify(result, context)
+        return result  # do not call _simplifier.simplify(result, context), which is quite expensive
 
     def _normalize_quantifier_expression_given_literals(self,
                                                         operation: AbelianOperation, index: Variable,

@@ -2,7 +2,6 @@ from .normalizer import Normalizer
 from .expression import Expression, Constant, Variable, FunctionApplication, QuantifierExpression
 from .z3_expression import Z3SolverExpression
 from .constants import if_then_else
-from .parameters import sympy_evaluate
 import neuralpp.symbolic.functions as functions
 from .general_normalizer import GeneralNormalizer
 from .profiler import Profiler

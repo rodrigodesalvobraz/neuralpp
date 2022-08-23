@@ -37,13 +37,13 @@ class Eliminator:
             return operation(result, inverse)
 
         try:
-            # print(f"context: {SymPyExpression.convert(context).sympy_object}")
             with self.profiler.profile_section("from-constraint"):
                 conditional_intervals = from_constraint(index, constraint, context, is_integral, self.profiler)
             return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
-            return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
+            # TODO: enable this
+            # return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
     def _eliminate_interval(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression,
                             is_integral: bool, context: Context) \
@@ -60,12 +60,9 @@ class Eliminator:
         #     return reduce(operation,
         #                   map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
         #                   operation.identity)
-        return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
+        # return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
 
-    def _symbolically_eliminate(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval,
-                                body: Expression,
-                                is_integral: bool, context: Context) \
-            -> Optional[Expression]:
+    def _symbolically_eliminate(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval, body: Expression, is_integral: bool, context: Context) -> Optional[Expression]:
         if context.is_known_to_imply(interval.upper_bound <= interval.lower_bound):
             return BasicConstant(0)
 
@@ -92,17 +89,15 @@ class Eliminator:
             raise NotImplementedError(type(interval.lower_bound))
         if not isinstance(interval.upper_bound, Expression):
             raise NotImplementedError(type(interval.upper_bound))
-        # print(f"{Eliminator.integration_counter}th integration: \n"
-        #       f"({SymPyExpression.convert(interval.lower_bound).sympy_object},\n"
-        #       f"{SymPyExpression.convert(interval.upper_bound).sympy_object})\n {SymPyExpression.convert(body).sympy_object}")
         with self.profiler.profile_section("integration"):
             if DRY_RUN:
                 return BasicConstant(0.0)
             else:
                 result = SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound, self.profiler)
                 # result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound, interval.upper_bound, self.profiler)
-                # print(f"done. {result.sympy_object}")
                 return result
 
 
+# If DRY_RUN flag is set to True, we don't actually do integration, but just return a placeholder for the result.
+# The result of `DRY_RUN = True` is not going to be correct, but it gives us a sense of the total number of integrations and the run time of other parts of the library quicker.
 DRY_RUN = False

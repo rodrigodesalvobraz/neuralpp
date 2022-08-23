@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import builtins
 import operator
-from typing import Iterable, List, Set, Tuple, Optional
+from sympy import solve, oo
+from typing import Iterable, List, Set, Optional
 from .expression import Variable, Expression, Context, Constant, FunctionApplication
 from .basic_expression import BasicExpression
-from .z3_expression import Z3SolverExpression, Z3Expression
+from .z3_expression import Z3SolverExpression
 from .sympy_interpreter import SymPyInterpreter
-from .sympy_expression import SymPyExpression, SymPyVariable
+from .sympy_expression import SymPyExpression
 from .constants import min_, max_
 from .profiler import Profiler
-from .constants import if_then_else
 
 _simplifier = SymPyInterpreter()
 
@@ -117,8 +117,6 @@ class DottedIntervals(BasicExpression):
 
 
 def _adjust(expression: Expression, variable: Variable) -> Expression:
-    from sympy import solve
-    from sympy import oo
     sympy_expression = SymPyExpression.convert(expression)
     sympy_var = SymPyExpression.convert(variable).sympy_object
     answer = solve(sympy_expression.sympy_object, sympy_var)
@@ -136,12 +134,12 @@ def _adjust(expression: Expression, variable: Variable) -> Expression:
 
 class MagicInterval:
     """
-    One interval, but with non-deterministic lower/upperbounds, for exampel,
+    One interval, but with non-deterministic lower/upperbounds, for example,
     MagicInterval [{x,y}, {z,y}]  is
-    [x,z] if x < y and z > y
-    [y,z] if x >=y and z > y
-    [x,y] if x < y and z <= y
-    [y,y] if x >= y and z <= y
+    [x,z] if x > y and z <= y
+    [y,z] if x <= y and z > y
+    [x,y] if x > y and z >= y
+    [y,y] if x <= y and z <= y
     """
     def __init__(self):
         self._lower_bounds = []
@@ -183,8 +181,6 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     For example, x > 0 and x <= 5 should return an interval [1, 5]
     More complicated cases will be added later
     """
-    from .sympy_interpreter import SymPyInterpreter
-    import operator
     with profiler.profile_section("to-dnf"):
         constraint = SymPyExpression.convert(constraint)
         # constraint = SymPyInterpreter().simplify(constraint)  # get an DNF

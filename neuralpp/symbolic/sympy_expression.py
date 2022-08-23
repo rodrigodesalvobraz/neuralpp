@@ -5,24 +5,22 @@ from typing import List, Any, Type, Callable, Tuple, Optional, Dict
 from abc import ABC, abstractmethod
 
 import sympy
-from sympy import abc
+from sympy import abc, collect
 import operator
 import builtins
 import fractions
-
-from functools import cached_property
 
 from neuralpp.symbolic.profiler import Profiler
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression, \
     AbelianOperation
 from neuralpp.symbolic.basic_expression import infer_python_callable_type, basic_add_operation
-from neuralpp.util.util import update_consistent_dict
+from neuralpp.util.util import update_consistent_dict, distinct_pairwise
 from neuralpp.symbolic.parameters import global_parameters
-from neuralpp.symbolic.basic_expression import BasicSummation
-import neuralpp.symbolic.functions as functions
 from neuralpp.util.sympy_util import is_sympy_uninterpreted_function
+from neuralpp.symbolic.z3_expression import Z3SolverExpression
 from functools import cache
+import neuralpp.symbolic.functions as functions
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
@@ -32,14 +30,6 @@ from functools import cache
 @cache
 def _get_sympy_integral(sympy_expression, x):
     return sympy.Integral(sympy_expression, x).doit()
-# _cache = {}
-# def _get_sympy_integral(sympy_expression, x):
-#     key = (sympy_expression, x)
-#     if key in _cache:
-#         return _cache[key]
-#     else:
-#         _cache[key] = sympy.Integral(sympy_expression, x).doit()
-#         return -_cache[key]
 
 
 def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
@@ -65,9 +55,7 @@ def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Ba
             except KeyError:  # if it's not in type_dict, try figure out ourselves
                 # Here, sympy_object must be function applications like 'x+y'
                 if len(sympy_object.args) == 0:  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
-                    print(f"expect function application {sympy_object}")
-                    return None
-                    raise TypeError("expect function application")
+                    raise TypeError(f"expect function application {sympy_object}")
                 _, return_type = typing.get_args(_infer_sympy_function_type(sympy_object, type_dict))
                 return return_type
 
@@ -186,7 +174,6 @@ class SymPyExpression(Expression, ABC):
 
     @staticmethod
     def collect(expression: Expression, index: Variable) -> Expression:
-        from sympy import collect
         assert isinstance(expression, SymPyExpression)
         assert isinstance(index, SymPyExpression)
         new_sympy_object = collect(expression.sympy_object, index.sympy_object)
@@ -468,7 +455,6 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def from_sympy_function_and_general_arguments(sympy_function: sympy.Basic, arguments: List[Expression],
                                                   uninterpreted_function_type: ExpressionType = None,
                                                   ) -> SymPyExpression:
-        from neuralpp.util.util import distinct_pairwise
         sympy_arguments = [SymPyExpression._convert(argument) for argument in arguments]
         type_dict = _build_type_dict_from_sympy_arguments(sympy_arguments)
 
@@ -489,7 +475,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                 # global_parameters.sympy_evaluate to False (or Add(1,1) will be 2 in sympy).
                 native_arguments = [sympy_argument.sympy_object for sympy_argument in sympy_arguments]
                 if sympy_function == sympy.Piecewise:
-                    sympy_object = sympy_function(*distinct_pairwise(native_arguments))  # pairwise turns [a,b,c,d,..] into [(a,b),(c,d),..] which is exactly what we need
+                    sympy_object = sympy_function(*distinct_pairwise(native_arguments))  # distinct_pairwise() turns [a,b,c,d,..] into [(a,b),(c,d),..]
                 else:
                     sympy_object = sympy_function(*native_arguments)
 
@@ -539,10 +525,8 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
 
     @property
     def function(self) -> Expression:
-        from .constants import if_then_else_function
+        from neuralpp.symbolic.constants import if_then_else_function  # have to stay here otherwise we have circular import?
         return if_then_else_function(self._then_type)  # should be treated as "if" instead of piecewise
-    #     return SymPyConstant(self._sympy_object.func, self.function_type)
-
 
     @property
     def number_of_arguments(self) -> int:
@@ -681,7 +665,6 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
 
     @property
     def constraint(self) -> Context:
-        from .z3_expression import Z3SolverExpression
         empty_context = Z3SolverExpression()
         return empty_context & (self.index >= self.lower_bound) & (self.index <= self.upper_bound)
 

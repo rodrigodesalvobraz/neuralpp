@@ -38,7 +38,7 @@ sort_type_relation = [
     (z3.IntSort(), int),
     (z3.BoolSort(), bool),
     # (z3.RealSort(), fractions.Fraction),
-    (z3.RealSort(), float),  # HACK
+    (z3.RealSort(), float),
     # (z3.FPSort(11, 53), float)  # FPSort(11,53) is double sort (IEEE754, ebits=11, sbits=53)
     # please refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_fp_sort() for why z3 floating point is not yet
     # supported
@@ -716,9 +716,6 @@ class Z3SolverExpressionDummy(Z3SolverExpression):
     """
     A Z3SolverExpression that knows nothing.
     """
-    def __init__(self):
-        super().__init__()
-
     @property
     def subexpressions(self) -> List[Expression]:
         return [self.function] + self.arguments
