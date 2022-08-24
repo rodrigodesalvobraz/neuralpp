@@ -1,10 +1,12 @@
 import builtins
 import fractions
 import operator
+import typing
+from typing import Callable, Dict, List, Optional, Type
+
 import sympy
 from sympy import abc
-import typing
-from typing import Callable, Dict, List, Type
+import z3
 
 import neuralpp.symbolic.functions as functions
 
@@ -249,3 +251,221 @@ def python_callable_to_sympy_function(python_callable: Callable) -> sympy.Basic:
         return python_callable_sympy_function_dict[python_callable]
     except KeyError:
         raise ValueError(f"Python callable {python_callable} is not recognized.")
+
+
+def get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> ExpressionType:
+    """
+    Z3 uses the word 'sort' in a similar sense to 'type': e.g., z3.IntSort() and z3.BoolSort().
+    z3.ArraySort(z3.IntSort(), z3.IntSort()) is the type of arrays who's indexed by int and whose elements are int.
+    However, 'int -> int' is not a sort.
+    """
+    match z3_object:
+        case z3.FuncDeclRef():  # for uninterpreted functions.
+            return Callable[
+                [
+                    z3_sort_to_type(z3_object.domain(i))
+                    for i in range(z3_object.arity())
+                ],
+                z3_sort_to_type(z3_object.range()),
+            ]
+        case z3.ExprRef():
+            # this can be an atom such as "x:int" or "2", or this can also be "1+2".
+            # Either way, the type is the return type, so just sort().
+            return z3_sort_to_type(z3_object.sort())
+
+
+sort_type_relation = [
+    (z3.IntSort(), int),
+    (z3.BoolSort(), bool),
+    (z3.RealSort(), fractions.Fraction),
+    # (z3.FPSort(11, 53), float)  # FPSort(11,53) is double sort (IEEE754, ebits=11, sbits=53)
+    # please refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_fp_sort() for why z3 floating point is not yet
+    # supported
+]
+sort_type_dict = {sort: type_ for sort, type_ in sort_type_relation}
+type_sort_dict = {type_: sort for sort, type_ in sort_type_relation}
+
+
+def z3_sort_to_type(sort: z3.Sort) -> Type:
+    if sort in sort_type_dict:
+        return sort_type_dict[sort]
+    else:
+        raise TypeError(f"Unrecognized z3 sort {sort}")
+
+
+def type_to_z3_sort(type_: Type) -> z3.Sort:
+    if type_ in type_sort_dict:
+        return type_sort_dict[type_]
+    else:
+        raise TypeError(f"Unrecognized type {type_}")
+
+
+def python_callable_to_z3_function(
+    python_callable: Callable, type_: Optional[ExpressionType] = None
+) -> z3.FuncDeclRef:
+    """
+    Note: type_ is *not* the function type of the python_callable, but just the type of argument(s).
+    This is not ambiguous because z3 does not allow the arguments (of the listed functions here) to be different,
+    e.g., "add: float -> int -> int" is not accepted in z3, nor is "less_than: rational -> int -> bool".
+    So the arguments must be of the same type.
+    E.g., if python_callable is operator.add whose function type is "int -> int -> int", then type_ should be "int".
+    """
+    match python_callable:
+        # boolean operation
+        case operator.and_:
+            # We do a bit hack here because z3py does not provide direct access to e.g., "add function"
+            # So we have to create a function application in z3 and retrieve its declaration using decl().
+            return z3.And(True, True).decl()
+        case operator.or_:
+            return z3.Or(True, True).decl()
+        case operator.invert:
+            return z3.Not(True).decl()
+        case operator.xor:
+            return z3.Xor(True, True).decl()
+
+    x, y = z3.Consts(
+        "x y", type_to_z3_sort(type_) if type_ is not None else z3.IntSort()
+    )
+    match python_callable:
+        # comparison and arithmetic are overloaded by z3.
+        case operator.le:
+            return (x <= y).decl()
+        case operator.lt:
+            return (x < y).decl()
+        case operator.ge:
+            return (x >= y).decl()
+        case operator.gt:
+            return (x > y).decl()
+        case operator.eq:
+            return (x == y).decl()
+        case operator.add:
+            return (x + y).decl()
+        case operator.sub:
+            return (x - y).decl()
+        case operator.neg:
+            return (-x).decl()
+        case operator.mul:
+            return (x * y).decl()
+        case operator.pow:
+            return (x**y).decl()
+        # min/max
+        case builtins.min:
+            raise NotImplementedError(
+                "Cannot convert min to a z3 function declaration."
+                "However we can create z3.If(x<y, x, y) for min(x,y)."
+            )
+        case builtins.max:
+            # if len(arguments) != 2:
+            #     raise NotImplementedError("Only 2-element max is supported")
+            # return z3.If(arguments[0] > arguments[1], arguments[0], arguments[1])
+            raise NotImplementedError(
+                "Cannot convert min to a z3 function declaration."
+                "However we can create z3.If(x>y, x, y) for max(x,y)."
+            )
+        # if then else
+        case functions.conditional:
+            return z3.If(x > y, x, y).decl()  # "x>y" is just a placeholder boolean.
+        case _:
+            raise ValueError(f"Python callable {python_callable} is not recognized.")
+
+
+def z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
+    match z3_function.kind():
+        # boolean operation
+        case z3.Z3_OP_AND:
+            return operator.and_
+        case z3.Z3_OP_OR:
+            return operator.or_
+        case z3.Z3_OP_NOT:
+            return operator.invert
+        case z3.Z3_OP_XOR:
+            return operator.xor
+        # comparison
+        case z3.Z3_OP_LE:
+            return operator.le
+        case z3.Z3_OP_LT:
+            return operator.lt
+        case z3.Z3_OP_GE:
+            return operator.ge
+        case z3.Z3_OP_GT:
+            return operator.gt
+        case z3.Z3_OP_EQ:
+            return operator.eq
+        case z3.Z3_OP_DISTINCT:
+            return operator.ne
+        # arithmetic
+        case z3.Z3_OP_ADD:
+            return operator.add
+        case z3.Z3_OP_SUB:
+            return operator.sub
+        case z3.Z3_OP_UMINUS:
+            return operator.neg
+        case z3.Z3_OP_MUL:
+            return operator.mul
+        case z3.Z3_OP_POWER:
+            return operator.pow
+        # if then else
+        case z3.Z3_OP_ITE:
+            return functions.conditional
+        case _:
+            raise ValueError(f"Z3 function {z3_function} is not recognized.")
+
+
+# On the type of *arguments:
+# https://peps.python.org/pep-0484/#arbitrary-argument-lists-and-default-argument-values
+def apply_python_callable_on_z3_arguments(
+    python_callable: Callable, *arguments: z3.BoolRef | z3.ArithRef
+) -> z3.ExprRef:
+    """
+    Directly calling this function can do something that _python_callable_to_z3_function(python_callable)(arguments)
+    cannot do:
+        `_python_callable_to_z3_function(builtins.min)(x, y)` raises an error, because "min" cannot be turned
+        into a z3 function.
+    while
+        `_apply_python_callable_on_z3_arguments(builtins.min, x, y)` is fine, because "min(x,y)" can be turned
+        into a z3 function application (namely, If(x<y, x, y))
+    """
+    match python_callable:
+        # boolean operation
+        case operator.and_:
+            return z3.And(arguments)
+        case operator.or_:
+            return z3.Or(arguments)
+        case operator.invert:
+            return z3.Not(arguments[0])
+        case operator.xor:
+            return z3.Xor(arguments[0], arguments[1])
+        # comparison
+        case operator.le:
+            return arguments[0] <= arguments[1]
+        case operator.lt:
+            return arguments[0] < arguments[1]
+        case operator.ge:
+            return arguments[0] >= arguments[1]
+        case operator.gt:
+            return arguments[0] > arguments[1]
+        case operator.eq:
+            return arguments[0] == arguments[1]
+        case operator.ne:
+            return arguments[0] != arguments[1]
+        # arithmetic
+        case operator.add:
+            return arguments[0] + arguments[1]
+        case operator.sub:
+            return arguments[0] - arguments[1]
+        case operator.neg:
+            return -arguments[0]
+        case operator.mul:
+            return arguments[0] * arguments[1]
+        case operator.pow:
+            return arguments[0] ** arguments[1]
+        # min/max
+        case builtins.min:
+            return z3.If(arguments[0] < arguments[1], arguments[0], arguments[1])
+        case builtins.max:
+            return z3.If(arguments[0] > arguments[1], arguments[0], arguments[1])
+        # our functions
+        case functions.conditional:
+            return z3.If(arguments[0], arguments[1], arguments[2])
+        case _:
+            raise ValueError(f"Python callable {python_callable} is not recognized.")
