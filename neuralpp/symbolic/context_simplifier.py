@@ -1,5 +1,6 @@
 from typing import Optional, Callable, Set
-from .expression import Expression, Context, ConversionError
+from .expression import Expression, Context
+from neuralpp.symbolic.error import ConversionError
 from .simplifier import Simplifier
 from .sympy_expression import SymPyExpression
 from .sympy_interpreter import SymPyInterpreter

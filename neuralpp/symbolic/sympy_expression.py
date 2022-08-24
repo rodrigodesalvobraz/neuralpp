@@ -16,17 +16,17 @@ from neuralpp.symbolic.expression import (
     FunctionApplication,
     Variable,
     Constant,
-    FunctionNotTypedError,
-    NotTypedError,
     return_type_after_application,
-    ExpressionType,
     Context,
     QuantifierExpression,
     AbelianOperation,
 )
-from neuralpp.symbolic.basic_expression import (
-    infer_python_callable_type,
+from neuralpp.symbolic.util import (
+    ExpressionType,
+     infer_python_callable_type,
+    return_type_after_application,
 )
+from neuralpp.symbolic.error import FunctionNotTypedError, NotTypedError, UnknownError
 from neuralpp.util.util import update_consistent_dict
 from neuralpp.symbolic.parameters import global_parameters
 import neuralpp.symbolic.functions as functions
@@ -686,7 +686,7 @@ class SymPyContext(SymPyFunctionApplication, Context):
     @property
     def unsatisfiable(self) -> bool:
         if self._unknown:
-            raise Context.UnknownError()
+            raise UnknownError()
         else:
             return self._unsatisfiable
 

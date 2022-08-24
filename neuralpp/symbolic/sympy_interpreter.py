@@ -1,7 +1,8 @@
 import operator
 import sympy
 
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable, Context, ConversionError
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable, Context
+from neuralpp.symbolic.error import ConversionError
 from neuralpp.symbolic.basic_expression import TrueContext
 from neuralpp.symbolic.simplifier import Simplifier
 from neuralpp.symbolic.interpreter import Interpreter

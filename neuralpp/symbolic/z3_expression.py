@@ -8,13 +8,14 @@ from abc import ABC, abstractmethod
 import z3
 import operator
 import builtins
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, ExpressionType, Context, \
+from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, Context, \
     QuantifierExpression
 from neuralpp.symbolic.basic_expression import FalseContext, TrueContext
 from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, is_z3_uninterpreted_function, \
     z3_replace_in_solver
 from functools import cached_property, total_ordering
 import neuralpp.symbolic.functions as functions
+from neuralpp.symbolic.util import ExpressionType
 
 
 def _get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> ExpressionType:

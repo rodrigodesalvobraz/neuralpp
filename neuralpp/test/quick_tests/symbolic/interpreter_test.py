@@ -7,14 +7,15 @@ import builtins
 import z3
 
 from typing import Callable
-from neuralpp.symbolic.basic_expression import BasicVariable, BasicConstant, BasicFunctionApplication, \
-    boolean_function_of_arity
+from neuralpp.symbolic.basic_expression import BasicVariable, BasicConstant, BasicFunctionApplication
 from neuralpp.symbolic.basic_interpreter import BasicInterpreter
+from neuralpp.symbolic.error import UnknownError
 from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication, \
     SymPyExpression, SymPyContext
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.symbolic.z3_expression import Z3FunctionApplication
 import neuralpp.symbolic.functions as functions
+from neuralpp.symbolic.util import boolean_function_of_arity
 
 
 int_to_int_to_int = Callable[[int, int], int]
@@ -266,5 +267,5 @@ def test_sympy_context():
 
     unknown_context = SymPyContext(sympy.Eq(x, 3) & sympy.Gt(x, 2), {x: int})
     assert not unknown_context.satisfiability_is_known
-    with pytest.raises(SymPyContext.UnknownError):
+    with pytest.raises(UnknownError):
         unknown_context.unsatisfiable

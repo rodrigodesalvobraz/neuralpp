@@ -1,10 +1,10 @@
-from .expression import Context, Expression, Constant, AbelianOperation, Variable
+from .expression import Context, Expression, Constant, AbelianOperation, Variable, FunctionApplication
 from .basic_expression import BasicQuantifierExpression
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint
-from .util import map_leaves_of_if_then_else
 from functools import reduce
-from typing import Optional
+from typing import Callable, Optional
+import neuralpp.symbolic.functions as functions
 import operator
 
 
@@ -50,6 +50,21 @@ def _symbolically_eliminate(operation: AbelianOperation, index: Variable, interv
     return None
 
 
+def _map_leaves_of_if_then_else(conditional_intervals: Expression,
+                               function: Callable[[Expression], Expression]) -> Expression:
+    """
+    @param conditional_intervals: an if-then-else tree
+    @param function: map function
+    @return: an Expression with each DottedIntervals i mapped to f(i)
+    """
+    match conditional_intervals:
+        case FunctionApplication(function=Constant(value=functions.conditional), arguments=[if_, then, else_]):
+            return if_then_else(if_,
+                                map_leaves_of_if_then_else(then, function),
+                                map_leaves_of_if_then_else(else_, function))
+        case _:
+            return function(conditional_intervals)
+
 class Eliminator:
     @staticmethod
     def eliminate(operation: AbelianOperation, index: Variable, constraint: Context, body: Expression,
@@ -65,7 +80,7 @@ class Eliminator:
 
         try:
             conditional_intervals = from_constraint(index, constraint, context, is_integral)
-            return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
+            return _map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
