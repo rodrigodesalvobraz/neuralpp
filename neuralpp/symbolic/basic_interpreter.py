@@ -1,6 +1,11 @@
+import math
+
+import sympy
+
 from neuralpp.symbolic.interpreter import Interpreter
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable
 from neuralpp.symbolic.basic_expression import BasicConstant
+from neuralpp.symbolic.sympy_expression import SymPyExpression
 
 
 class BasicInterpreter(Interpreter):
@@ -21,8 +26,15 @@ class BasicInterpreter(Interpreter):
             # 1. a Python callable, which we'll directly call
             # 2. an uninterpreted function, which is not callable. We raise Error when encounter it.
             case FunctionApplication(function=Constant(value=python_callable), arguments=args):
-                # * is used to turn a list into "args": https://docs.python.org/2/reference/expressions.html#calls
-                return python_callable(*map(self.eval, args))
+                # we use piecewise and conditional the same time, piecewise is not a Python callable (sorta hack, maybe we should have a piecewise() in symbolic/functions.py?)
+                if python_callable == sympy.Piecewise:
+                    result = float(SymPyExpression.convert(expression).sympy_object)
+                    if math.isnan(result):
+                        return 0
+                    return result
+                else:
+                    # * is used to turn a list into "args": https://docs.python.org/2/reference/expressions.html#calls
+                    return python_callable(*map(self.eval, args))
             case FunctionApplication(function=Variable(name=f), arguments=_):
                 raise AttributeError(f"Function {f} is uninterpreted. It cannot be evaluated by BasicInterpreter.")
             case Constant(value=value):
