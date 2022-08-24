@@ -1,10 +1,10 @@
+from .constants import conditional
 from .expression import Context, Expression, Constant, AbelianOperation, Variable, FunctionApplication
 from .basic_expression import BasicQuantifierExpression
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint
 from functools import reduce
 from typing import Callable, Optional
-import neuralpp.symbolic.functions as functions
 import operator
 
 
@@ -58,7 +58,7 @@ def _map_leaves_of_if_then_else(conditional_intervals: Expression,
     @return: an Expression with each DottedIntervals i mapped to f(i)
     """
     match conditional_intervals:
-        case FunctionApplication(function=Constant(value=functions.conditional), arguments=[if_, then, else_]):
+        case FunctionApplication(function=Constant(value=conditional), arguments=[if_, then, else_]):
             return if_then_else(if_,
                                 map_leaves_of_if_then_else(then, function),
                                 map_leaves_of_if_then_else(else_, function))

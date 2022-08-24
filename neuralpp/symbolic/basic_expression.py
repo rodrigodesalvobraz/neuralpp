@@ -3,7 +3,6 @@ import operator
 from abc import ABC
 from typing import List, Optional, Callable, Dict, get_args
 
-from neuralpp.symbolic.error import VariableNotTypedError
 from neuralpp.symbolic.expression import (
     AbelianOperation,
     AtomicExpression,
@@ -14,11 +13,8 @@ from neuralpp.symbolic.expression import (
     QuantifierExpression,
     Variable,
 )
-import neuralpp.symbolic.functions as functions
-from neuralpp.symbolic.util import (
-    ExpressionType,
-    get_arithmetic_function_type_from_argument_types,
-)
+from neuralpp.util.callable_util import ExpressionType
+from neuralpp.util.symbolic_error_util import VariableNotTypedError
 
 
 class BasicExpression(Expression, ABC):

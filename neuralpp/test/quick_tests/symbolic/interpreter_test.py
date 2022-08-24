@@ -9,13 +9,13 @@ import z3
 from typing import Callable
 from neuralpp.symbolic.basic_expression import BasicVariable, BasicConstant, BasicFunctionApplication
 from neuralpp.symbolic.basic_interpreter import BasicInterpreter
-from neuralpp.symbolic.error import UnknownError
+from neuralpp.util.symbolic_error_util import UnknownError
 from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication, \
     SymPyExpression, SymPyContext
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.symbolic.z3_expression import Z3FunctionApplication
-import neuralpp.symbolic.functions as functions
-from neuralpp.symbolic.util import boolean_function_of_arity
+from neuralpp.symbolic.functions import conditional
+from neuralpp.util.callable_util import boolean_function_of_arity
 
 
 int_to_int_to_int = Callable[[int, int], int]
@@ -240,7 +240,7 @@ def test_sympy_interpreter_simplify_operator_overload():
     # convert from basic
     x_2_y_2_context = dict_to_sympy_context({"x": 2, "y": 2})
     x_3_y_2_context = dict_to_sympy_context({"x": 3, "y": 2})
-    f = BasicConstant(functions.conditional, Callable[[bool, int, int], int])
+    f = BasicConstant(conditional, Callable[[bool, int, int], int])
     fa = BasicFunctionApplication(f, [b_x <= 2, b_x * 100, b_y])
     assert si.simplify(fa).sympy_object == sympy.Piecewise((x*100, x <= 2), (y, True))
     assert si.simplify(fa, x_2_y_2_context).value == 200

@@ -1,6 +1,5 @@
 from typing import Optional, Callable, Set
 from .expression import Expression, Context
-from neuralpp.symbolic.error import ConversionError
 from .simplifier import Simplifier
 from .sympy_expression import SymPyExpression
 from .sympy_interpreter import SymPyInterpreter
@@ -8,6 +7,7 @@ from .constants import basic_true, basic_false
 from .z3_expression import Z3SolverExpression
 from .parameters import sympy_evaluate
 from .expression import QuantifierExpression
+from neuralpp.util.symbolic_error_util import ConversionError
 
 
 def _simplify_expression(boolean_expression: Expression, context: Z3SolverExpression) -> Optional[Expression]:

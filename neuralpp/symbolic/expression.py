@@ -5,9 +5,8 @@ from __future__ import (
 from abc import ABC, abstractmethod
 import operator
 from typing import List, Any, Optional, Type, Callable, Dict
-import z3
 
-from neuralpp.symbolic.util import (
+from neuralpp.util.callable_util import (
     ExpressionType,
     get_arithmetic_function_type_from_argument_types,
     return_type_after_application,

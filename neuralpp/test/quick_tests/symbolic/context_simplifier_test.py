@@ -3,7 +3,8 @@ import sympy
 import z3
 import operator
 from neuralpp.symbolic.context_simplifier import ContextSimplifier
-from neuralpp.symbolic.sympy_expression import SymPyVariable, sympy_Cond
+from neuralpp.util.callable_util import sympy_cond
+from neuralpp.symbolic.sympy_expression import SymPyVariable
 from neuralpp.symbolic.z3_expression import Z3Variable, Z3SolverExpression, Z3Constant
 from neuralpp.symbolic.constants import if_then_else
 
@@ -59,14 +60,14 @@ def test_sympy_bug():
     x, y = sympy.symbols('x y')
     # We should be able to create the following expression in SymPy:
     #  if y < (if x<3 then 1 else 2) then x * y else x + y
-    expr = sympy_Cond(y < sympy.Piecewise((1, x < 3), (2, True)), x * y, x + y)
+    expr = sympy_cond(y < sympy.Piecewise((1, x < 3), (2, True)), x * y, x + y)
 
     # But if we set sympy.core.parameters to False (by `with sympy.evaluate(False)`) and try to create the same
     # expression, SymPy will raise an error.
     with pytest.raises(Exception):  # non-deterministically TypeError/RecursiveError
         with sympy.evaluate(False):
-            sympy_Cond(y < sympy.Piecewise((1, x < 3), (2, True)), x*y, x+y)
-    # And this has nothing to do with our shorthand `sympy_Cond`.
+            sympy_cond(y < sympy.Piecewise((1, x < 3), (2, True)), x*y, x+y)
+    # And this has nothing to do with our shorthand `sympy_cond`.
     with pytest.raises(Exception):  # non-deterministically TypeError/RecursiveError
         with sympy.evaluate(False):
             sympy.Piecewise((x*y, y < sympy.Piecewise((1, x < 3), (2, True))), (x+y, True))
@@ -80,10 +81,9 @@ def test_sympy_bug_detail():
     x = sympy.symbols('x')
     with pytest.raises(Exception):
         with sympy.evaluate(False):
-            sympy_Cond(x < sympy.Piecewise((1, x < 3), (2, True)), 1, 2)
+            sympy_cond(x < sympy.Piecewise((1, x < 3), (2, True)), 1, 2)
 
     # the minimum to reproduce the same bug:
     with pytest.raises(Exception):
         with sympy.evaluate(False):
             sympy.functions.elementary.piecewise.ExprCondPair(1, x < sympy.Piecewise((1, x < 3), (2, True)))
-

@@ -20,12 +20,14 @@ from neuralpp.symbolic.basic_expression import (
 from neuralpp.symbolic.sympy_expression import (
     SymPyConstant,
     SymPyExpression,
-    _python_callable_to_sympy_function,
-    _sympy_function_to_python_callable,
     SymPyFunctionApplication,
     SymPyVariable,
-    _infer_sympy_function_type,
-    _infer_sympy_object_type,
+)
+from neuralpp.util.callable_util import (
+    python_callable_to_sympy_function,
+    sympy_function_to_python_callable,
+    infer_sympy_function_type,
+    infer_sympy_object_type,
 )
 from neuralpp.symbolic.z3_expression import (
     Z3FunctionApplication,
@@ -285,8 +287,8 @@ def sympy_func(request):
 
 def test_python_callable_and_sympy_function_conversion(sympy_func):
     assert (
-        _python_callable_to_sympy_function(
-            _sympy_function_to_python_callable(sympy_func)
+        python_callable_to_sympy_function(
+            sympy_function_to_python_callable(sympy_func)
         )
         == sympy_func
     )
@@ -294,8 +296,8 @@ def test_python_callable_and_sympy_function_conversion(sympy_func):
 
 def test_python_callable_and_sympy_function_conversion2(python_callable):
     assert (
-        _sympy_function_to_python_callable(
-            _python_callable_to_sympy_function(python_callable)
+        sympy_function_to_python_callable(
+            python_callable_to_sympy_function(python_callable)
         )
         == python_callable
     )
@@ -572,10 +574,10 @@ def test_type_inference():
 
     sympy_expr: sympy.Basic = (a > b) | (a <= -b)
     assert (
-        _infer_sympy_function_type(sympy_expr, {a: int, b: int})
+        infer_sympy_function_type(sympy_expr, {a: int, b: int})
         == Callable[[bool, bool], bool]
     )
-    assert _infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
+    assert infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
 
 
 def test_function_application_eq():

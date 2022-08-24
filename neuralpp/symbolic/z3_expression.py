@@ -15,7 +15,7 @@ from neuralpp.util.z3_util import z3_merge_solvers, z3_add_solver_and_literal, i
     z3_replace_in_solver
 from functools import cached_property, total_ordering
 import neuralpp.symbolic.functions as functions
-from neuralpp.symbolic.util import ExpressionType
+from neuralpp.util.callable_util import ExpressionType
 
 
 def _get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> ExpressionType:
