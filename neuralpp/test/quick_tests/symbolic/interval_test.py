@@ -1,6 +1,6 @@
 from neuralpp.symbolic.interval import from_constraint
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Expression
-from neuralpp.symbolic.basic_expression import BasicVariable, BasicSummation
+from neuralpp.symbolic.basic_expression import BasicVariable
 from neuralpp.symbolic.expression import FunctionApplication
 
 
