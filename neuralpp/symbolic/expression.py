@@ -454,6 +454,10 @@ class FunctionApplication(Expression, ABC):
     __match_args__ = ("function", "arguments", "number_of_arguments")
 
     @property
+    def is_polynomials(self) -> bool:
+        return False
+
+    @property
     @abstractmethod
     def function(self) -> Expression:
         pass

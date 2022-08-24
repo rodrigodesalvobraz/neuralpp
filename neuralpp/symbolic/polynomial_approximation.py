@@ -1,11 +1,12 @@
 from typing import Callable, Iterable, Sized
 
 import numpy as np
+from sympy import Poly
 import torch.distributions
 from torch.distributions import Normal
 
 from neuralpp.symbolic.basic_expression import BasicExpression
-from neuralpp.symbolic.sympy_expression import make_piecewise
+from neuralpp.symbolic.sympy_expression import make_piecewise, SymPyExpression
 from neuralpp.symbolic.expression import Expression, Variable
 from neuralpp.util.util import pairwise
 
@@ -78,6 +79,11 @@ def from_coefficients_to_polynomial(variable: Expression, coefficients: Sized) -
     Given a variable and a sequence of coefficients a0, ..., an,
     returns an Expression representing a0 * variable ** n + a1 * variable ** (n - 1) + ... + an.
     """
+    generator = SymPyExpression.convert(variable).sympy_object
+    sympy_result = Poly.from_list(coefficients, generator)
+    # print(sympy_result)
+    return SymPyExpression.from_sympy_object(sympy_result, {generator: float})
+
     degree = len(coefficients) - 1
     polynomial = BasicExpression.new_constant(0.)
     for i in range(degree):

@@ -6,7 +6,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import sympy
-from sympy import collect
+from sympy import abc, Poly, collect
+import operator
+import builtins
+import fractions
 
 import neuralpp.symbolic.functions as functions
 from neuralpp.symbolic.basic_expression import basic_add_operation
@@ -379,6 +382,11 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         This function always set type_dict[sympy_object] with the new (inferred or supplied) function_type value.
         The old value, if exists, is only used for consistency checking.
         """
+        if sympy_object.is_Poly:
+            self._function_type = Callable[[], float]
+            SymPyExpression.__init__(self, sympy_object, float, type_dict)
+            return
+
         if not sympy_object.args:
             raise TypeError(f"not a function application. {sympy_object}")
 
@@ -441,7 +449,25 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                         *distinct_pairwise(native_arguments)
                     )  # distinct_pairwise() turns [a,b,c,d,..] into [(a,b),(c,d),..]
                 else:
-                    sympy_object = sympy_function(*native_arguments)
+                    if any(arg.is_Poly for arg in native_arguments):
+                        if sympy_function == sympy.Mul:
+                            if len(native_arguments) != 2:
+                                [print(arg) for arg in native_arguments]
+                                raise
+                            if native_arguments[0].is_Poly:
+                                sympy_object = native_arguments[0].mul(native_arguments[1])
+                            if native_arguments[1].is_Poly:
+                                sympy_object = native_arguments[1].mul(native_arguments[0])
+                        elif sympy_function == sympy.Add:
+                            sympy_object = sympy.Add(*native_arguments, evaluate=False)
+                            # assert native_arguments[0].is_Poly
+                            # sympy_object = native_arguments[0]
+                            # for arg in native_arguments[1:]:
+                            #     sympy_object = sympy_object.add(arg)
+                        else:
+                            raise RuntimeError(f"Unknown function {sympy_function}")
+                    else:
+                        sympy_object = sympy_function(*native_arguments)
 
         if global_parameters.sympy_evaluate:
             # if sympy_evaluate is True, we don't necessarily return a FunctionApplication.

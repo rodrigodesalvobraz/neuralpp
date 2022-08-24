@@ -113,6 +113,8 @@ class GeneralNormalizer(Normalizer):
                 return if_then_else(expression, True, False)
             case Variable():
                 return expression
+            case FunctionApplication(is_polynomials=True):  # if function is polynomials, we don't have to normalize: it's integrable
+                return expression
             case FunctionApplication(function=function, arguments=arguments):
                 with self.profiler.profile_section("function-normalization"):
                     return self._normalize_function_application(function, arguments, context)
@@ -140,7 +142,8 @@ class GeneralNormalizer(Normalizer):
                                         BasicQuantifierExpression(operation, index, constraint & condition, expression,
                                                                   is_integral), context, body_is_normalized=True))
                             with self.profiler.profile_section("symbolic addition"):
-                                result = SymPyExpression.new_function_application(operation, elements)
+                                # result = SymPyExpression.new_function_application(operation, elements)
+                                result = BasicExpression.new_function_application(operation, elements)
                             return result
                         else:
                             new_expressions = []
@@ -245,7 +248,7 @@ class GeneralNormalizer(Normalizer):
         1. supports more operations (add, multiply, and, or, ...)
         2. supports multiple intervals & complicated constraints (e.g, 1 <= x <= 100, x != y)
         """
-        if isinstance(body, FunctionApplication) and body.function.value == functions.conditional:
+        if isinstance(body, FunctionApplication) and isinstance(body.function, Constant) and body.function.value == functions.conditional:
             raise AttributeError("WHAT")
         if context.is_known_to_imply(~constraint):
             return operation.identity
