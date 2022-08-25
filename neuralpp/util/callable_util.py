@@ -54,9 +54,7 @@ def return_type_after_application(
     """Given number_of_arguments (<=arity), return the return type after (partial) application."""
     argument_types, return_type = typing.get_args(callable_)
     arity = len(argument_types)
-    if number_of_arguments > arity:
-        raise ValueError(f"number_of_arguments {number_of_arguments} > arity {arity}.")
-    elif number_of_arguments == arity:
+    if number_of_arguments >= arity:
         return return_type
     else:
         return Callable[argument_types[number_of_arguments:], return_type]

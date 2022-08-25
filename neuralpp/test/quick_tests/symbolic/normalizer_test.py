@@ -240,6 +240,7 @@ def test_quantifier_normalizer_integration():
     context = empty_context
     normalizer = GeneralNormalizer()
     # 1/2 * i ** 2
+    print(normalizer.normalize(integral, context, simplify=True))
     assert normalizer.normalize(integral, context).syntactic_eq(BasicConstant(50))
     # 1/2 * i ** 2 + i
     assert normalizer.normalize(basic_integral(i, i_range, i + 1), context).syntactic_eq(BasicConstant(60))

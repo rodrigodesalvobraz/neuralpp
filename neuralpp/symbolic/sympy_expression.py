@@ -12,7 +12,7 @@ import builtins
 import fractions
 
 import neuralpp.symbolic.functions as functions
-from neuralpp.symbolic.basic_expression import basic_add_operation
+from neuralpp.symbolic.basic_expression import basic_add_operation, BasicConstant
 from neuralpp.symbolic.expression import (
     AbelianOperation,
     Constant,
@@ -152,23 +152,30 @@ class SymPyExpression(Expression, ABC):
     ) -> Optional[Expression]:
         """try to compute the integral symbolically, if fails, return None. Cached version."""
         try:
-            body, index, lower_bound, upper_bound = [
-                SymPyExpression._convert(argument)
-                for argument in [body, index, lower_bound, upper_bound]
-            ]
-            type_dict = _build_type_dict_from_sympy_arguments(
-                [body, index, lower_bound, upper_bound]
-            )
-            with profiler.profile_section("sympy integration"):
-                indefinite_integral = get_sympy_integral(
-                    body.sympy_object, index.sympy_object
-                )
-                difference = indefinite_integral.subs(
-                    index.sympy_object, upper_bound.sympy_object
-                ) - indefinite_integral.subs(
-                    index.sympy_object, lower_bound.sympy_object
-                )
-            return SymPyExpression.from_sympy_object(difference, type_dict)
+            with profiler.profile_section("convert"):
+                body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
+                                                         for argument in [body, index, lower_bound, upper_bound]]
+                type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
+            with profiler.profile_section("to poly"):
+                if body.sympy_object.is_Poly and index.sympy_object in body.sympy_object.gens:
+                    body_poly = body.sympy_object
+                else:
+                    body_poly = Poly(body.sympy_object, index.sympy_object)
+            with profiler.profile_section("poly integrate"):
+                big_f = body_poly.integrate()
+            with profiler.profile_section("substitute"):
+                # print(f"replace {big_f.replace(index.sympy_object, upper_bound.sympy_object)}")
+                assert isinstance(big_f, Poly)
+                b = big_f.replace(index.sympy_object, upper_bound.sympy_object)
+                a = big_f.replace(index.sympy_object, lower_bound.sympy_object)
+            with profiler.profile_section("compute diff"):
+                diff = b - a
+            # if diff.has(index.sympy_object):
+            #     raise ValueError(f"{diff}\nhas {index.sympy_object}???")
+            with profiler.profile_section("wrap"):
+                result = SymPyExpression.from_sympy_object(diff, type_dict)
+            return result
+
         except Exception as exc:
             return None
 
@@ -343,8 +350,17 @@ class SymPyConstant(SymPyExpression, Constant):
 
 
 class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
+    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+        # a fast path
+        from_expression_sympy = SymPyExpression.convert(from_expression)
+        to_expression_sympy = SymPyExpression.convert(to_expression)
+        return SymPyExpression.from_sympy_object(self.sympy_object.replace(from_expression_sympy.sympy_object, to_expression_sympy.sympy_object), _build_type_dict_from_sympy_arguments([self, to_expression_sympy]))
+
     @property
     def function(self) -> Expression:
+        if self._sympy_object.func == Poly:
+            return BasicConstant(functions.identity)
+
         if is_sympy_uninterpreted_function(self._sympy_object.func):
             return SymPyVariable(self._sympy_object.func, self.function_type)
         else:
@@ -357,9 +373,13 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 
     @property
     def arguments(self) -> List[Expression]:
+        if self._sympy_object.func == Poly:
+            native_arguments = [self.native_arguments[0]]
+        else:
+            native_arguments = self.native_arguments
         return [
             SymPyExpression.from_sympy_object(argument, self.type_dict)
-            for argument in self.native_arguments
+            for argument in native_arguments
         ]
 
     @property
@@ -383,6 +403,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         The old value, if exists, is only used for consistency checking.
         """
         if sympy_object.is_Poly:
+        # if True:
             self._function_type = Callable[[], float]
             SymPyExpression.__init__(self, sympy_object, float, type_dict)
             return
@@ -456,7 +477,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                                 raise
                             if native_arguments[0].is_Poly:
                                 sympy_object = native_arguments[0].mul(native_arguments[1])
-                            if native_arguments[1].is_Poly:
+                            else:  # native_arguments[1].is_Poly
                                 sympy_object = native_arguments[1].mul(native_arguments[0])
                         elif sympy_function == sympy.Add:
                             sympy_object = sympy.Add(*native_arguments, evaluate=False)
@@ -701,16 +722,6 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
         return False
 
 
-def make_piecewise(conditions: List[Expression], expressions: List[Expression]):
-    expressions = [SymPyExpression.convert(expression) for expression in expressions]
-    conditions = [SymPyExpression.convert(condition) for condition in conditions]
-    type_dict = _build_type_dict_from_sympy_arguments(conditions + expressions)
-    arguments = [
-        (expression.sympy_object, condition.sympy_object)
-        for condition, expression in zip(conditions, expressions)
-    ]
-    # must turn off evaluate to prevent sympy from doing this:
-    # Piecewise((x, x > 0), (1, x <=0)) --> Piecewise((x, x > 0), (1, True))
-    # the latter is no longer mutually exclusive
-    sympy_piecewise = sympy.Piecewise(*arguments, evaluate=False)
-    return SymPyFunctionApplication(sympy_piecewise, type_dict)
+def make_piecewise(arguments: List[Expression]):
+    from .basic_expression import BasicFunctionApplication
+    return BasicFunctionApplication(SymPyConstant(sympy.Piecewise, Callable[[], float]), arguments)

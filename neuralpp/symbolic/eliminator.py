@@ -57,6 +57,8 @@ class Eliminator:
                 conditional_intervals = from_constraint(index, constraint, context, is_integral, self.profiler)
             return _map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
+            print(f"cannot eliminate {exc}")
+            raise
             return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
     def _eliminate_interval(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval,
