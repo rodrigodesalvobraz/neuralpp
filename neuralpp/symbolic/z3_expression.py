@@ -177,6 +177,12 @@ class Z3Expression(Expression, ABC):
 
 
 class Z3ObjectExpression(Z3Expression, ABC):
+    """
+    Z3Expression that has a Z3 object, which is a symbolic expression.
+    E.g.: Constants, FunctionApplication, etc.
+    A Z3 solver is not a Z3 object
+    """
+
     def __init__(self, z3_object: z3.ExprRef | z3.FuncDeclRef):
         Expression.__init__(self, get_type_from_z3_object(z3_object))
         self._z3_object = z3_object
@@ -452,7 +458,9 @@ class OrderedZ3Expression:
     equivalent expressions.
     In the case of a = b ^ b = c ^ a = 1, we would want to replace a, b, and c with 1.
     Constant < Variable < Expression
+    E.g.: We will always want to replace a with 1.
     """
+
     def __init__(self, expr: z3.ExprRef):
         self._expr = expr
 
