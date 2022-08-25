@@ -445,7 +445,56 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
     __rand__ = __and__
 
 
+@total_ordering
+class OrderedZ3Expression:
+    """
+    OrderedZ3Expression helps determine what Expression should be used to replace the other
+    equivalent expressions.
+    In the case of a = b ^ b = c ^ a = 1, we would want to replace a, b, and c with 1.
+    Constant < Variable < Expression
+    """
+    def __init__(self, expr: z3.ExprRef):
+        self._expr = expr
+
+    @cached_property
+    def expression_level(self):
+        if is_z3_value(self._expr):
+            return 0
+        elif is_z3_variable(self._expr):
+            return 1
+        else:
+            return 2
+
+    def as_z3_expression(self):
+        return self._expr
+
+    def __eq__(self, other: OrderedZ3Expression) -> bool:
+        if not isinstance(other, OrderedZ3Expression):
+            return False
+        return self._expr.eq(other._expr)
+
+    def __hash__(self):
+        return self._expr.__hash__()
+
+    def __lt__(self, other: OrderedZ3Expression) -> bool:
+        """
+        Instead of creating a new symbolic expression, this `lt` returns a boolean
+        """
+        if not isinstance(other, OrderedZ3Expression):
+            raise TypeError("Can only compare two OrderedZ3Expressions.")
+        if self.expression_level < other.expression_level:
+            return True
+        elif other.expression_level < self.expression_level:
+            return False
+        else:  # same level
+            return str(self._expr) < str(other._expr)
+
+
 class EquivalenceClass:
+    """
+    Assume a = b ^ b = c ^ a = 1 ^ x = y. a = b = c = 1, which denotes a EquivalenceClass
+    """
+
     def __init__(self, element: OrderedZ3Expression):
         self._set = frozenset([element])
 
@@ -500,42 +549,3 @@ class EquivalenceClass:
 
     def __hash__(self):
         return self._set.__hash__()
-
-
-@total_ordering
-class OrderedZ3Expression:
-    def __init__(self, expr: z3.ExprRef):
-        self._expr = expr
-
-    @cached_property
-    def expression_level(self):
-        if is_z3_value(self._expr):
-            return 0
-        elif is_z3_variable(self._expr):
-            return 1
-        else:
-            return 2
-
-    def as_z3_expression(self):
-        return self._expr
-
-    def __eq__(self, other: OrderedZ3Expression) -> bool:
-        if not isinstance(other, OrderedZ3Expression):
-            return False
-        return self._expr.eq(other._expr)
-
-    def __hash__(self):
-        return self._expr.__hash__()
-
-    def __lt__(self, other: OrderedZ3Expression) -> bool:
-        """
-        Instead of creating a new symbolic expression, this `lt` returns a boolean
-        """
-        if not isinstance(other, OrderedZ3Expression):
-            raise TypeError("Can only compare two OrderedZ3Expressions.")
-        if self.expression_level < other.expression_level:
-            return True
-        elif other.expression_level < self.expression_level:
-            return False
-        else:  # same level
-            return str(self._expr) < str(other._expr)
