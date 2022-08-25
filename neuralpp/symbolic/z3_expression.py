@@ -5,6 +5,7 @@ import typing
 from typing import List, Any, Callable, Tuple, Optional, Type, Dict, FrozenSet
 from abc import ABC, abstractmethod
 
+import sympy
 import z3
 import operator
 import builtins
@@ -36,7 +37,8 @@ def _get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> Expressi
 sort_type_relation = [
     (z3.IntSort(), int),
     (z3.BoolSort(), bool),
-    (z3.RealSort(), fractions.Fraction),
+    # (z3.RealSort(), fractions.Fraction),
+    (z3.RealSort(), float),
     # (z3.FPSort(11, 53), float)  # FPSort(11,53) is double sort (IEEE754, ebits=11, sbits=53)
     # please refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_fp_sort() for why z3 floating point is not yet
     # supported
@@ -155,6 +157,8 @@ def _z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.mul
         case z3.Z3_OP_POWER:
             return operator.pow
+        case z3.Z3_OP_DIV:
+            return operator.truediv
         # if then else
         case z3.Z3_OP_ITE:
             return functions.conditional
@@ -220,6 +224,8 @@ def _apply_python_callable_on_z3_arguments(python_callable: Callable,
             return arguments[0] * arguments[1]
         case operator.pow:
             return arguments[0] ** arguments[1]
+        case operator.truediv:
+            return arguments[0] / arguments[1]
         # min/max
         case builtins.min:
             return z3.If(arguments[0] < arguments[1], arguments[0], arguments[1])
@@ -314,6 +320,10 @@ class Z3Expression(Expression, ABC):
             try:
                 return _z3_function_to_python_callable(value)
             except Exception as exc:
+                if z3.is_to_real(value):
+                    return value
+                if value.kind() == z3.Z3_OP_TO_REAL:
+                    return functions.identity
                 raise ValueError(f"Cannot pythonize {value}.") from exc
         else:
             raise ValueError("Cannot pythonize non-z3 object")
@@ -700,3 +710,48 @@ def _extract_equivalence_classes_from_assertions(assertions: List[z3.ExprRef] | 
     result: Dict[z3.ExprRef, EquivalenceClass] = {}
     _traverse_equalities(assertions, key_to_equivalence_class_accumulator)
     return frozenset(result.values())
+
+
+class Z3SolverExpressionDummy(Z3SolverExpression):
+    """
+    A Z3SolverExpression that knows nothing.
+    """
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.function] + self.arguments
+
+    @property
+    def unsatisfiable(self) -> bool:  # self should always be satisfiable
+        """ Always False because I know nothing. """
+        return False
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return True
+
+    @property
+    def number_of_arguments(self) -> int:
+        return 0
+
+    @cached_property
+    def z3_expression(self) -> z3.AstRef:
+        return z3.BoolVal(True)
+
+    def __and__(self, other: Any) -> Context:
+        """ I know nothing so I learn nothing. """
+        return self
+
+    __rand__ = __and__
+
+    @staticmethod
+    def from_expression(expression: Expression) -> Z3SolverExpression:
+        raise NotImplementedError("?")
+
+    def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
+        from .sympy_expression import SymPyExpression
+        sympy_object = SymPyExpression.convert(expression).sympy_object
+        if sympy_object == sympy.true:
+            return True
+        if sympy_object == sympy.false:
+            return False
+

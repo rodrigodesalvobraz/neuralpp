@@ -25,7 +25,8 @@ def _bfs_first_non_constant_formula_of_expression(expression: Expression, queue:
                 # to simplify its subexpressions.
                 # E.g. if x > 3 then (if x > 2 then .. else ..) else ..
                 # if we do not split on x > 3, then the simplification x > 2 -> True cannot be made
-                queue.extend(arguments)
+                for argument in arguments:
+                    queue.append(argument)
             case _:
                 pass  # non_constant_formulaic expression has no subexpressions
     return None
@@ -33,6 +34,7 @@ def _bfs_first_non_constant_formula_of_expression(expression: Expression, queue:
 
 def first_non_constant_formula_of_expression(expression: Expression) -> Optional[Expression]:
     """ returns the first non_constant_formula occurring in a given expression in a breadth-first search. """
+    assert isinstance(expression, Expression)
     return _bfs_first_non_constant_formula_of_expression(expression, deque())
 
 

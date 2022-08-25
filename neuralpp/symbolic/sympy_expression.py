@@ -5,25 +5,31 @@ from typing import List, Any, Type, Callable, Tuple, Optional, Dict
 from abc import ABC, abstractmethod
 
 import sympy
-from sympy import abc
+from sympy import abc, collect
 import operator
 import builtins
 import fractions
 
-from functools import cached_property
+from neuralpp.symbolic.profiler import Profiler
 from neuralpp.symbolic.expression import Expression, FunctionApplication, Variable, Constant, \
     FunctionNotTypedError, NotTypedError, return_type_after_application, ExpressionType, Context, QuantifierExpression, \
     AbelianOperation
 from neuralpp.symbolic.basic_expression import infer_python_callable_type, basic_add_operation
-from neuralpp.util.util import update_consistent_dict
+from neuralpp.util.util import update_consistent_dict, distinct_pairwise
 from neuralpp.symbolic.parameters import global_parameters
-from neuralpp.symbolic.basic_expression import BasicSummation
-import neuralpp.symbolic.functions as functions
 from neuralpp.util.sympy_util import is_sympy_uninterpreted_function
+from neuralpp.symbolic.z3_expression import Z3SolverExpression
+from functools import cache
+import neuralpp.symbolic.functions as functions
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
+
+
+@cache
+def _get_sympy_integral(sympy_expression, x):
+    return sympy.Integral(sympy_expression, x).doit()
 
 
 def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]) -> ExpressionType:
@@ -49,7 +55,7 @@ def _infer_sympy_object_type(sympy_object: sympy.Basic, type_dict: Dict[sympy.Ba
             except KeyError:  # if it's not in type_dict, try figure out ourselves
                 # Here, sympy_object must be function applications like 'x+y'
                 if len(sympy_object.args) == 0:  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
-                    raise TypeError("expect function application")
+                    raise TypeError(f"expect function application {sympy_object}")
                 _, return_type = typing.get_args(_infer_sympy_function_type(sympy_object, type_dict))
                 return return_type
 
@@ -98,7 +104,9 @@ python_callable_and_sympy_function_relation = [
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
     # conditional
-    (functions.conditional, sympy_Cond),
+    # (functions.conditional, sympy_Cond),  # disabled, so we can get SymPyConditionalFunctionApplication
+    # identity
+    (functions.identity, sympy.Id)
 ]
 sympy_function_python_callable_dict = \
     {sympy_function: python_callable
@@ -113,7 +121,10 @@ def _sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
         return sympy_function_python_callable_dict[sympy_function]
     except KeyError:
         if sympy_function == sympy.Piecewise:
-            return functions.conditional
+            return sympy_function
+        if sympy_function == functions.conditional:
+            return sympy_function
+            # return functions.conditional
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
@@ -162,6 +173,13 @@ class SymPyExpression(Expression, ABC):
         self._type_dict = type_dict
 
     @staticmethod
+    def collect(expression: Expression, index: Variable) -> Expression:
+        assert isinstance(expression, SymPyExpression)
+        assert isinstance(index, SymPyExpression)
+        new_sympy_object = collect(expression.sympy_object, index.sympy_object)
+        return SymPyExpression.from_sympy_object(new_sympy_object, expression.type_dict)
+
+    @staticmethod
     def symbolic_sum(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
             -> Optional[Expression]:
         """ try to compute the sum symbolically, if fails, return None"""
@@ -179,21 +197,47 @@ class SymPyExpression(Expression, ABC):
         except Exception as exc:
             return None
 
+    # @staticmethod
+    # def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression,
+    #                       profiler: Profiler) \
+    #         -> Optional[Expression]:
+    #     """ try to compute the integral symbolically, if fails, return None"""
+    #     from sympy.integrals.rationaltools import ratint
+    #     from sympy import collect, Poly
+    #     try:
+    #         body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
+    #                                                  for argument in [body, index, lower_bound, upper_bound]]
+    #         type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
+    #
+    #         # with profiler.profile_section("to poly"):
+    #         #     body = Poly(body.sympy_object, index.sympy_object)
+    #         # with profiler.profile_section("poly integrate"):
+    #         #     big_f = body.integrate()
+    #         # with profiler.profile_section("compute diff"):
+    #         #     # print(body, big_f)
+    #         #     # print(f"replace {big_f.replace(index.sympy_object, upper_bound.sympy_object)}")
+    #         #     diff = big_f.eval(upper_bound.sympy_object) - big_f.eval(lower_bound.sympy_object)
+    #         #     # print(f"diff {diff}")
+    #         # return SymPyExpression.from_sympy_object(diff, type_dict)
+    #
+    #         with profiler.profile_section("symbolic integrate"):
+    #             return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object, (index.sympy_object, lower_bound.sympy_object, upper_bound.sympy_object, ), ).doit(), type_dict)
+    #     except Exception as exc:
+    #         return None
+
     @staticmethod
-    def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression) \
+    def symbolic_integral(body: Expression, index: Variable, lower_bound: Expression, upper_bound: Expression,
+                                 profiler: Profiler) \
             -> Optional[Expression]:
-        """ try to compute the integral symbolically, if fails, return None"""
+        """ try to compute the integral symbolically, if fails, return None. Cached version. """
         try:
             body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                      for argument in [body, index, lower_bound, upper_bound]]
             type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            return SymPyExpression.from_sympy_object(sympy.Integral(body.sympy_object,
-                                                                    (index.sympy_object,
-                                                                     lower_bound.sympy_object,
-                                                                     upper_bound.sympy_object,
-                                                                     ),
-                                                                    ).doit(),
-                                                     type_dict)
+            with profiler.profile_section("sympy integration"):
+                indefinite_integral = _get_sympy_integral(body.sympy_object, index.sympy_object)
+                difference = indefinite_integral.subs(index.sympy_object, upper_bound.sympy_object) - indefinite_integral.subs(index.sympy_object, lower_bound.sympy_object)
+            return SymPyExpression.from_sympy_object(difference, type_dict)
         except Exception as exc:
             return None
 
@@ -242,6 +286,13 @@ class SymPyExpression(Expression, ABC):
             # if function is not of SymPyConstant but of Constant, then it is assumed to be a python callable
             case Constant(value=python_callable):
                 # during the call, ValueError will be implicitly raised if we cannot convert
+                if python_callable == functions.conditional:
+                    # special case of Conditional, this allows us to differentiate
+                    # SymPyConditionalFunctionApplication (for if-then-else) and SymPyPiecewise (for piecewise)
+                    if_, then, else_ = [SymPyExpression._convert(argument) for argument in arguments]
+                    type_dict = _build_type_dict_from_sympy_arguments([if_, then, else_])
+                    piecewise = sympy.Piecewise((then.sympy_object, if_.sympy_object), (else_.sympy_object, True))
+                    return SymPyConditionalFunctionApplication(piecewise, type_dict)
                 sympy_function = _python_callable_to_sympy_function(python_callable)
                 return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy_function, arguments)
             case Variable(name=name, type=type_):
@@ -365,7 +416,7 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def __new__(cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         if sympy_object.func == sympy.Piecewise:
-            return SymPyConditionalFunctionApplication(sympy_object, type_dict)
+            return SymPyPiecewise(sympy_object, type_dict)
         else:
             return super().__new__(cls)
 
@@ -377,7 +428,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         The old value, if exists, is only used for consistency checking.
         """
         if not sympy_object.args:
-            raise TypeError("not a function application.")
+            raise TypeError(f"not a function application. {sympy_object}")
 
         if sympy_object.func in type_dict:
             # this happens iff sympy_object is an uninterpreted function, whose type cannot be inferred
@@ -418,14 +469,15 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
             # see test/sympy_test.py: test_sympy_bug()
             sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments],
                                           evaluate=global_parameters.sympy_evaluate)
-        elif sympy_function == sympy.Piecewise:
-            sympy_object = sympy_piecewise_from_if_then_else(
-                *[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
         else:
             with sympy.evaluate(global_parameters.sympy_evaluate):
                 # If we want to preserve the symbolic structure, we need to stop evaluation by setting
                 # global_parameters.sympy_evaluate to False (or Add(1,1) will be 2 in sympy).
-                sympy_object = sympy_function(*[sympy_argument.sympy_object for sympy_argument in sympy_arguments])
+                native_arguments = [sympy_argument.sympy_object for sympy_argument in sympy_arguments]
+                if sympy_function == sympy.Piecewise:
+                    sympy_object = sympy_function(*distinct_pairwise(native_arguments))  # distinct_pairwise() turns [a,b,c,d,..] into [(a,b),(c,d),..]
+                else:
+                    sympy_object = sympy_function(*native_arguments)
 
         if global_parameters.sympy_evaluate:
             # if sympy_evaluate is True, we don't necessarily return a FunctionApplication.
@@ -473,7 +525,8 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
 
     @property
     def function(self) -> Expression:
-        return SymPyConstant(self._sympy_object.func, self.function_type)
+        from neuralpp.symbolic.constants import if_then_else_function  # have to stay here otherwise we have circular import?
+        return if_then_else_function(self._then_type)  # should be treated as "if" instead of piecewise
 
     @property
     def number_of_arguments(self) -> int:
@@ -482,6 +535,34 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
     @property
     def native_arguments(self) -> Tuple[sympy.Basic, ...]:
         return sympy_piecewise_to_if_then_else(self.sympy_object)
+
+
+class SymPyPiecewise(SymPyFunctionApplicationInterface):
+    def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
+        if sympy_object.func != sympy.Piecewise:
+            raise TypeError("Can only create piecewise function application when function is sympy.Piecewise.")
+        self._then_type = _infer_sympy_object_type(sympy_object.args[0][0], type_dict)
+        SymPyExpression.__init__(self, sympy_object, self._then_type, type_dict)
+
+    @property
+    def function_type(self) -> ExpressionType:
+        return Callable[[bool, self._then_type, self._then_type], self._then_type]
+
+    @property
+    def function(self) -> Expression:
+        return SymPyConstant(sympy.Piecewise, self.function_type)
+
+    @property
+    def number_of_arguments(self) -> int:
+        return len(self.sympy_object.args) * 2
+
+    @property
+    def native_arguments(self) -> Tuple[sympy.Basic, ...]:
+        return self.sympy_object.args
+
+    @property
+    def arguments(self) -> List[Expression]:
+        return [SymPyExpression.from_sympy_object(element, self.type_dict) for expr, cond in self.native_arguments for element in (expr, cond)]
 
 
 def _context_to_variable_value_dict_helper(context: FunctionApplication,
@@ -503,8 +584,8 @@ def _context_to_variable_value_dict_helper(context: FunctionApplication,
                     _context_to_variable_value_dict_helper(sub_context, variable_to_value, unknown, unsatisfiable)
         case FunctionApplication(function=Constant(value=operator.eq),
                                  arguments=[Variable(name=variable), Constant(value=value)]) | \
-                FunctionApplication(function=Constant(value=operator.eq),
-                                    arguments=[Constant(value=value), Variable(name=variable)]):
+             FunctionApplication(function=Constant(value=operator.eq),
+                                 arguments=[Constant(value=value), Variable(name=variable)]):
             # the leaf case
             if variable in variable_to_value and variable_to_value[variable] != value:
                 unsatisfiable = True
@@ -528,6 +609,7 @@ class SymPyContext(SymPyFunctionApplication, Context):
     SymPyContext is just a SymPyFunctionApplication, which always raises when asked for satisfiability
     since we don't know.
     We create a dictionary from the function application at initialization. """
+
     def __init__(self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]):
         SymPyFunctionApplication.__init__(self, sympy_object, type_dict)
         self._dict, self._unknown, self._unsatisfiable = _context_to_variable_value_dict(self)
@@ -583,10 +665,24 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
 
     @property
     def constraint(self) -> Context:
-        from .z3_expression import Z3SolverExpression
         empty_context = Z3SolverExpression()
         return empty_context & (self.index >= self.lower_bound) & (self.index <= self.upper_bound)
 
     @property
     def body(self) -> Expression:
         return SymPyExpression.from_sympy_object(self.sympy_object.args[0], self.type_dict)
+
+
+def make_piecewise(conditions: List[Expression], expressions: List[Expression]):
+    expressions = [SymPyExpression.convert(expression) for expression in expressions]
+    conditions = [SymPyExpression.convert(condition) for condition in conditions]
+    type_dict = _build_type_dict_from_sympy_arguments(conditions + expressions)
+    arguments = [(expression.sympy_object, condition.sympy_object)
+                 for condition, expression in zip(conditions, expressions)]
+    # must turn off evaluate to prevent sympy from doing this:
+    # Piecewise((x, x > 0), (1, x <=0)) --> Piecewise((x, x > 0), (1, True))
+    # the latter is no longer mutually exclusive
+    sympy_piecewise = sympy.Piecewise(*arguments, evaluate=False)
+    return SymPyFunctionApplication(sympy_piecewise, type_dict)
+
+
