@@ -1,7 +1,5 @@
-from collections import namedtuple
-
 from neuralpp.experiments.experimental_inference.graph_analysis import Tree, PartialFactorSpanningTree
-from neuralpp.util.util import argmax
+from neuralpp.util.util import argmax, empty
 
 
 class TreeComputation:
@@ -59,34 +57,18 @@ class TreeComputation:
             node = self.tree.parent(node)
 
 
-Expansion = namedtuple("Expansion", "node expansion_value")
+class MaximumLeafValueComputation(TreeComputation):
 
-
-class ExpansionValueComputation(TreeComputation):
-
-    def __init__(self, partial_tree: PartialFactorSpanningTree, full_tree, expansion_value_function):
-        super().__init__(partial_tree)
-        self.full_tree = full_tree
-        self.expansion_value_function = expansion_value_function
-        self.compute_result_dict(partial_tree.root)
+    def __init__(self, tree: Tree, leaf_value_function, argmax_key=None):
+        super().__init__(tree)
+        self.leaf_value_function = leaf_value_function
+        self.argmax_key = argmax_key
+        self.compute_result_dict(tree.root)
 
     def compute(self, node):
-        if node not in self.tree:
-            return Expansion(node, self.expansion_value_function(node, self.tree, self.full_tree))
+        children = self.tree.children(node)
+        if empty(children):
+            return self.leaf_value_function(node, self.tree)
         else:
-            children = self.full_tree.children(node)
             candidates = [self[child] for child in children if self[child] is not None]
-            return argmax(candidates, lambda node_value_pair: node_value_pair.expansion_value)
-
-    def expand_partial_tree_and_recompute(self, expansion_root):
-        expand_to_node = self[expansion_root].node
-        parent = self.full_tree.parent(expand_to_node)
-        assert(parent is not None)
-        self.tree.add_edge(parent, expand_to_node)
-
-        # Compute available children's expansion results and update value of expanded node
-        # to the highest available child result, then propagate through ancestors:
-        self.update_value(expand_to_node)
-
-    def is_complete(self):
-        return all(self.result_dict[k] is None for k in self.result_dict)
+            return argmax(candidates, self.argmax_key)

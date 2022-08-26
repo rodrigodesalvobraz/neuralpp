@@ -1,6 +1,8 @@
+from collections import namedtuple
+
 from neuralpp.experiments.experimental_inference.graph_analysis import LazyFactorSpanningTree, FactorGraph, FactorTree, \
-    PartialFactorSpanningTree
-from neuralpp.experiments.experimental_inference.graph_computation import ExpansionValueComputation, \
+    PartialFactorSpanningTree, PartialExpansionTree
+from neuralpp.experiments.experimental_inference.graph_computation import MaximumLeafValueComputation, \
     TreeComputation
 from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
 from neuralpp.util import util
@@ -35,17 +37,23 @@ class ExactBeliefPropagation(BeliefPropagation):
         super().__init__(LazyFactorSpanningTree(FactorGraph(factors), query))
 
 
+Expansion = namedtuple("Expansion", "node expansion_value")
+
+
 class AnytimeExactBeliefPropagation(TreeComputation):
 
-    def __init__(self, partial_tree, full_tree, approximation_fn, expansion_fn):
+    def __init__(self, partial_tree, full_tree, approximation, expansion_value_function):
         super().__init__(partial_tree)
-        self.approximation = approximation_fn
-        self.expansion = ExpansionValueComputation(partial_tree, full_tree, expansion_fn)
+        self.approximation = approximation
+        self.full_tree = full_tree
+        self.expansion = MaximumLeafValueComputation(
+            PartialExpansionTree(partial_tree),
+            lambda node, tree:
+                Expansion(node, expansion_value_function(node, self.tree, self.full_tree))
+                if node not in partial_tree else None,
+            lambda node_value_pair: node_value_pair.expansion_value
+        )
         self.compute_result_dict(partial_tree.root)
-
-    @property
-    def full_tree(self):
-        return self.expansion.full_tree
 
     @staticmethod
     def from_factors(factors, query, approximation, expansion_value_function):
@@ -85,9 +93,13 @@ class AnytimeExactBeliefPropagation(TreeComputation):
         potential_expansion = self.expansion[expansion_root]
         if potential_expansion is None:
             return
-        self.expansion.expand_partial_tree_and_recompute(expansion_root)
+        expand_to_node = potential_expansion.node
+        parent = self.full_tree.parent(expand_to_node)
+
+        self.tree.add_edge(parent, expand_to_node)
+        self.expansion.update_value(expand_to_node)
         self.update_value(potential_expansion.node)
 
     def is_complete(self):
-        return self.expansion.is_complete()
+        return self.expansion[self.tree.root] is None
 

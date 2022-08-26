@@ -5,6 +5,7 @@ from neuralpp.inference.graphical_model.representation.factor.product_factor imp
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 
+
 # TODO: Incremental updates for variable processing, probably using a PartialTreeComputation.
 #       Expanding the partial tree results in introducing more variables.
 
@@ -46,7 +47,7 @@ class FactorGraph(Graph):
         return node.variables if isinstance(node, Factor) else [node]
 
 
-class Tree:
+class Tree(Graph):
 
     def __init__(self):
         self.root = None
@@ -59,6 +60,16 @@ class Tree:
 
     def contains_edge(self, parent, child):
         return self.parent(child) == parent
+
+
+class PartialTree(Tree):
+
+    def __init__(self, *args):
+        super().__init__()
+
+    @property
+    def full_tree(self) -> Tree:
+        raise NotImplemented
 
 
 class LazySpanningTree(Tree):
@@ -91,6 +102,7 @@ class FactorTree(Tree, FactorGraph):
     The external variables of a subtree are the variables that appear somewhere in the whole tree
     outside the subtree, plus the variables appearing at the subtree's root node.
     """
+
     def external_variables(self, node) -> Set[Variable]:
         raise NotImplemented()
 
@@ -127,12 +139,16 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
             return local_external_variables(node) | self.external_variables(self.parent(node))
 
 
-class PartialFactorSpanningTree(LazyFactorSpanningTree):
+class PartialFactorSpanningTree(LazyFactorSpanningTree, PartialTree):
     # Unlike the base LazyFactorSpanningTree, the partial spanning tree only returns possible children
     # when the edge has been explicitly added.
 
     def __init__(self, full_tree: FactorTree):
         super().__init__(full_tree, full_tree.root)
+
+    @property
+    def full_tree(self):
+        return self.graph
 
     def children(self, node):
         return self._children.get(id(node), [])
@@ -146,3 +162,34 @@ class PartialFactorSpanningTree(LazyFactorSpanningTree):
         else:
             self._children[id(parent)] = [child]
         self._parents[id(child)] = parent
+
+
+class PartialExpansionTree(Tree):
+    """
+    This represents the subtree formed by a partial tree + any nodes in the full tree which
+    have parents in the partial tree. If the base subtree is changed, the partial expansion tree
+    will likewise be affected.
+    """
+
+    def __init__(self, partial_tree: PartialTree):
+        super().__init__()
+        self.partial_tree = partial_tree
+        self.root = self.partial_tree.root
+    
+    def __contains__(self, item):
+        return item in self.partial_tree or self.parent(item) is not None
+
+    def children(self, node):
+        if node in self.partial_tree:
+            return self.partial_tree.full_tree.children(node)
+        else:
+            return []
+
+    def parent(self, node):
+        full_tree_parent = self.partial_tree.full_tree.parent(node)
+        if full_tree_parent not in self.partial_tree:
+            return None
+        return full_tree_parent
+
+    def contains_edge(self, parent, child):
+        return parent in self.partial_tree or child == self.partial_tree.root
