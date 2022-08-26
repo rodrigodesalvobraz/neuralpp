@@ -2,8 +2,8 @@ from neuralpp.experiments.experimental_inference.graph_analysis import FactorTre
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
 
 """
-Approximations for use in [AnytimeExactBeliefPropagation]. Each approximation should be a function
-with three parameters: node (Variable or Factor), partial_tree: FactorTree, and full_tree: FactorTree.
+Each approximation scheme is represented by a function responsible for producing its trivial approximations.
+It takes three parameters: node (Variable or Factor), partial_tree: FactorTree, and full_tree: FactorTree.
 """
 
 
