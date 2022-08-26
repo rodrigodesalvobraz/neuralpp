@@ -56,17 +56,10 @@ class AnytimeExactBeliefPropagation(TreeComputation):
         partial_tree = PartialFactorSpanningTree(full_tree)
         return AnytimeExactBeliefPropagation(partial_tree, full_tree, approximation, expansion_value_function)
 
-    def compute_result_dict(self, node):
-        self[node] = None
-        self.message_from(node)
-
-    def update_value(self, target_node, child_value):
-        self.compute_result_dict(target_node)
-
     def run(self):
         return self[self.tree.root].normalize()
 
-    def message_from(self, node):
+    def compute(self, node):
         if node not in self.tree:
             return self.approximation(node, self.tree, self.full_tree)
         cached = self.result_dict.get(id(node))
@@ -79,7 +72,7 @@ class AnytimeExactBeliefPropagation(TreeComputation):
         return self[node]
 
     def product_at(self, node):
-        incoming_messages = [self.message_from(n) for n in self.full_tree.children(node)]
+        incoming_messages = [self.compute(n) for n in self.full_tree.children(node)]
         return ProductFactor.multiply(self.tree.factor_at(node) + incoming_messages)
 
     def variables_summed_out_at(self, node, all_variables_in_product_at_node):
@@ -93,7 +86,7 @@ class AnytimeExactBeliefPropagation(TreeComputation):
         if potential_expansion is None:
             return
         self.expansion.expand_partial_tree_and_recompute(expansion_root)
-        self.recompute_and_propagate_result_to_ancestors(potential_expansion.node)
+        self.update_value(potential_expansion.node)
 
     def is_complete(self):
         return self.expansion.is_complete()
