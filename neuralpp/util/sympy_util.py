@@ -1,3 +1,4 @@
+from functools import cache
 from typing import List, Tuple
 
 import sympy
@@ -33,6 +34,9 @@ def fold_sympy_piecewise(
             piecewise_args[0], (fold_sympy_piecewise(piecewise_args[1:]), True)
         )
 
+@cache
+def get_sympy_integral(sympy_expression, x):
+    return sympy.Integral(sympy_expression, x).doit()
 
 def is_sympy_uninterpreted_function(expression: sympy.Basic) -> bool:
     return isinstance(expression, UndefinedFunction)

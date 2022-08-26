@@ -5,7 +5,7 @@ import torch.distributions
 from torch.distributions import Normal
 
 from neuralpp.symbolic.basic_expression import BasicExpression
-from neuralpp.symbolic.constants import if_then_else
+from neuralpp.symbolic.sympy_expression import make_piecewise
 from neuralpp.symbolic.expression import Expression, Variable
 from neuralpp.util.util import pairwise
 
@@ -90,8 +90,6 @@ def make_piecewise_expression(conditions, expressions):
     """
     Given conditions C1, ..., Cn and expressions E1, ..., En,
     returns Expression if C1 then E1 else if C2 then E2 else ... else 0.
+    assume C1, .., Cn are mutually exclusive
     """
-    current_piecewise_expression = BasicExpression.new_constant(0.)
-    for condition, expression in zip(reversed(conditions), reversed(expressions)):
-        current_piecewise_expression = if_then_else(condition, expression, current_piecewise_expression)
-    return current_piecewise_expression
+    return make_piecewise(conditions, expressions)

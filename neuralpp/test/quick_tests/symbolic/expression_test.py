@@ -438,8 +438,8 @@ def test_constants_operators():
     assert cond_expr.arguments[2].value == 0.3
     assert cond_expr.function.value == conditional
 
-    with pytest.raises(TypeError):
-        if_then_else(x == 1, 2, 0.3)
+    assert if_then_else(x == 1, 2, 0.3).type == float  # automatic "round down" type
+    assert if_then_else(x == 1, 2, 0.3).function.type == Callable[[bool, float, float], float]
 
 
 def test_sympy_function_application():
@@ -480,7 +480,7 @@ def test_z3_function_application():
     Also, z3 required add/compare/... to be of same type, so we cannot have "add: real -> int -> real".
     In that case explicit conversion is requires (z3.ToInt()/z3.ToReal())
     """
-    real = fractions.Fraction
+    real = float
     real_to_real_to_real = Callable[[real, real], real]
     real_add_func = Z3Expression.new_constant(operator.add, real_to_real_to_real)
     z3_constant_one_third_r = z3.RealVal(fractions.Fraction(1, 3))
@@ -500,7 +500,7 @@ def test_z3_function_application():
 
 
 def test_sympy_z3_conversion():
-    real = fractions.Fraction
+    real = float
     real_to_real_to_real = Callable[[real, real], real]
 
     real_add_func = Z3Expression.new_constant(operator.add, real_to_real_to_real)
@@ -538,7 +538,7 @@ def test_sympy_neg_weird():
 
 
 def test_basic_z3_conversion():
-    real = fractions.Fraction
+    real = float
     v = BasicVariable("v", real)
     v2 = Z3Expression.new_variable("v2", real)
 

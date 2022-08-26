@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 import operator
 from typing import List, Any, Optional, Type, Callable, Dict
 
+import z3
+
 from neuralpp.util.callable_util import (
     ExpressionType,
     get_arithmetic_function_type_from_argument_types,
@@ -239,11 +241,22 @@ class Expression(ABC):
         self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
-            other, operator_, function_type, reverse, arithmetic=False
+            other,
+            operator_,
+            function_type,
+            reverse,
+            arithmetic=False,
+            arithmetic_arguments=True,
         )
 
     def _new_binary_operation(
-        self, other, operator_, function_type=None, reverse=False, arithmetic=True
+        self,
+        other,
+        operator_,
+        function_type=None,
+        reverse=False,
+        arithmetic=True,
+        arithmetic_arguments=False,
     ) -> Expression:
         """
         Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
@@ -267,10 +280,20 @@ class Expression(ABC):
                 )
             else:
                 if arguments[0].type != arguments[1].type:
-                    raise TypeError(
-                        f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}."
-                    )
-                function_type = Callable[[arguments[0].type, arguments[1].type], bool]
+                    if arithmetic_arguments:
+                        function_type = (
+                            get_comparison_function_type_from_argument_types(
+                                [arguments[0].type, arguments[1].type]
+                            )
+                        )
+                    else:
+                        raise TypeError(
+                            f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}. {arguments[0]}, {arguments[1]}"
+                        )
+                else:
+                    function_type = Callable[
+                        [arguments[0].type, arguments[1].type], bool
+                    ]
         return self.new_function_application(
             self.new_constant(operator_, function_type), arguments
         )
@@ -509,6 +532,9 @@ class Context(Expression, ABC):
         """So that conjoining anything with a context object `c` causes c.__and__ to be called."""
         return 1
 
+    def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
+        return None
+
     def is_known_to_imply(self, expression: Expression) -> bool:
         """
         context implies expression iff (context => expression) is valid;
@@ -516,6 +542,9 @@ class Context(Expression, ABC):
         which means not (not context or expression) is unsatisfiable;
         which means context and not expression is unsatisfiable.
         """
+        if (fast_result := self._is_known_to_imply_fastpath(expression)) is not None:
+            return fast_result
+
         new_context = self & ~expression
         if new_context.satisfiability_is_known:
             return new_context.unsatisfiable

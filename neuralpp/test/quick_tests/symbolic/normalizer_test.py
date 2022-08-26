@@ -12,6 +12,7 @@ from neuralpp.symbolic.basic_expression import BasicVariable, basic_summation, B
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3Variable
 from neuralpp.symbolic.sympy_expression import SymPyExpression
+from neuralpp.symbolic.context_simplifier import ContextSimplifier
 
 
 def test_normalizer1():
@@ -93,7 +94,8 @@ def test_quantifier_normalizer():
     i = BasicVariable('i', int)
     empty_context = Z3SolverExpression()
     i_range = Z3SolverExpression.from_expression(0 < i) & (i < 10)
-    sum_ = basic_summation(int, i, i_range, i)
+    sum_ = casic_summation(int, i, i_range, i)
+    simplifier = ContextSimplifier()
 
     context = empty_context
     normalizer = GeneralNormalizer()
@@ -117,7 +119,8 @@ def test_quantifier_normalizer():
     sum_ = basic_summation(int, i, Z3SolverExpression.from_expression(j < i) & (i < 10), i + j)
     context = Z3SolverExpression.from_expression(j == 5)
     # 6 + 7 + 8 + 9 + 5 * 4 = 50
-    assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(50))  # SymPy switched 5 and i
+    assert simplifier.simplify(normalizer.normalize(sum_, context), context).syntactic_eq(
+        BasicConstant(50))  # SymPy switched 5 and i. normalize() don't simplify()
 
     context = Z3SolverExpression.from_expression(j == 10)
     assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
@@ -125,7 +128,7 @@ def test_quantifier_normalizer():
     k = BasicVariable('k', int)
     jj, kk = sympy.symbols('j k')
     sum_ = basic_summation(int, i, Z3SolverExpression.from_expression(j < i) & (i < k), if_then_else(j > 5, i + j, i))
-    assert normalizer.normalize(sum_, empty_context).syntactic_eq(
+    assert simplifier.simplify(normalizer.normalize(sum_, empty_context), context).syntactic_eq(
         if_then_else(j > 5,
                      SymPyExpression.from_sympy_object(
                          - jj ** 2 / 2 - jj * (jj - kk + 1) - jj / 2 + kk ** 2 / 2 - kk / 2,
@@ -352,9 +355,11 @@ def test_codegen():
     product2 = SymPyExpression.from_sympy_object(10 * BB * CC * (BB + CC), {BB: int, CC: int})
     product3 = SymPyExpression.from_sympy_object(500 * BB * CC, {BB: int, CC: int})
     result = normalizer.normalize(expr, empty_context)
+    print(result)
+    # TODO: fix this. (answer is correct but in a different format)
     assert result.syntactic_eq(if_then_else(A,
                                             if_then_else(B > 4, product, 500 * B ** 2),
-                                            if_then_else(B > 4, product2, product3),
+                                            if_then_else(B > 4, product2, C * 500 * B),
                                             ))
     sympy_formula = SymPyExpression.convert(result).sympy_object
     print(f"formula:{sympy_formula}")
@@ -362,7 +367,16 @@ def test_codegen():
     # we don't have to use codegen, since sympy provides `autowrap`
     # though I assume codegen can be faster without the wrapper
     # [(c_name, c_code), (h_name, c_header)] = codegen(('sympy_formula', sympy_formula), language='c')
-    # The below is currently failing. I'll get to debugging this in a different PR
-    # sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
-    # assert sympy_formula.subs({AA: True, BB: 100, CC: 888}) == sympy_formula_cython(True, 100, 888)
-    # print(timeit(lambda: sympy_formula_cython(True, 100, 888), number=1000))
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    assert sympy_formula.subs({AA: True, BB: 100, CC: 888}) == sympy_formula_cython(True, 100, 888)
+    print(timeit(lambda: sympy_formula_cython(True, 100, 888), number=1000))
+
+
+def test_quantifier_normalizer_1():
+    i = BasicVariable('i', int)
+    j = BasicVariable('j', int)
+    empty_context = Z3SolverExpression()
+    normalizer = GeneralNormalizer()
+    sum_ = BasicSummation(int, i, Z3SolverExpression.from_expression(j < i) & (i < 100), if_then_else(i > 5, i + j, i))
+    expr = normalizer.normalize(sum_, empty_context)
+    print(SymPyExpression.convert(expr).sympy_object)

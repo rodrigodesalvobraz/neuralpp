@@ -28,7 +28,7 @@ for inference in [bm.inference.BMGInference(), bm.CompositionalInference()]:
     samples = inference.infer(
         queries=[mu2()],
         observations={x(): torch.tensor(0.0)},
-        num_samples=5_000,
+        num_samples=100_000,
         num_chains=1,
     )
     end = time.time()

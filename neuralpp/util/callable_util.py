@@ -62,23 +62,47 @@ def return_type_after_application(
         return Callable[argument_types[number_of_arguments:], return_type]
 
 
-type_order_in_arithmetic = [fractions.Fraction, float, int]
+type_order_in_arithmetic = [float, fractions.Fraction, int]
+
+
+def get_arithmetic_function_return_type_from_argument_types(
+    argument_types: List[ExpressionType],
+) -> Callable:
+    return type_order_in_arithmetic[
+        min(map(type_order_in_arithmetic.index, argument_types))
+    ]
 
 
 def get_arithmetic_function_type_from_argument_types(
     argument_types: List[ExpressionType],
 ) -> Callable:
     try:
-        # E.g., if float + int, the return type is float
-        return_type = type_order_in_arithmetic[
-            min(map(type_order_in_arithmetic.index, argument_types))
-        ]
+        # e.g., if float + int, the return type is float
+        return_type = get_arithmetic_function_return_type_from_argument_types(
+            argument_types
+        )
         return Callable[argument_types, return_type]
     except ValueError as err:
         raise ValueError(
             f"Can only infer the return type from arithmetic argument types: "
-            f"fractions.Fraction, float and int. {err}"
+            f"fractions.Fraction, float and int. {argument_types}"
+        ) from err
+
+
+def get_comparison_function_type_from_argument_types(
+    argument_types: List[ExpressionType],
+) -> Callable:
+    try:
+        # e.g., if float > int, the return [[float, float], bool]
+        new_type = get_arithmetic_function_return_type_from_argument_types(
+            argument_types
         )
+        return Callable[[new_type, new_type], bool]
+    except ValueError as err:
+        raise ValueError(
+            f"Can only infer the return type from arithmetic argument types: "
+            f"fractions.Fraction, float and int. {argument_types}"
+        ) from err
 
 
 def boolean_function_of_arity(arity: int) -> Callable:
@@ -221,7 +245,9 @@ python_callable_and_sympy_function_relation = [
     (builtins.min, sympy.Min),
     (builtins.max, sympy.Max),
     # conditional
-    (functions.conditional, sympy_cond),
+    # (functions.conditional, sympy_Cond),  # disabled, so we can get SymPyConditionalFunctionApplication
+    # identity
+    (functions.identity, sympy.Id)
 ]
 
 
@@ -242,7 +268,10 @@ def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
         return sympy_function_python_callable_dict[sympy_function]
     except KeyError:
         if sympy_function == sympy.Piecewise:
-            return functions.conditional
+            return sympy_function
+        if sympy_function == functions.conditional:
+            return sympy_function
+            # return functions.conditional
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
@@ -277,7 +306,7 @@ def get_type_from_z3_object(z3_object: z3.ExprRef | z3.FuncDeclRef) -> Expressio
 sort_type_relation = [
     (z3.IntSort(), int),
     (z3.BoolSort(), bool),
-    (z3.RealSort(), fractions.Fraction),
+    (z3.RealSort(), float),
     # (z3.FPSort(11, 53), float)  # FPSort(11,53) is double sort (IEEE754, ebits=11, sbits=53)
     # please refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_fp_sort() for why z3 floating point is not yet
     # supported
@@ -404,6 +433,8 @@ def z3_function_to_python_callable(z3_function: z3.FuncDeclRef) -> Callable:
             return operator.mul
         case z3.Z3_OP_POWER:
             return operator.pow
+        case z3.Z3_OP_DIV:
+            return operator.truediv
         # if then else
         case z3.Z3_OP_ITE:
             return functions.conditional
@@ -459,6 +490,8 @@ def apply_python_callable_on_z3_arguments(
             return arguments[0] * arguments[1]
         case operator.pow:
             return arguments[0] ** arguments[1]
+        case operator.truediv:
+            return arguments[0] / arguments[1]
         # min/max
         case builtins.min:
             return z3.If(arguments[0] < arguments[1], arguments[0], arguments[1])

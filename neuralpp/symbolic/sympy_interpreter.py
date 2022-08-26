@@ -59,6 +59,8 @@ class SymPyInterpreter(Interpreter, Simplifier):
                     raise ConversionError() from exc
 
             simplified_sympy_expression = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
+            if expression.type == bool:
+                simplified_sympy_expression = sympy.to_dnf(simplified_sympy_expression)
             # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still
             # keeps the type of `y`. Delete these redundant types.
             type_dict = SymPyInterpreter.purge_type_dict(expression.type_dict, simplified_sympy_expression)

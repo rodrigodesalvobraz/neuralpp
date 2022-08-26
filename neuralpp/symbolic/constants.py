@@ -1,16 +1,17 @@
 import fractions
 import operator
-from typing import Callable, Type, Any
+from typing import Callable, Type, Any, List
 
 import z3
 import sympy
 
-from .expression import Expression
 from .basic_expression import BasicConstant
 from .functions import conditional
 from .expression import Expression
 from .z3_expression import Z3Constant
-from .sympy_expression import SymPyConstant
+from .sympy_expression import SymPyConstant, SymPyFunctionApplication
+from neuralpp.util.callable_util import get_arithmetic_function_return_type_from_argument_types
+from .parameters import sympy_evaluate
 
 
 def if_then_else_function(type_: Type) -> Expression:
@@ -26,9 +27,13 @@ def if_then_else(if_: Any, then_: Any, else_: Any):
                 return type(expression)
     then_type = _type_of(then_)
     else_type = _type_of(else_)
-    if then_type != else_type:
-        raise TypeError(f"Expect then-clause ({then_type}) and else-clause ({else_type}) have the same type.")
-    return if_then_else_function(then_type)(if_, then_, else_)
+    if (then_type == bool and else_type != bool) or (then_type != bool and else_type == bool):
+        raise TypeError(f"Cannot accommodate types: {then_type} and {else_type}.")
+    elif then_type != else_type:
+        conditional_type = get_arithmetic_function_return_type_from_argument_types([then_type, else_type])
+    else:
+        conditional_type = then_type
+    return if_then_else_function(conditional_type)(if_, then_, else_)
 
 
 def add(type_: Type) -> Expression:
@@ -127,3 +132,13 @@ z3_true = Z3Constant(z3.BoolVal(True))
 z3_false = Z3Constant(z3.BoolVal(False))
 sympy_true = SymPyConstant(sympy.S.true, bool)
 sympy_false = SymPyConstant(sympy.S.false, bool)
+
+
+def min_(expressions: List[Expression]) -> Expression:
+    with sympy_evaluate(True):
+        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy.Min, expressions)
+
+
+def max_(expressions: List[Expression]) -> Expression:
+    with sympy_evaluate(True):
+        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy.Max, expressions)
