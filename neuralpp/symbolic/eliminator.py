@@ -1,4 +1,4 @@
-from .expression import Context, Expression, Constant, AbelianOperation, Variable
+from .expression import Context, Expression, Constant, AbelianOperation, Variable, FunctionApplication
 from .basic_expression import BasicQuantifierExpression, BasicConstant
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint

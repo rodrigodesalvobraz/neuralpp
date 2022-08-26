@@ -467,7 +467,8 @@ class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
     ):
         if sympy_object.func != sympy.Piecewise:
             raise TypeError(
-                "Can only create conditional function application when function is sympy.Piecewise."
+                f"Can only create conditional function application when function is sympy.Piecewise. "
+                f"Current function is {sympy_object.func}"
             )
         if not sympy_object.args[-1][
             1
@@ -572,15 +573,17 @@ class SymPyContext(SymPyFunctionApplication, Context):
         return not self._unknown
 
     def _context_to_variable_value_dict(
+        self,
         context: FunctionApplication,
     ) -> Tuple[Dict[str, Any], bool, bool]:
         """
         Returns a dictionary, and two booleans: first indicating whether its satisfiability is unknown, second indicating
         whether it is unsatisfiable (if its satisfiability is known)
         """
-        return _context_to_variable_value_dict_helper(context, {})
+        return self._context_to_variable_value_dict_helper(context, {})
 
     def _context_to_variable_value_dict_helper(
+        self,
         context: FunctionApplication,
         variable_to_value: Dict[str, Any],
         unknown: bool = False,
@@ -602,7 +605,7 @@ class SymPyContext(SymPyFunctionApplication, Context):
                         variable_to_value,
                         unknown,
                         unsatisfiable,
-                    ) = _context_to_variable_value_dict_helper(
+                    ) = self._context_to_variable_value_dict_helper(
                         sub_context, variable_to_value, unknown, unsatisfiable
                     )
             case FunctionApplication(

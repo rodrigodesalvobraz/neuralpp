@@ -188,7 +188,7 @@ def infer_sympy_object_type(
                 if (
                     len(sympy_object.args) == 0
                 ):  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
-                    raise TypeError("expect function application")
+                    raise TypeError(f"expect function application {sympy_object}")
                 _, return_type = typing.get_args(
                     infer_sympy_function_type(sympy_object, type_dict)
                 )
@@ -247,7 +247,7 @@ python_callable_and_sympy_function_relation = [
     # conditional
     # (functions.conditional, sympy_Cond),  # disabled, so we can get SymPyConditionalFunctionApplication
     # identity
-    (functions.identity, sympy.Id)
+    (functions.identity, sympy.Id),
 ]
 
 
@@ -255,8 +255,6 @@ sympy_function_python_callable_dict = {
     sympy_function: python_callable
     for python_callable, sympy_function in python_callable_and_sympy_function_relation
 }
-
-
 python_callable_sympy_function_dict = {
     python_callable: sympy_function
     for python_callable, sympy_function in python_callable_and_sympy_function_relation
