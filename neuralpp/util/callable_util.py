@@ -255,6 +255,7 @@ sympy_function_python_callable_dict = {
     sympy_function: python_callable
     for python_callable, sympy_function in python_callable_and_sympy_function_relation
 }
+
 python_callable_sympy_function_dict = {
     python_callable: sympy_function
     for python_callable, sympy_function in python_callable_and_sympy_function_relation
@@ -269,7 +270,6 @@ def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
             return sympy_function
         if sympy_function == functions.conditional:
             return sympy_function
-            # return functions.conditional
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 

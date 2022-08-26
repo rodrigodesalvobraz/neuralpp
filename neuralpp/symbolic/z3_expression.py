@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import fractions
 from functools import cached_property, total_ordering
 import typing
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple
 
 
 import sympy
@@ -254,6 +254,52 @@ class Z3FunctionApplication(Z3ObjectExpression, FunctionApplication):
     @property
     def subexpressions(self) -> List[Expression]:
         return [self.function] + self.arguments
+
+
+class Z3SolverExpressionDummy(Z3SolverExpression):
+    """
+    A Z3SolverExpression that knows nothing.
+    """
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return [self.function] + self.arguments
+
+    @cached_property
+    def z3_expression(self) -> z3.AstRef:
+        return z3.BoolVal(True)
+
+    @property
+    def number_of_arguments(self) -> int:
+        return 0
+
+    @property
+    def unsatisfiable(self) -> bool:  # self should always be satisfiable
+        """Always False because I know nothing."""
+        return False
+
+    @property
+    def satisfiability_is_known(self) -> bool:
+        return True
+
+    @staticmethod
+    def from_expression(expression: Expression) -> Z3SolverExpression:
+        raise NotImplementedError("?")
+
+    def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
+        from .sympy_expression import SymPyExpression
+
+        sympy_object = SymPyExpression.convert(expression).sympy_object
+        if sympy_object == sympy.true:
+            return True
+        if sympy_object == sympy.false:
+            return False
+
+    def __and__(self, other: Any) -> Context:
+        """I know nothing so I learn nothing."""
+        return self
+
+    __rand__ = __and__
 
 
 class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
@@ -563,49 +609,3 @@ class EquivalenceClass:
 
     def __hash__(self):
         return self._set.__hash__()
-
-
-class Z3SolverExpressionDummy(Z3SolverExpression):
-    """
-    A Z3SolverExpression that knows nothing.
-    """
-
-    @property
-    def subexpressions(self) -> List[Expression]:
-        return [self.function] + self.arguments
-
-    @cached_property
-    def z3_expression(self) -> z3.AstRef:
-        return z3.BoolVal(True)
-
-    @property
-    def number_of_arguments(self) -> int:
-        return 0
-
-    @property
-    def unsatisfiable(self) -> bool:  # self should always be satisfiable
-        """Always False because I know nothing."""
-        return False
-
-    @property
-    def satisfiability_is_known(self) -> bool:
-        return True
-
-    @staticmethod
-    def from_expression(expression: Expression) -> Z3SolverExpression:
-        raise NotImplementedError("?")
-
-    def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
-        from .sympy_expression import SymPyExpression
-
-        sympy_object = SymPyExpression.convert(expression).sympy_object
-        if sympy_object == sympy.true:
-            return True
-        if sympy_object == sympy.false:
-            return False
-
-    def __and__(self, other: Any) -> Context:
-        """I know nothing so I learn nothing."""
-        return self
-
-    __rand__ = __and__

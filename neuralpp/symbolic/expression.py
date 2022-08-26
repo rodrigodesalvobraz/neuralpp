@@ -4,7 +4,7 @@ from __future__ import (
 
 from abc import ABC, abstractmethod
 import operator
-from typing import List, Any, Optional, Type, Callable, Dict
+from typing import List, Any, Optional, Callable, Dict
 
 import z3
 
@@ -18,6 +18,15 @@ from neuralpp.util.callable_util import (
 class Expression(ABC):
     def __init__(self, expression_type: ExpressionType):
         self._type = expression_type
+
+    @property
+    @abstractmethod
+    def subexpressions(self) -> List[Expression]:
+        """
+        Returns a list of subexpressions.
+        E.g., subexpressions(f(x,y)) = [f,x,y]
+        """
+        pass
 
     @property
     def type(self) -> ExpressionType:
@@ -46,15 +55,6 @@ class Expression(ABC):
         thus adding literal to the context (instead of creating a new expression where we lost the context information).
         """
         return 0
-
-    @property
-    @abstractmethod
-    def subexpressions(self) -> List[Expression]:
-        """
-        Returns a list of subexpressions.
-        E.g., subexpressions(f(x,y)) = [f,x,y]
-        """
-        pass
 
     @abstractmethod
     def set(self, i: int, new_expression: Expression) -> Expression:

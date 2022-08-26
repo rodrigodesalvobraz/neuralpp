@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import fractions
-from functools import cache
 import operator
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import sympy
 from sympy import abc, collect
@@ -42,14 +41,19 @@ from neuralpp.util.sympy_util import (
     is_sympy_integral,
     is_sympy_value,
     is_sympy_sum,
-    sympy_piecewise_from_if_then_else,
-    sympy_piecewise_to_if_then_else,
+    sympy_piecewise_to_if_then_else
 )
 from neuralpp.util.util import distinct_pairwise, update_consistent_dict
 
 
 # In this file's doc, I try to avoid the term `sympy expression` because it could mean both sympy.Expr (or sympy.Basic)
 # and SymPyExpression. I usually use "sympy object" to refer to the former and "expression" to refer to the latter.
+
+
+def _build_type_dict(
+    sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]
+) -> None:
+    update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
 
 def _build_type_dict_from_sympy_arguments(
@@ -63,12 +67,6 @@ def _build_type_dict_from_sympy_arguments(
     for sympy_argument in sympy_arguments:
         _build_type_dict(sympy_argument, result)
     return result
-
-
-def _build_type_dict(
-    sympy_arguments: SymPyExpression, type_dict: Dict[sympy.Basic, ExpressionType]
-) -> None:
-    update_consistent_dict(type_dict, sympy_arguments.type_dict)
 
 
 class SymPyExpression(Expression, ABC):
@@ -456,7 +454,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
     ):
         if sympy_object.func == sympy.Piecewise:
-            return SymPyConditionalFunctionApplication(sympy_object, type_dict)
+            return SymPyPiecewise(sympy_object, type_dict)
         else:
             return super().__new__(cls)
 
@@ -509,7 +507,7 @@ class SymPyPiecewise(SymPyFunctionApplicationInterface):
             raise TypeError(
                 "Can only create piecewise function application when function is sympy.Piecewise."
             )
-        self._then_type = _infer_sympy_object_type(sympy_object.args[0][0], type_dict)
+        self._then_type = infer_sympy_object_type(sympy_object.args[0][0], type_dict)
         SymPyExpression.__init__(self, sympy_object, self._then_type, type_dict)
 
     @property
