@@ -181,6 +181,8 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     For example, x > 0 and x <= 5 should return an interval [1, 5]
     More complicated cases will be added later
     """
+    if profiler is None:
+        profiler = Profiler()
     with profiler.profile_section("to-dnf"):
         constraint = SymPyExpression.convert(constraint)
         # constraint = SymPyInterpreter().simplify(constraint)  # get an DNF

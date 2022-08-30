@@ -9,13 +9,33 @@ import math
 
 from typing import Callable, Any
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
-from neuralpp.symbolic.basic_expression import BasicFunctionApplication, BasicConstant, BasicVariable, \
-    BasicExpression, BasicQuantifierExpression, BasicSummation
-from neuralpp.symbolic.sympy_expression import SymPyConstant, SymPyExpression, _python_callable_to_sympy_function, \
-    _sympy_function_to_python_callable, SymPyFunctionApplication, SymPyVariable, _infer_sympy_function_type, \
-    _infer_sympy_object_type
-from neuralpp.symbolic.z3_expression import Z3FunctionApplication, Z3Constant, Z3Variable, Z3Expression, \
-    Z3SolverExpression
+from neuralpp.symbolic.basic_expression import (
+    BasicFunctionApplication,
+    BasicConstant,
+    BasicVariable,
+    BasicExpression,
+    BasicQuantifierExpression,
+    basic_summation,
+)
+from neuralpp.symbolic.sympy_expression import (
+    SymPyConstant,
+    SymPyExpression,
+    SymPyFunctionApplication,
+    SymPyVariable,
+)
+from neuralpp.util.callable_util import (
+    python_callable_to_sympy_function,
+    sympy_function_to_python_callable,
+    infer_sympy_function_type,
+    infer_sympy_object_type,
+)
+from neuralpp.symbolic.z3_expression import (
+    Z3FunctionApplication,
+    Z3Constant,
+    Z3Variable,
+    Z3Expression,
+    Z3SolverExpression,
+)
 
 
 @pytest.fixture(params=[BasicExpression, SymPyExpression, Z3Expression])
@@ -31,11 +51,13 @@ def test_constant(expression_factory):
     constant_one = expression_factory.new_constant(1)
     constant_abc = expression_factory.new_constant("abc", Callable[[int], int])
     assert not constant_one.internal_object_eq(constant_abc)
-    assert constant_one.internal_object_eq(expression_factory.new_constant(2-1))
+    assert constant_one.internal_object_eq(expression_factory.new_constant(2 - 1))
     assert constant_one.subexpressions == []
     assert not constant_one.contains(constant_abc)
     assert constant_one.contains(constant_one)  # A constant contains() itself
-    assert constant_one.replace(constant_one, constant_abc).internal_object_eq(constant_abc)
+    assert constant_one.replace(constant_one, constant_abc).internal_object_eq(
+        constant_abc
+    )
     with pytest.raises(IndexError):
         constant_one.set(1, constant_abc)
     assert constant_one.value == 1
@@ -67,7 +89,9 @@ def test_variable(expression_factory):
     variable_y = expression_factory.new_variable("y", int)
     assert not variable_x.internal_object_eq(variable_y)
     assert variable_x.internal_object_eq(expression_factory.new_variable("x", int))
-    assert not variable_x.internal_object_eq(expression_factory.new_variable("x", bool))  # must be of the same type
+    assert not variable_x.internal_object_eq(
+        expression_factory.new_variable("x", bool)
+    )  # must be of the same type
     assert variable_x.subexpressions == []
     assert not variable_x.contains(variable_y)
     assert variable_x.contains(variable_x)
@@ -90,8 +114,12 @@ def test_basic_function_application():
     constant_two = BasicConstant(2)
     fa1 = BasicFunctionApplication(func1, [constant_one, constant_two])
     # type of function application (i.e., the return type) is optional
-    assert fa1.internal_object_eq(BasicFunctionApplication(func1, [constant_one, constant_two]))
-    assert BasicFunctionApplication(func1, [constant_one, constant_two]).type == int_type
+    assert fa1.internal_object_eq(
+        BasicFunctionApplication(func1, [constant_one, constant_two])
+    )
+    assert (
+        BasicFunctionApplication(func1, [constant_one, constant_two]).type == int_type
+    )
     # using operator.add is easy to compare (operator.add == operator.add) and thus more desirable than using lambda.
     func2 = BasicConstant(operator.add, int_to_int_to_int)
     fa2 = BasicFunctionApplication(func2, [constant_one, constant_two])
@@ -102,8 +130,17 @@ def test_basic_function_application():
     # use fa2 here, expression can be recursive
     fa3 = BasicFunctionApplication(func3, [constant_one, fa2])
 
-    assert all(l.internal_object_eq(r) for l, r in
-               zip(fa2.subexpressions, [BasicConstant(operator.add, int_to_int_to_int), constant_one, constant_two]))
+    assert all(
+        l.internal_object_eq(r)
+        for l, r in zip(
+            fa2.subexpressions,
+            [
+                BasicConstant(operator.add, int_to_int_to_int),
+                constant_one,
+                constant_two,
+            ],
+        )
+    )
     assert fa2.internal_object_eq(fa2)
     # python cannot check __eq__ of two lambdas, so we have the following inequality
     assert fa1.subexpressions[0].value != (lambda x, y: x + y)
@@ -112,8 +149,12 @@ def test_basic_function_application():
 
     assert not fa1.internal_object_eq(fa2)
     assert not fa2.internal_object_eq(fa3)
-    assert not fa2.internal_object_eq(BasicFunctionApplication(func2, [constant_one, constant_one]))
-    assert not fa2.internal_object_eq(BasicFunctionApplication(func2, [constant_one, fa2]))
+    assert not fa2.internal_object_eq(
+        BasicFunctionApplication(func2, [constant_one, constant_one])
+    )
+    assert not fa2.internal_object_eq(
+        BasicFunctionApplication(func2, [constant_one, fa2])
+    )
     assert fa1.contains(constant_two)
     assert fa3.contains(constant_two)  # shows that search of contains() is deep.
 
@@ -121,93 +162,187 @@ def test_basic_function_application():
     fa4 = fa3.replace(constant_two, constant_one)
     assert not fa4.internal_object_eq(fa3)
     assert fa3.internal_object_eq(BasicFunctionApplication(func3, [constant_one, fa2]))
-    assert fa4.internal_object_eq(BasicFunctionApplication(
-        func3, [constant_one, BasicFunctionApplication(func2, [constant_one, constant_one])]))
+    assert fa4.internal_object_eq(
+        BasicFunctionApplication(
+            func3,
+            [
+                constant_one,
+                BasicFunctionApplication(func2, [constant_one, constant_one]),
+            ],
+        )
+    )
 
     # set() is also not changing the object that it is called on
     fa5 = fa2.set(0, BasicVariable("f", int_to_int_to_int))
-    assert fa5.internal_object_eq(BasicFunctionApplication(BasicVariable("f", int_to_int_to_int), [constant_one, constant_two]))
-    assert fa2.internal_object_eq(BasicFunctionApplication(func2, [constant_one, constant_two]))
+    assert fa5.internal_object_eq(
+        BasicFunctionApplication(
+            BasicVariable("f", int_to_int_to_int), [constant_one, constant_two]
+        )
+    )
+    assert fa2.internal_object_eq(
+        BasicFunctionApplication(func2, [constant_one, constant_two])
+    )
     fa6 = fa2.set(1, BasicVariable("a", int_type))
-    assert fa6.internal_object_eq(BasicFunctionApplication(func2, [BasicVariable("a", int_type), constant_two]))
+    assert fa6.internal_object_eq(
+        BasicFunctionApplication(func2, [BasicVariable("a", int_type), constant_two])
+    )
     with pytest.raises(IndexError):
         fa4.set(3, constant_one)
 
     fa7 = fa4.replace(constant_one, constant_two)
-    assert fa7.internal_object_eq(BasicFunctionApplication(
-        func3, [constant_two, BasicFunctionApplication(func2, [constant_two, constant_two])]))
+    assert fa7.internal_object_eq(
+        BasicFunctionApplication(
+            func3,
+            [
+                constant_two,
+                BasicFunctionApplication(func2, [constant_two, constant_two]),
+            ],
+        )
+    )
 
 
 def test_basic_quantifier_expressions():
     from neuralpp.symbolic.constants import int_add, int_multiply
-    i = BasicVariable('i', int)
+
+    i = BasicVariable("i", int)
     context = Z3SolverExpression()
     i_range = context & (0 < i) & (i < 10)
-    sum_ = BasicSummation(int, i, i_range, i)
+    sum_ = basic_summation(int, i, i_range, i)
     assert sum_.subexpressions[0].internal_object_eq(int_add)
     assert sum_.subexpressions[1].internal_object_eq(i)
-    assert sum_.subexpressions[2].syntactic_eq(i_range)  # cannot check internal_object_eq() of Z3SolverExpression.
+    assert sum_.subexpressions[2].syntactic_eq(
+        i_range
+    )  # cannot check internal_object_eq() of Z3SolverExpression.
     assert sum_.subexpressions[3].internal_object_eq(i)
     assert len(sum_.subexpressions) == 4
 
-    a = BasicVariable('a', int)
+    a = BasicVariable("a", int)
     new_sum = sum_.replace(i, a)
-    assert sum_.syntactic_eq(BasicSummation(int, i, i_range, i))
-    assert new_sum.syntactic_eq(BasicSummation(int, a, context & (0 < a) & (a < 10), a))
+    assert sum_.syntactic_eq(basic_summation(int, i, i_range, i))
+    assert new_sum.syntactic_eq(
+        basic_summation(int, a, context & (0 < a) & (a < 10), a)
+    )
 
-    assert sum_.set(0, int_multiply).syntactic_eq(BasicQuantifierExpression(int_multiply, i,
-                                                                            context & (0 < i) & (i < 10), i,
-                                                                            False
-                                                                            ))
+    assert sum_.set(0, int_multiply).syntactic_eq(
+        BasicQuantifierExpression(
+            int_multiply, i, context & (0 < i) & (i < 10), i, False
+        )
+    )
 
     sum_ia = new_sum.set(3, i * a)
     nested_sum = sum_.set(3, sum_ia)
-    assert nested_sum.syntactic_eq(BasicSummation(int, i, context & (0 < i) & (i < 10),
-                                                  BasicSummation(int, a, context & (0 < a) & (a < 10), i * a)))
+    assert nested_sum.syntactic_eq(
+        basic_summation(
+            int,
+            i,
+            context & (0 < i) & (i < 10),
+            basic_summation(int, a, context & (0 < a) & (a < 10), i * a),
+        )
+    )
 
 
-@pytest.fixture(params=[operator.and_, operator.or_, operator.invert, operator.xor, operator.le,
-                        operator.lt, operator.ge, operator.gt, operator.eq,
-                        operator.add, operator.mul, operator.pow, builtins.min, builtins.max])
+@pytest.fixture(
+    params=[
+        operator.and_,
+        operator.or_,
+        operator.invert,
+        operator.xor,
+        operator.le,
+        operator.lt,
+        operator.ge,
+        operator.gt,
+        operator.eq,
+        operator.add,
+        operator.mul,
+        operator.pow,
+        builtins.min,
+        builtins.max,
+    ]
+)
 def python_callable(request):
     return request.param
 
 
-@pytest.fixture(params=[sympy.And, sympy.Or, sympy.Not, sympy.Xor, sympy.Le, sympy.Lt, sympy.Ge, sympy.Gt, sympy.Eq,
-                        sympy.Add, sympy.Mul, sympy.Pow, sympy.Min, sympy.Max])
+@pytest.fixture(
+    params=[
+        sympy.And,
+        sympy.Or,
+        sympy.Not,
+        sympy.Xor,
+        sympy.Le,
+        sympy.Lt,
+        sympy.Ge,
+        sympy.Gt,
+        sympy.Eq,
+        sympy.Add,
+        sympy.Mul,
+        sympy.Pow,
+        sympy.Min,
+        sympy.Max,
+    ]
+)
 def sympy_func(request):
     return request.param
 
 
 def test_python_callable_and_sympy_function_conversion(sympy_func):
-    assert _python_callable_to_sympy_function(_sympy_function_to_python_callable(sympy_func)) == sympy_func
+    assert (
+        python_callable_to_sympy_function(
+            sympy_function_to_python_callable(sympy_func)
+        )
+        == sympy_func
+    )
 
 
 def test_python_callable_and_sympy_function_conversion2(python_callable):
-    assert _sympy_function_to_python_callable(_python_callable_to_sympy_function(python_callable)) == python_callable
+    assert (
+        sympy_function_to_python_callable(
+            python_callable_to_sympy_function(python_callable)
+        )
+        == python_callable
+    )
 
 
 def test_function_application(expression_factory):
-    """ General test cases for function application. """
+    """General test cases for function application."""
     constant_one = expression_factory.new_constant(1)
     constant_two = expression_factory.new_constant(2)
     add_func = expression_factory.new_constant(operator.add, int_to_int_to_int)
-    fa = expression_factory.new_function_application(add_func, [constant_one, constant_two])
+    fa = expression_factory.new_function_application(
+        add_func, [constant_one, constant_two]
+    )
 
     assert fa.subexpressions[0].internal_object_eq(add_func)
     assert fa.subexpressions[1].value == 1
     assert fa.subexpressions[2].value == 2
     assert fa.internal_object_eq(fa)
 
-    assert not fa.internal_object_eq(expression_factory.new_function_application(add_func, [constant_one, constant_one]))
-    assert fa.internal_object_eq(expression_factory.new_function_application(add_func, [constant_one, constant_two]))
+    assert not fa.internal_object_eq(
+        expression_factory.new_function_application(
+            add_func, [constant_one, constant_one]
+        )
+    )
+    assert fa.internal_object_eq(
+        expression_factory.new_function_application(
+            add_func, [constant_one, constant_two]
+        )
+    )
 
     assert constant_one.internal_object_eq(expression_factory.new_constant(1))
 
     fa2 = expression_factory.new_function_application(add_func, [constant_one, fa])
     fa2 = fa2.replace(constant_one, constant_two)
-    assert fa2.internal_object_eq(expression_factory.new_function_application(
-        add_func, [constant_two, expression_factory.new_function_application(add_func, [constant_two, constant_two])]))
+    assert fa2.internal_object_eq(
+        expression_factory.new_function_application(
+            add_func,
+            [
+                constant_two,
+                expression_factory.new_function_application(
+                    add_func, [constant_two, constant_two]
+                ),
+            ],
+        )
+    )
 
     # some new type test.
     assert fa2.subexpressions[0].type == int_to_int_to_int
@@ -218,12 +353,23 @@ def test_function_application(expression_factory):
     assert fa2.subexpressions[2].subexpressions[2].type == int
 
     fa3 = fa.set(0, expression_factory.new_constant(operator.mul, int_to_int_to_int))
-    assert fa3.internal_object_eq(expression_factory.new_function_application(
-        expression_factory.new_constant(operator.mul, int_to_int_to_int), [constant_one, constant_two]))
-    assert fa.internal_object_eq(expression_factory.new_function_application(add_func, [constant_one, constant_two]))
+    assert fa3.internal_object_eq(
+        expression_factory.new_function_application(
+            expression_factory.new_constant(operator.mul, int_to_int_to_int),
+            [constant_one, constant_two],
+        )
+    )
+    assert fa.internal_object_eq(
+        expression_factory.new_function_application(
+            add_func, [constant_one, constant_two]
+        )
+    )
     fa6 = fa.set(1, expression_factory.new_variable("a", int))
-    assert fa6.internal_object_eq(expression_factory.new_function_application(
-        add_func, [expression_factory.new_variable("a", int), constant_two]))
+    assert fa6.internal_object_eq(
+        expression_factory.new_function_application(
+            add_func, [expression_factory.new_variable("a", int), constant_two]
+        )
+    )
     with pytest.raises(IndexError):
         fa2.set(3, constant_one)
 
@@ -237,7 +383,10 @@ def test_operator_overloading(expression_factory):
     if expression_factory != Z3Expression:
         # these tests won't work in Z3 because it does not support arithmetic of different types
         one_third_plus_x = fractions.Fraction(1, 3) + x
-        assert one_third_plus_x.function.type == Callable[[fractions.Fraction, int], fractions.Fraction]
+        assert (
+            one_third_plus_x.function.type
+            == Callable[[fractions.Fraction, int], fractions.Fraction]
+        )
         pi_times_x = math.pi * x
         assert pi_times_x.function.type == Callable[[float, int], float]
 
@@ -264,6 +413,7 @@ def test_operator_overloading(expression_factory):
 def test_constants_operators():
     from neuralpp.symbolic.constants import int_add, real_le, if_then_else
     from neuralpp.symbolic.functions import conditional
+
     fa0 = int_add(1, 3)
     assert fa0.arguments[0].value == 1
     assert fa0.arguments[1].value == 3
@@ -281,7 +431,7 @@ def test_constants_operators():
     assert i.arguments[1].function.value == operator.add
     assert i.arguments[2].function.value == operator.add
 
-    x = BasicVariable('x', int)
+    x = BasicVariable("x", int)
     cond_expr = if_then_else(x == 1, 0.2, 0.3)
     assert cond_expr.arguments[0].function.value == operator.eq
     assert cond_expr.arguments[1].value == 0.2
@@ -302,9 +452,14 @@ def test_sympy_function_application():
     float_add_func = SymPyExpression.new_constant(operator.add, float_to_float_to_float)
     constant_two_f = SymPyExpression.new_constant(2.0)
     mixed_adds = SymPyExpression.new_function_application(
-        mixed_add_func, [constant_two,
-                         SymPyExpression.new_function_application(float_add_func,
-                                                                  [constant_two_f, constant_two_f])])
+        mixed_add_func,
+        [
+            constant_two,
+            SymPyExpression.new_function_application(
+                float_add_func, [constant_two_f, constant_two_f]
+            ),
+        ],
+    )
     assert mixed_adds.type == float
     assert mixed_adds.subexpressions[0].type == int_to_float_to_float
     assert mixed_adds.subexpressions[1].type == int
@@ -332,7 +487,9 @@ def test_z3_function_application():
     constant_one_third_r = Z3Constant(z3_constant_one_third_r)
 
     add0 = Z3FunctionApplication(z3_constant_one_third_r + z3_constant_one_third_r)
-    add1 = Z3Expression.new_function_application(real_add_func, [constant_one_third_r, add0])
+    add1 = Z3Expression.new_function_application(
+        real_add_func, [constant_one_third_r, add0]
+    )
     assert add1.type == real
     assert add1.subexpressions[0].type == real_to_real_to_real
     assert add1.subexpressions[1].type == real
@@ -351,17 +508,25 @@ def test_sympy_z3_conversion():
     constant_one_third_r = Z3Constant(z3_constant_one_third_r)
 
     add0 = Z3FunctionApplication(z3_constant_one_third_r + z3_constant_one_third_r)
-    add1 = Z3Expression.new_function_application(real_add_func, [constant_one_third_r, add0])
+    add1 = Z3Expression.new_function_application(
+        real_add_func, [constant_one_third_r, add0]
+    )
 
-    sympy_real_add_func = SymPyExpression.new_constant(operator.add, real_to_real_to_real)
+    sympy_real_add_func = SymPyExpression.new_constant(
+        operator.add, real_to_real_to_real
+    )
     sympy_constant_one_third_r = sympy.Rational(fractions.Fraction(1, 3))
     constant_one_third2 = SymPyConstant(sympy_constant_one_third_r)
 
-    sympy_add = sympy.Add(sympy_constant_one_third_r, sympy_constant_one_third_r, evaluate=False)
+    sympy_add = sympy.Add(
+        sympy_constant_one_third_r, sympy_constant_one_third_r, evaluate=False
+    )
     two_third = SymPyFunctionApplication(sympy_add, {})
 
     # in creating add2, we implicitly convert the sympy child `two_third`.
-    add2 = Z3Expression.new_function_application(real_add_func, [constant_one_third2, two_third])
+    add2 = Z3Expression.new_function_application(
+        real_add_func, [constant_one_third2, two_third]
+    )
     assert add2.arguments[1].internal_object_eq(add0)
     assert add2.internal_object_eq(add1)
 
@@ -383,14 +548,20 @@ def test_basic_z3_conversion():
 
 
 def test_multiply_bug():
-    """ From Winnie. """
+    """From Winnie."""
     x_sympy, y_sympy, z_sympy = sympy.symbols("x y z")
-    expression1 = SymPyFunctionApplication(x_sympy * y_sympy, {x_sympy: int, y_sympy: int})
-    expression2 = SymPyFunctionApplication(x_sympy + z_sympy, {x_sympy: int, z_sympy: int})
+    expression1 = SymPyFunctionApplication(
+        x_sympy * y_sympy, {x_sympy: int, y_sympy: int}
+    )
+    expression2 = SymPyFunctionApplication(
+        x_sympy + z_sympy, {x_sympy: int, z_sympy: int}
+    )
 
     mul_callable = Callable[[Any, Any], Any]
     mul_operator = BasicConstant(operator.mul, mul_callable)
-    result_expression = BasicFunctionApplication(mul_operator, [expression1, expression2])
+    result_expression = BasicFunctionApplication(
+        mul_operator, [expression1, expression2]
+    )
 
     # result_expression = SymPyExpression.convert(result_expression)
     interpreter = SymPyInterpreter()
@@ -400,14 +571,19 @@ def test_multiply_bug():
 
 def test_type_inference():
     from sympy.abc import a, b
+
     sympy_expr: sympy.Basic = (a > b) | (a <= -b)
-    assert _infer_sympy_function_type(sympy_expr, {a: int, b: int}) == Callable[[bool, bool], bool]
-    assert _infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
+    assert (
+        infer_sympy_function_type(sympy_expr, {a: int, b: int})
+        == Callable[[bool, bool], bool]
+    )
+    assert infer_sympy_object_type(sympy_expr, {a: int, b: int}) == bool
 
 
 def test_function_application_eq():
     from neuralpp.symbolic.constants import int_add
-    a = BasicVariable('a', int)
+
+    a = BasicVariable("a", int)
     fa = a + 1
     fa2 = BasicFunctionApplication(int_add, [a])
     assert not fa.internal_object_eq(fa2)
@@ -416,6 +592,7 @@ def test_function_application_eq():
 
 def test_abelian_operation():
     from neuralpp.symbolic.basic_expression import basic_add_operation
-    a = BasicVariable('a', int)
+
+    a = BasicVariable("a", int)
     a_plus_one = a + 1
     assert basic_add_operation(int).inverse(a_plus_one).syntactic_eq(-(a + 1))

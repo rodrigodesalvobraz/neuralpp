@@ -1,11 +1,10 @@
-from .expression import Context, Expression, Constant, AbelianOperation, Variable
+from .expression import Context, Expression, Constant, AbelianOperation, Variable, FunctionApplication
 from .basic_expression import BasicQuantifierExpression, BasicConstant
 from .sympy_expression import SymPyExpression
 from .interval import ClosedInterval, DottedIntervals, from_constraint
-from .util import map_leaves_of_if_then_else
 from .constants import if_then_else
 from functools import reduce
-from typing import Optional
+from typing import Callable, Optional
 from .profiler import Profiler
 import operator
 
@@ -17,6 +16,20 @@ def _repeat_n(operation: AbelianOperation, expression: Expression, size: Express
         return operator.pow(expression, size)
     return None  # TODO: expand this
 
+def _map_leaves_of_if_then_else(conditional_intervals: Expression,
+                               function: Callable[[Expression], Expression]) -> Expression:
+    """
+    @param conditional_intervals: an if-then-else tree
+    @param function: map function
+    @return: an Expression with each DottedIntervals i mapped to f(i)
+    """
+    match conditional_intervals:
+        case FunctionApplication(function=Constant(value=conditional), arguments=[if_, then, else_]):
+            return if_then_else(if_,
+                                _map_leaves_of_if_then_else(then, function),
+                                _map_leaves_of_if_then_else(else_, function))
+        case _:
+            return function(conditional_intervals)
 
 class Eliminator:
     def __init__(self, profiler=None):
@@ -39,7 +52,7 @@ class Eliminator:
         try:
             with self.profiler.profile_section("from-constraint"):
                 conditional_intervals = from_constraint(index, constraint, context, is_integral, self.profiler)
-            return map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
+            return _map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
             raise AttributeError("disable this for now") from exc
             # TODO: enable this
