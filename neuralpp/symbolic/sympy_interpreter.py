@@ -1,17 +1,16 @@
-import operator
+from typing import Dict
+
 import sympy
 
-from neuralpp.symbolic.expression import Expression, FunctionApplication, Constant, Variable, Context
-from neuralpp.util.symbolic_error_util import ConversionError
 from neuralpp.symbolic.basic_expression import TrueContext
-from neuralpp.symbolic.simplifier import Simplifier
-from neuralpp.symbolic.interpreter import Interpreter
-from neuralpp.symbolic.sympy_expression import SymPyExpression
-from neuralpp.util.callable_util import infer_sympy_object_type
-from neuralpp.util.sympy_util import is_sympy_value
+from neuralpp.symbolic.expression import Expression, Context
 from neuralpp.symbolic.expression import ExpressionType
+from neuralpp.symbolic.interpreter import Interpreter
 from neuralpp.symbolic.parameters import sympy_evaluate
-from typing import Dict, Any
+from neuralpp.symbolic.simplifier import Simplifier
+from neuralpp.symbolic.sympy_expression import SymPyExpression
+from neuralpp.util.symbolic_error_util import ConversionError
+from neuralpp.util.sympy_util import is_sympy_value
 
 
 class SymPyInterpreter(Interpreter, Simplifier):

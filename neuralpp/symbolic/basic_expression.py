@@ -1,7 +1,7 @@
 from __future__ import annotations
 import operator
 from abc import ABC
-from typing import List, Optional, Callable, Dict, get_args
+from typing import List, Optional, Callable, Dict, get_args, Any
 
 from neuralpp.symbolic.expression import (
     AbelianOperation,
@@ -13,7 +13,7 @@ from neuralpp.symbolic.expression import (
     QuantifierExpression,
     Variable,
 )
-from neuralpp.util.callable_util import ExpressionType
+from neuralpp.util.callable_util import ExpressionType, infer_python_callable_type
 from neuralpp.util.symbolic_error_util import VariableNotTypedError
 
 
@@ -154,11 +154,11 @@ class TrueContext(BasicConstant, Context):
         """
         Set and_priority to be higher than normal Context() to simplify __and__ operation.
         E.g., say we have a Z3SolverExpression z3_solver_expression:
-        >>> z3_solver_expression & TrueContext()
+        z3_solver_expression & TrueContext()
         would normally call
-        >>> z3_solver_expression.__and__(TrueContext())
+        z3_solver_expression.__and__(TrueContext())
         but by setting and_priority to 2 here, the above expression will call
-        >>> TrueContext().__and__(z3_solver_expression)
+        TrueContext().__and__(z3_solver_expression)
         which just returns the other side.
         """
         return 2

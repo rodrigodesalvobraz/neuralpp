@@ -7,7 +7,7 @@ class BasicInterpreter(Interpreter):
     def eval(self, expression: Expression, context: Expression = BasicConstant(True)):
         """
         In this BasicInterpreter, `context` is ignored and assumed to be True.
-        `expression` is assumed to only (recursively) contain FunctionaApplication and Constant.
+        `expression` is assumed to only (recursively) contain FunctionApplication and Constant.
         The function raises Error if it
         - encounters a Variable, standalone or in arguments;
         - encounters a Variable as the function (it's an "uninterpreted function")

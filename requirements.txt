@@ -1,0 +1,7 @@
+pytest~=7.1.2
+sympy~=1.10.1
+numpy~=1.23.1
+matplotlib~=3.5.1
+torchvision~=0.13.1
+tqdm~=4.64.0
+setuptools~=63.4.1

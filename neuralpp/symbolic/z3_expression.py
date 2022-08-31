@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import fractions
 from functools import cached_property, total_ordering
 import typing
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List, FrozenSet
 
 
 import sympy
@@ -335,7 +335,7 @@ class Z3SolverExpression(Context, Z3Expression, FunctionApplication):
         self, from_expression: Expression, to_expression: Expression
     ) -> Context:
         """
-        If we do not override this replace(), the default replace() will cause the return value to be
+        If we do not override this method, the default implementation will cause the return value to be
         a Z3FunctionApplication, where the result is no longer a Context.
         """
         if self.syntactic_eq(from_expression):

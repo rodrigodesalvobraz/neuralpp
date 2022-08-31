@@ -1,13 +1,13 @@
 from typing import Optional, Callable, Set
-from .expression import Expression, Context
-from .simplifier import Simplifier
-from .sympy_expression import SymPyExpression
-from .sympy_interpreter import SymPyInterpreter
+
+from neuralpp.util.symbolic_error_util import ConversionError, UnknownError
 from .constants import basic_true, basic_false
-from .z3_expression import Z3SolverExpression
-from .parameters import sympy_evaluate
+from .expression import Expression
 from .expression import QuantifierExpression
-from neuralpp.util.symbolic_error_util import ConversionError
+from .parameters import sympy_evaluate
+from .simplifier import Simplifier
+from .sympy_interpreter import SymPyInterpreter
+from .z3_expression import Z3SolverExpression
 
 
 def _simplify_expression(boolean_expression: Expression, context: Z3SolverExpression) -> Optional[Expression]:
@@ -70,7 +70,7 @@ class ContextSimplifier(Simplifier):
             if not isinstance(context, Z3SolverExpression):
                 raise ValueError("ContextSimplifier expects a Z3SolverExpression context.")
             if not context.satisfiability_is_known:
-                raise Context.UnknownError()
+                raise UnknownError()
             if context.unsatisfiable:
                 raise ValueError(f"Context {context} is unsatisfiable.")
 

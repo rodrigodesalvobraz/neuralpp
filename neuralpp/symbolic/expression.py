@@ -2,16 +2,14 @@ from __future__ import (
     annotations,
 )  # to support forward reference for recursive type reference
 
-from abc import ABC, abstractmethod
 import operator
+from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Callable, Dict
-
-import z3
 
 from neuralpp.util.callable_util import (
     ExpressionType,
     get_arithmetic_function_type_from_argument_types,
-    return_type_after_application,
+    return_type_after_application, get_comparison_function_type_from_argument_types,
 )
 
 
@@ -49,9 +47,9 @@ class Expression(ABC):
 
         In particualr, this is useful in `Context`, sicne we want `Context` object to always `overshadow` its neighbors.
         So that
-        >>> literal & context
+        literal & context
         would cause
-        >>> context.__and__(literal)
+        context.__and__(literal)
         thus adding literal to the context (instead of creating a new expression where we lost the context information).
         """
         return 0
@@ -67,7 +65,7 @@ class Expression(ABC):
 
     @abstractmethod
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         """
         Every expression is immutable so replace() returns either self or a new Expression.
@@ -114,17 +112,17 @@ class Expression(ABC):
                 base_type=other_base_type, atom=other_atom, type=other_type
             ):
                 return (
-                    self_base_type == other_base_type
-                    and self_type == other_type
-                    and self_atom == other_atom
+                        self_base_type == other_base_type
+                        and self_type == other_type
+                        and self_atom == other_atom
                 )
             case (
-                FunctionApplication(subexpressions=self_subexpressions),
-                FunctionApplication(subexpressions=other_subexpressions),
-            ) | (
-                QuantifierExpression(subexpressions=self_subexpressions),
-                QuantifierExpression(subexpressions=other_subexpressions),
-            ):
+                     FunctionApplication(subexpressions=self_subexpressions),
+                     FunctionApplication(subexpressions=other_subexpressions),
+                 ) | (
+                     QuantifierExpression(subexpressions=self_subexpressions),
+                     QuantifierExpression(subexpressions=other_subexpressions),
+                 ):
                 return len(self_subexpressions) == len(other_subexpressions) and all(
                     lhs.syntactic_eq(rhs)
                     for lhs, rhs in zip(self_subexpressions, other_subexpressions)
@@ -151,19 +149,19 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_function_application(
-        cls, function: Expression, arguments: List[Expression]
+            cls, function: Expression, arguments: List[Expression]
     ) -> Expression:
         pass
 
     @classmethod
     @abstractmethod
     def new_quantifier_expression(
-        cls,
-        operation: Constant,
-        index: Variable,
-        constraint: Expression,
-        body: Expression,
-        is_integral: bool,
+            cls,
+            operation: Constant,
+            index: Variable,
+            constraint: Expression,
+            body: Expression,
+            is_integral: bool,
     ) -> Expression:
         pass
 
@@ -187,7 +185,7 @@ class Expression(ABC):
                 # here only a few SymPy-backed quantifier expression can be constructed from a general interface.
                 # Operation is limited to sum and product, and constrain can only be a range.
                 # We have similar problem in Z3Expression.new_quantifier_expression,
-                # where operation is limited to forall and exists.
+                # where operation is limited to "forall" and "exists".
                 # So generally, we shouldn't convert quantifier expressions, only use BasicQuantifierExpression,
                 # and avoid ending up here.
                 return cls.new_quantifier_expression(
@@ -226,7 +224,7 @@ class Expression(ABC):
         return return_type_after_application(function_type, number_of_arguments)
 
     def _new_binary_arithmetic(
-        self, other, operator_, function_type=None, reverse=False
+            self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
             other, operator_, function_type, reverse, arithmetic=True
@@ -238,7 +236,7 @@ class Expression(ABC):
         )
 
     def _new_binary_comparison(
-        self, other, operator_, function_type=None, reverse=False
+            self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
             other,
@@ -250,13 +248,13 @@ class Expression(ABC):
         )
 
     def _new_binary_operation(
-        self,
-        other,
-        operator_,
-        function_type=None,
-        reverse=False,
-        arithmetic=True,
-        arithmetic_arguments=False,
+            self,
+            other,
+            operator_,
+            function_type=None,
+            reverse=False,
+            arithmetic=True,
+            arithmetic_arguments=False,
     ) -> Expression:
         """
         Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
@@ -288,7 +286,8 @@ class Expression(ABC):
                         )
                     else:
                         raise TypeError(
-                            f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}. {arguments[0]}, {arguments[1]}"
+                            f"Argument types mismatch: {arguments[0].type} != {arguments[1].type}. "
+                            f"{arguments[0]}, {arguments[1]}"
                         )
                 else:
                     function_type = Callable[
@@ -414,7 +413,7 @@ class AtomicExpression(Expression, ABC):
         return []
 
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
@@ -493,7 +492,7 @@ class FunctionApplication(Expression, ABC):
             )
 
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
@@ -643,7 +642,7 @@ class QuantifierExpression(Expression, ABC):
         )
 
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression

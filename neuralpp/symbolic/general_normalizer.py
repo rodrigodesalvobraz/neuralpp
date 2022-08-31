@@ -1,22 +1,23 @@
+from typing import List
+
 import sympy
 
+import neuralpp.symbolic.functions as functions
 from neuralpp.util.util import distinct_pairwise
-from .normalizer import Normalizer
-from .sympy_interpreter import SymPyInterpreter
+from .basic_expression import BasicQuantifierExpression
+from .constants import basic_true, basic_false, if_then_else
 from .context_simplifier import ContextSimplifier
+from .eliminator import Eliminator
 from .expression import Expression, Constant, Variable, FunctionApplication, QuantifierExpression, Context, \
     AbelianOperation
-from .z3_expression import Z3SolverExpression
-from .constants import basic_true, basic_false, if_then_else
+from .normalizer import Normalizer
 from .parameters import sympy_evaluate
-from .basic_expression import BasicQuantifierExpression, BasicExpression, BasicConstant
-from .eliminator import Eliminator
-import neuralpp.symbolic.functions as functions
-from typing import List
-from .sympy_expression import SymPyExpression, make_piecewise
 from .profiler import Profiler
+from .sympy_expression import SymPyExpression, make_piecewise
+from .z3_expression import Z3SolverExpression
 
 _simplifier = ContextSimplifier()
+
 
 def conditional_given_context(condition: Expression, then: Expression, else_: Expression, context: Z3SolverExpression):
     """
@@ -26,7 +27,7 @@ def conditional_given_context(condition: Expression, then: Expression, else_: Ex
     elif context.is_known_to_imply(~condition):
         return else_
     else:
-        return if_then_else(condition, then, else_,)
+        return if_then_else(condition, then, else_, )
 
 
 def _split_into_literals(condition: Expression) -> List[Expression]:
@@ -44,7 +45,8 @@ def _split_into_literals(condition: Expression) -> List[Expression]:
 
 def _check_no_conditional(argument: Expression):
     match argument:
-        case FunctionApplication(function=Constant(value=sympy.Piecewise)) | FunctionApplication(function=Constant(value=functions.conditional)):
+        case FunctionApplication(function=Constant(value=sympy.Piecewise)) | FunctionApplication(
+             function=Constant(value=functions.conditional)):
             raise AttributeError(f"Expression contains conditional/piecewise expression {argument}!")
         case _:
             for subexpression in argument.subexpressions:
@@ -63,7 +65,8 @@ class GeneralNormalizer(Normalizer):
         with sympy_evaluate(True):
             return self._normalize(expression, context)
 
-    def _normalize(self, expression: Expression, context: Z3SolverExpression, body_is_normalized: bool = False) -> Expression:
+    def _normalize(self, expression: Expression, context: Z3SolverExpression,
+                   body_is_normalized: bool = False) -> Expression:
         """
         The function assumes context is satisfiable, otherwise the behavior is undefined.
         The input expression can be arbitrarily structured. The result expression is guaranteed to be
@@ -81,7 +84,9 @@ class GeneralNormalizer(Normalizer):
                     new_expressions = []
                     for expression, condition in distinct_pairwise(arguments):
                         if context.is_known_to_imply(condition):
-                            print(f"normalize shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object} : {expression}")
+                            print(
+                                f"normalize shortcut: {SymPyExpression.convert(context).sympy_object} -> "
+                                f"{SymPyExpression.convert(condition).sympy_object} : {expression}")
                             return self._normalize(expression, context)
                         elif context.is_known_to_imply(~condition):
                             print(f"normalize eliminate: {SymPyExpression.convert(condition).sympy_object}")
@@ -131,7 +136,9 @@ class GeneralNormalizer(Normalizer):
                             for expression, condition in distinct_pairwise(arguments):
                                 assert condition.contains(index)
                                 with self.profiler.profile_section("quantifier-normalization-after-body"):
-                                    elements.append(self._normalize(BasicQuantifierExpression(operation, index, constraint & condition, expression, is_integral), context, body_is_normalized=True))
+                                    elements.append(self._normalize(
+                                        BasicQuantifierExpression(operation, index, constraint & condition, expression,
+                                                                  is_integral), context, body_is_normalized=True))
                             with self.profiler.profile_section("symbolic addition"):
                                 result = SymPyExpression.new_function_application(operation, elements)
                             return result
@@ -141,7 +148,9 @@ class GeneralNormalizer(Normalizer):
                             for expression, condition in distinct_pairwise(arguments):
                                 assert not condition.contains(index)
                                 conditions.append(condition)
-                                new_expressions.append(self._normalize(BasicQuantifierExpression(operation, index, constraint, expression, is_integral), context & condition, body_is_normalized=True))
+                                new_expressions.append(self._normalize(
+                                    BasicQuantifierExpression(operation, index, constraint, expression, is_integral),
+                                    context & condition, body_is_normalized=True))
                             with self.profiler.profile_section("make piecewise"):
                                 return make_piecewise(conditions, new_expressions)
 
@@ -157,7 +166,9 @@ class GeneralNormalizer(Normalizer):
                         # then and else should have been normalized
                         if len(literals) > 1:
                             print(f"having {len(literals)} literals")
-                        return self._normalize_quantifier_expression_given_literals(operation, index, constraint, is_integral, literals, then, else_, context)
+                        return self._normalize_quantifier_expression_given_literals(operation, index, constraint,
+                                                                                    is_integral, literals, then, else_,
+                                                                                    context)
                     case _:
                         with self.profiler.profile_section("quantifier-normalization-eliminate"):
                             return self._eliminate(operation, index, constraint, normalized_body, is_integral, context)
@@ -188,11 +199,13 @@ class GeneralNormalizer(Normalizer):
                 new_expressions = []
                 for expression, condition in distinct_pairwise(piecewise_arguments):
                     if context.is_known_to_imply(condition):
-                        print(f"movedown shortcut: {SymPyExpression.convert(context).sympy_object} -> {SymPyExpression.convert(condition).sympy_object}")
+                        print(
+                            f"move_down shortcut: {SymPyExpression.convert(context).sympy_object} -> "
+                            f"{SymPyExpression.convert(condition).sympy_object}")
                         arguments[i] = expression
                         return self._move_down_and_normalize(function, arguments, context & condition, i)
                     elif context.is_known_to_imply(~condition):
-                        print(f"movedown eliminate: {SymPyExpression.convert(condition).sympy_object}")
+                        print(f"move_down eliminate: {SymPyExpression.convert(condition).sympy_object}")
                         pass
                     else:
                         new_conditions.append(condition)
@@ -215,7 +228,8 @@ class GeneralNormalizer(Normalizer):
                 else:
                     return if_then_else(condition,
                                         self._move_down_and_normalize(function, then_arguments, context & condition, i),
-                                        self._move_down_and_normalize(function, else_arguments, context & ~condition, i))
+                                        self._move_down_and_normalize(function, else_arguments, context & ~condition,
+                                                                      i))
             case _:
                 _check_no_conditional(arguments[i])
                 return self._normalize_function_application(function, arguments, context, i + 1)
@@ -246,41 +260,75 @@ class GeneralNormalizer(Normalizer):
                                                         context: Z3SolverExpression):
         """
         then and else_ are normalized
-        when conditions is Empty, return
+        when condition is Empty, return
         normalize operation{index:constraint, is_integral}(if literals then then else else_) given context
         in the else, literals are adjusted into "conjunctive form", a & b & c..
         """
         if len(literals) == 1:
             condition = literals[0]
             if condition.contains(index):
-                return operation(self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral), context, body_is_normalized=True),
-                                 self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context, body_is_normalized=True))
+                return operation(self._normalize(
+                    BasicQuantifierExpression(operation, index, conjunctive_constraint & condition, then, is_integral),
+                    context, body_is_normalized=True),
+                    self._normalize(
+                        BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition,
+                                                  else_, is_integral), context, body_is_normalized=True))
             else:
                 if context.is_known_to_imply(condition):
-                    return self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context, body_is_normalized=True)
+                    return self._normalize(
+                        BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context,
+                        body_is_normalized=True)
                 elif context.is_known_to_imply(~condition):
-                    return self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True)
+                    return self._normalize(
+                        BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral),
+                        context, body_is_normalized=True)
                 else:
                     return if_then_else(condition,
-                                        self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, then, is_integral), context, body_is_normalized=True),
-                                        self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True),
+                                        self._normalize(
+                                            BasicQuantifierExpression(operation, index, conjunctive_constraint, then,
+                                                                      is_integral), context, body_is_normalized=True),
+                                        self._normalize(
+                                            BasicQuantifierExpression(operation, index, conjunctive_constraint, else_,
+                                                                      is_integral), context, body_is_normalized=True),
                                         )
         else:
             condition = literals[0]
             if condition.contains(index):
-                return operation(self._normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & condition, is_integral, literals[1:], then, else_, context),
-                                 self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context, body_is_normalized=True))
+                return operation(self._normalize_quantifier_expression_given_literals(
+                    operation, index,
+                    conjunctive_constraint & condition,
+                    is_integral, literals[1:], then,
+                    else_, context),
+                    self._normalize(
+                        BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition,
+                                                  else_, is_integral), context, body_is_normalized=True))
                 # return SymPyExpression.collect(
-                #     operation(self._normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint & condition, is_integral, literals[1:], then, else_, context),
-                #               self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition, else_, is_integral), context, body_is_normalized=True)),
+                #     operation(self._normalize_quantifier_expression_given_literals(operation, index,
+                #                                                                    conjunctive_constraint & condition,
+                #                                                                    is_integral, literals[1:], then,
+                #                                                                    else_, context),
+                #               self._normalize(
+                #                   BasicQuantifierExpression(operation, index, conjunctive_constraint & ~condition,
+                #                                             else_, is_integral), context, body_is_normalized=True)),
                 #     index)
             else:
                 if context.is_known_to_imply(condition):
-                    return self._normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context & condition)
+                    return self._normalize_quantifier_expression_given_literals(operation, index,
+                                                                                conjunctive_constraint, is_integral,
+                                                                                literals[1:], then, else_,
+                                                                                context & condition)
                 elif context.is_known_to_imply(~condition):
-                    return self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True)
+                    return self._normalize(
+                        BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral),
+                        context, body_is_normalized=True)
                 else:
                     return if_then_else(condition,
-                                        self._normalize_quantifier_expression_given_literals(operation, index, conjunctive_constraint, is_integral, literals[1:], then, else_, context & condition),
-                                        self._normalize(BasicQuantifierExpression(operation, index, conjunctive_constraint, else_, is_integral), context, body_is_normalized=True),
+                                        self._normalize_quantifier_expression_given_literals(operation, index,
+                                                                                             conjunctive_constraint,
+                                                                                             is_integral, literals[1:],
+                                                                                             then, else_,
+                                                                                             context & condition),
+                                        self._normalize(
+                                            BasicQuantifierExpression(operation, index, conjunctive_constraint, else_,
+                                                                      is_integral), context, body_is_normalized=True),
                                         )

@@ -40,4 +40,3 @@ class LazyNormalizer(Normalizer):
                 return self._general_normalizer.normalize(expression, context)
             case _:
                 raise ValueError(f"invalid expression {expression}")
-

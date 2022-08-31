@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import fractions
 import operator
+from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import sympy
-from sympy import abc, collect
+from sympy import collect
 
+import neuralpp.symbolic.functions as functions
 from neuralpp.symbolic.basic_expression import basic_add_operation
 from neuralpp.symbolic.expression import (
     AbelianOperation,
@@ -18,7 +19,6 @@ from neuralpp.symbolic.expression import (
     QuantifierExpression,
     Variable,
 )
-import neuralpp.symbolic.functions as functions
 from neuralpp.symbolic.parameters import global_parameters
 from neuralpp.symbolic.profiler import Profiler
 from neuralpp.util.callable_util import (
@@ -575,8 +575,8 @@ class SymPyContext(SymPyFunctionApplication, Context):
         context: FunctionApplication,
     ) -> Tuple[Dict[str, Any], bool, bool]:
         """
-        Returns a dictionary, and two booleans: first indicating whether its satisfiability is unknown, second indicating
-        whether it is unsatisfiable (if its satisfiability is known)
+        Returns a dictionary, and two booleans: first indicating whether its satisfiability is unknown,
+        second indicating whether it is unsatisfiable (if its satisfiability is known)
         """
         return self._context_to_variable_value_dict_helper(context, {})
 
