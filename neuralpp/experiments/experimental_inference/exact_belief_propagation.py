@@ -3,7 +3,7 @@ from collections import namedtuple
 from neuralpp.experiments.experimental_inference.graph_analysis import LazyFactorSpanningTree, FactorGraph, FactorTree, \
     PartialFactorSpanningTree, PartialExpansionTree
 from neuralpp.experiments.experimental_inference.graph_computation import MaximumLeafValueComputation, \
-    TreeComputation
+    PartialTreeComputation
 from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
 from neuralpp.util import util
 
@@ -40,7 +40,7 @@ class ExactBeliefPropagation(BeliefPropagation):
 Expansion = namedtuple("Expansion", "node expansion_value")
 
 
-class AnytimeExactBeliefPropagation(TreeComputation):
+class AnytimeExactBeliefPropagation(PartialTreeComputation):
 
     def __init__(self, partial_tree, full_tree, approximation, expansion_value_function):
         super().__init__(partial_tree)
@@ -89,16 +89,14 @@ class AnytimeExactBeliefPropagation(TreeComputation):
             self.tree.external_variables(node)
         )
 
-    def expand_partial_tree_and_recompute(self, expansion_root):
+    def expand(self, expansion_root):
         potential_expansion = self.expansion[expansion_root]
         if potential_expansion is None:
             return
         expand_to_node = potential_expansion.node
         parent = self.full_tree.parent(expand_to_node)
-
-        self.tree.add_edge(parent, expand_to_node)
-        self.expansion.update_value(expand_to_node)
-        self.update_value(potential_expansion.node)
+        self.add_edge(parent, expand_to_node)
+        self.expansion.invalidate(expand_to_node)
 
     def is_complete(self):
         return self.expansion[self.tree.root] is None

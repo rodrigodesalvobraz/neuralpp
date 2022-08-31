@@ -1,4 +1,6 @@
-from neuralpp.experiments.experimental_inference.graph_analysis import Tree, PartialFactorSpanningTree
+from abc import ABC
+
+from neuralpp.experiments.experimental_inference.graph_analysis import Tree, PartialFactorSpanningTree, PartialTree
 from neuralpp.util.util import argmax, empty
 
 
@@ -16,14 +18,6 @@ class TreeComputation:
         the value from the cache or recompute it as needed.
         """
         raise NotImplementedError()
-
-    def update_value(self, target_node):
-        """
-        The base behavior of this method is to invalidate the target node and recompute
-        over it and its ancestors.
-        """
-        self.invalidate(target_node)
-        self.compute_result_dict(self.tree.root)
 
     def __init__(self, tree: Tree):
         self.tree = tree
@@ -55,6 +49,23 @@ class TreeComputation:
             if node in self:
                 del self.result_dict[id(node)]
             node = self.tree.parent(node)
+
+
+class PartialTreeComputation(TreeComputation, ABC):
+
+    def update_value(self, target_node):
+        """
+        Method for updating tree values when new edges are added.
+
+        The base behavior of this method is to invalidate the target node. The updated value will
+        be computed lazily from `compute`. Subclasses may override this with more efficient updating
+        schemes.
+        """
+        self.invalidate(target_node)
+
+    def add_edge(self, parent, child):
+        self.tree.add_edge(parent, child)
+        self.update_value(parent)
 
 
 class MaximumLeafValueComputation(TreeComputation):

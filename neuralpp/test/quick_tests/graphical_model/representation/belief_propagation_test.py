@@ -141,7 +141,7 @@ def test_incremental_anytime_with_uniform_approximation():
     approximations = []
     while not aebp_computation.is_complete():
         approximations.append(aebp_computation.run())
-        aebp_computation.expand_partial_tree_and_recompute(w)
+        aebp_computation.expand(w)
     approximations.append(aebp_computation.run())
 
     # First approximation ends up being uniform since all factors leading to the query are uniform
@@ -214,7 +214,7 @@ def test_random_model_aebp():
             approximation=message_approximation
         )
         while not aebp.is_complete():
-            aebp.expand_partial_tree_and_recompute(query)
+            aebp.expand(query)
         return aebp.run()
 
     for i in range(50):

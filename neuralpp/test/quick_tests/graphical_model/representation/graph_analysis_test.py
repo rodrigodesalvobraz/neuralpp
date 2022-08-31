@@ -57,6 +57,7 @@ def test_ebp_tree_expansion():
         expanded_node = expansion_computation[partial_tree.root].node
         partial_tree.add_edge(full_tree.parent(expanded_node), expanded_node)
         expansion_computation.update_value(expanded_node)
+        expansion_computation(partial_tree.root)  # Trigger lazy re-evaluation
 
     factor_wrs_value = scoring_result(factors[3])
     factor_s_value = scoring_result(factors[2])
