@@ -73,7 +73,7 @@ class Eliminator:
         if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
             # iterate through the interval if we can
             return reduce(operation,
-                          map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
+                          map(lambda num: body.replace(index, Constant(num)), iter(interval)),
                           operation.identity)
         return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
 

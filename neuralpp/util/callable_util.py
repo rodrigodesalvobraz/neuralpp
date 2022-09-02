@@ -155,6 +155,11 @@ def infer_python_callable_type(
             ):
                 raise TypeError("Wrong conditional expression type.")
             return Callable[argument_types, argument_types[1]]
+        case functions.identity:
+            try:
+                return Callable[argument_types[0], argument_types[0]]
+            except Exception:
+                return Callable[float, float]
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -268,6 +273,8 @@ def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
             return sympy_function
         if sympy_function == functions.conditional:
             return sympy_function
+        if sympy_function == sympy.Poly:
+            return functions.identity
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
@@ -390,6 +397,8 @@ def python_callable_to_z3_function(
         # if then else
         case functions.conditional:
             return z3.If(x > y, x, y).decl()  # "x>y" is just a placeholder boolean.
+        case functions.identity:
+            raise KeyError(f"don't know how to deal with identity function")
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 

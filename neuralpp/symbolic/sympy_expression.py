@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import fractions
-import operator
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import sympy
-from sympy import abc, Poly, collect
+from sympy import Poly, collect
 import operator
-import builtins
 import fractions
 
 import neuralpp.symbolic.functions as functions
@@ -39,7 +36,6 @@ from neuralpp.util.symbolic_error_util import (
 )
 from neuralpp.util.sympy_util import (
     fold_sympy_piecewise,
-    get_sympy_integral,
     is_sympy_uninterpreted_function,
     is_sympy_integral,
     is_sympy_value,
@@ -177,7 +173,7 @@ class SymPyExpression(Expression, ABC):
             return result
 
         except Exception as exc:
-            return None
+            raise exc
 
     @classmethod
     def new_constant(
@@ -351,10 +347,11 @@ class SymPyConstant(SymPyExpression, Constant):
 
 class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
-        # a fast path
-        from_expression_sympy = SymPyExpression.convert(from_expression)
-        to_expression_sympy = SymPyExpression.convert(to_expression)
-        return SymPyExpression.from_sympy_object(self.sympy_object.replace(from_expression_sympy.sympy_object, to_expression_sympy.sympy_object), _build_type_dict_from_sympy_arguments([self, to_expression_sympy]))
+        with sympy.evaluate(global_parameters.sympy_evaluate):
+            # a fast path
+            from_expression_sympy = SymPyExpression.convert(from_expression)
+            to_expression_sympy = SymPyExpression.convert(to_expression)
+            return SymPyExpression.from_sympy_object(self.sympy_object.replace(from_expression_sympy.sympy_object, to_expression_sympy.sympy_object), _build_type_dict_from_sympy_arguments([self, to_expression_sympy]))
 
     @property
     def function(self) -> Expression:
@@ -475,10 +472,18 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                             if len(native_arguments) != 2:
                                 [print(arg) for arg in native_arguments]
                                 raise
-                            if native_arguments[0].is_Poly:
+                            if native_arguments[0].is_Poly and native_arguments[1].is_Poly:
                                 sympy_object = native_arguments[0].mul(native_arguments[1])
+                            elif native_arguments[0].is_Poly:
+                                try:
+                                    sympy_object = native_arguments[0].mul(native_arguments[1])
+                                except Exception as _:
+                                    sympy_object = native_arguments[0].as_expr() * native_arguments[1]
                             else:  # native_arguments[1].is_Poly
-                                sympy_object = native_arguments[1].mul(native_arguments[0])
+                                try:
+                                    sympy_object = native_arguments[1].mul(native_arguments[0])
+                                except Exception as _:
+                                    sympy_object = native_arguments[1].as_expr() * native_arguments[0]
                         elif sympy_function == sympy.Add:
                             sympy_object = sympy.Add(*native_arguments, evaluate=False)
                             # assert native_arguments[0].is_Poly

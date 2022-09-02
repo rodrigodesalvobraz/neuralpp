@@ -16,7 +16,7 @@ def test_normal_polynomial_approximation():
     sigma_value = 2.0
     mean = BasicExpression.new_constant(mean_value)
     x = BasicExpression.new_variable("x", float)
-    normal_piecewise_polynomial_approximation = get_normal_piecewise_polynomial_approximation(x, mean, sigma_value)
+    normal_piecewise_polynomial_approximation = get_normal_piecewise_polynomial_approximation(x, mean, sigma_value, x)
 
     x_axis = np.linspace(-6 * sigma_value + mean_value, 6 * sigma_value + mean_value, 800)
 

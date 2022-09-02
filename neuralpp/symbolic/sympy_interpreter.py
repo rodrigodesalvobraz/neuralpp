@@ -24,6 +24,8 @@ class SymPyInterpreter(Interpreter, Simplifier):
         else:
             for variable, value in context.dict.items():
                 result = result.replace(sympy.symbols(variable), sympy.sympify(value))
+        if result.is_Poly:
+            result = result.as_expr()
         return result
 
     def eval(self, expression: SymPyExpression, context: Context = TrueContext()):

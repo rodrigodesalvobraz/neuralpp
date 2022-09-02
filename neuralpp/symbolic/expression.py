@@ -5,6 +5,7 @@ from __future__ import (
 import operator
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Callable, Dict
+import neuralpp.symbolic.functions as functions
 
 from neuralpp.util.callable_util import (
     ExpressionType,
@@ -111,11 +112,13 @@ class Expression(ABC):
             ), AtomicExpression(
                 base_type=other_base_type, atom=other_atom, type=other_type
             ):
-                return (
-                        self_base_type == other_base_type
-                        and self_type == other_type
-                        and self_atom == other_atom
-                )
+                # TODO: fix this
+                # return self_base_type == other_base_type and self_type == other_type and self_atom == other_atom
+                return self_base_type == other_base_type and self_atom == other_atom
+            case (FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments), the_other) | \
+                 (the_other, FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments)):
+                assert len(identity_arguments) == 1
+                return identity_arguments[0].syntactic_eq(the_other)
             case (
                      FunctionApplication(subexpressions=self_subexpressions),
                      FunctionApplication(subexpressions=other_subexpressions),
