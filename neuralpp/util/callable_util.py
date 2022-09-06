@@ -191,7 +191,8 @@ def infer_sympy_object_type(
                 if (
                     len(sympy_object.args) == 0
                 ):  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
-                    raise TypeError(f"expect function application {sympy_object}")
+                    type_dict[sympy_object] = float
+                    return float
                 _, return_type = typing.get_args(
                     infer_sympy_function_type(sympy_object, type_dict)
                 )

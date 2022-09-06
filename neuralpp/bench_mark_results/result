@@ -1,0 +1,53 @@
+[2 Normals]in time 3.31 seconds
+[2 Normals]normalization: 1 times in 0.007 seconds
+[2 Normals]quantifier-body-normalization: 1 times in 0.000 seconds
+[2 Normals]function-normalization: 1 times in 0.074 seconds
+[2 Normals]piecewise-normalization: 7 times in 0.105 seconds
+[2 Normals]quantifier-normalization-after-body: 42 times in 0.703 seconds
+[2 Normals]quantifier-normalization-eliminate: 36 times in 0.347 seconds
+[2 Normals]from-constraint: 36 times in 0.005 seconds
+[2 Normals]to-dnf: 36 times in 0.279 seconds
+[2 Normals]compute magic interval: 36 times in 1.656 seconds
+[2 Normals]integration: 36 times in 0.001 seconds
+[2 Normals]convert: 36 times in 0.027 seconds
+[2 Normals]poly integrate: 36 times in 0.027 seconds
+[2 Normals]substitute: 36 times in 0.002 seconds
+[2 Normals]compute diff: 36 times in 0.020 seconds
+[2 Normals]wrap: 36 times in 0.000 seconds
+[2 Normals]symbolic addition: 7 times in 0.000 seconds
+[Joint-concrete x]in time 19.8 seconds
+[Joint-concrete x]normalization: 1 times in 0.007 seconds
+[Joint-concrete x]quantifier-body-normalization: 1 times in 0.000 seconds
+[Joint-concrete x]function-normalization: 2 times in 0.539 seconds
+[Joint-concrete x]piecewise-normalization: 43 times in 0.416 seconds
+[Joint-concrete x]quantifier-normalization-after-body: 42 times in 3.226 seconds
+[Joint-concrete x]quantifier-normalization-eliminate: 216 times in 2.468 seconds
+[Joint-concrete x]from-constraint: 216 times in 0.032 seconds
+[Joint-concrete x]to-dnf: 216 times in 2.034 seconds
+[Joint-concrete x]compute magic interval: 216 times in 9.784 seconds
+[Joint-concrete x]integration: 216 times in 0.011 seconds
+[Joint-concrete x]convert: 216 times in 0.676 seconds
+[Joint-concrete x]poly integrate: 216 times in 0.376 seconds
+[Joint-concrete x]substitute: 216 times in 0.012 seconds
+[Joint-concrete x]compute diff: 216 times in 0.148 seconds
+[Joint-concrete x]wrap: 216 times in 0.002 seconds
+[Joint-concrete x]make piecewise: 36 times in 0.001 seconds
+[Joint-concrete x]symbolic addition: 7 times in 0.000 seconds
+[Joint]in time 23.3 seconds
+[Joint]normalization: 1 times in 0.007 seconds
+[Joint]quantifier-body-normalization: 1 times in 0.000 seconds
+[Joint]function-normalization: 2 times in 0.529 seconds
+[Joint]piecewise-normalization: 43 times in 0.407 seconds
+[Joint]quantifier-normalization-after-body: 42 times in 3.370 seconds
+[Joint]quantifier-normalization-eliminate: 216 times in 2.627 seconds
+[Joint]from-constraint: 216 times in 0.036 seconds
+[Joint]to-dnf: 216 times in 2.141 seconds
+[Joint]compute magic interval: 216 times in 12.745 seconds
+[Joint]integration: 216 times in 0.011 seconds
+[Joint]convert: 216 times in 0.836 seconds
+[Joint]poly integrate: 216 times in 0.297 seconds
+[Joint]substitute: 216 times in 0.012 seconds
+[Joint]compute diff: 216 times in 0.190 seconds
+[Joint]wrap: 216 times in 0.003 seconds
+[Joint]make piecewise: 36 times in 0.001 seconds
+[Joint]symbolic addition: 7 times in 0.000 seconds

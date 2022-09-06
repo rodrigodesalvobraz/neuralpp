@@ -152,10 +152,10 @@ class SymPyExpression(Expression, ABC):
                 body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
                                                          for argument in [body, index, lower_bound, upper_bound]]
                 type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            with profiler.profile_section("to poly"):
-                if body.sympy_object.is_Poly and index.sympy_object in body.sympy_object.gens:
-                    body_poly = body.sympy_object
-                else:
+            if body.sympy_object.is_Poly and index.sympy_object in body.sympy_object.gens:
+                body_poly = body.sympy_object
+            else:
+                with profiler.profile_section("to poly"):
                     body_poly = Poly(body.sympy_object, index.sympy_object)
             with profiler.profile_section("poly integrate"):
                 big_f = body_poly.integrate()
@@ -356,7 +356,7 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
     @property
     def function(self) -> Expression:
         if self._sympy_object.func == Poly:
-            return BasicConstant(functions.identity)
+            return BasicConstant(functions.identity, Callable[[float], float])
 
         if is_sympy_uninterpreted_function(self._sympy_object.func):
             return SymPyVariable(self._sympy_object.func, self.function_type)
@@ -419,6 +419,10 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
 
     @property
+    def is_polynomials(self) -> bool:
+        return self.sympy_object.is_Poly
+
+    @property
     def function_type(self) -> ExpressionType:
         return self._function_type
 
@@ -474,16 +478,18 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                                 raise
                             if native_arguments[0].is_Poly and native_arguments[1].is_Poly:
                                 sympy_object = native_arguments[0].mul(native_arguments[1])
+                                assert sympy_object.is_Poly
                             elif native_arguments[0].is_Poly:
-                                try:
-                                    sympy_object = native_arguments[0].mul(native_arguments[1])
-                                except Exception as _:
-                                    sympy_object = native_arguments[0].as_expr() * native_arguments[1]
+                                # try:
+                                sympy_object = native_arguments[0].mul(native_arguments[1])
+                                assert sympy_object.is_Poly
+                                # except Exception as _:
+                                #     sympy_object = native_arguments[0].as_expr() * native_arguments[1]
                             else:  # native_arguments[1].is_Poly
-                                try:
-                                    sympy_object = native_arguments[1].mul(native_arguments[0])
-                                except Exception as _:
-                                    sympy_object = native_arguments[1].as_expr() * native_arguments[0]
+                                # try:
+                                sympy_object = native_arguments[1].mul(native_arguments[0])
+                                # except Exception as _:
+                                #     sympy_object = native_arguments[1].as_expr() * native_arguments[0]
                         elif sympy_function == sympy.Add:
                             sympy_object = sympy.Add(*native_arguments, evaluate=False)
                             # assert native_arguments[0].is_Poly
