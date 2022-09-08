@@ -240,9 +240,9 @@ def test_quantifier_normalizer_integration():
     context = empty_context
     normalizer = GeneralNormalizer()
     # 1/2 * i ** 2
-    assert normalizer.normalize(integral, context).syntactic_eq(BasicConstant(50))
+    assert normalizer.normalize(integral, context, simplify=True).syntactic_eq(BasicConstant(50))
     # 1/2 * i ** 2 + i
-    assert normalizer.normalize(basic_integral(i, i_range, i + 1), context).syntactic_eq(BasicConstant(60))
+    assert normalizer.normalize(basic_integral(i, i_range, i + 1), context, simplify=True).syntactic_eq(BasicConstant(60))
 
     #          *
     #       /    \
@@ -329,10 +329,10 @@ def test_quantifier_lazy_normalizer():
                                                                                 Z3SolverExpression.from_expression(0 < C) & (C < 10),
                                                                                 if_then_else(B < 5, C, 1))))
     BB, CC = sympy.symbols('B C')
-    product = SymPyExpression.from_sympy_object(10 * BB * (BB + CC), {BB: int, CC: int})
-    print(normalizer.normalize(expr, empty_context))
-    assert normalizer.normalize(expr, empty_context).syntactic_eq(
-        if_then_else(A, B, C) * if_then_else(B > 4, product, 500 * B))
+    product = SymPyExpression.from_sympy_object(10 * BB ** 2 + 10 * BB * CC, {BB: int, CC: int})
+    result = normalizer.normalize(expr, empty_context)
+    print(f"xxx {normalizer.normalize(expr, empty_context)}")
+    assert result.syntactic_eq(if_then_else(A, B, C) * if_then_else(B > 4, product, 500 * B))
 
 
 def test_codegen():

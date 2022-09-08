@@ -332,7 +332,7 @@ def test_function_application(expression_factory):
 
     fa2 = expression_factory.new_function_application(add_func, [constant_one, fa])
     fa2 = fa2.replace(constant_one, constant_two)
-    assert fa2.internal_object_eq(
+    assert fa2.syntactic_eq(
         expression_factory.new_function_application(
             add_func,
             [

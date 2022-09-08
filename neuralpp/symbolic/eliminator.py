@@ -57,9 +57,9 @@ class Eliminator:
                 conditional_intervals = from_constraint(index, constraint, context, is_integral, self.profiler)
             return _map_leaves_of_if_then_else(conditional_intervals, eliminate_at_leaves)
         except Exception as exc:
-            raise AttributeError("disable this for now") from exc
-            # TODO: enable this
-            # return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
+            print(f"cannot eliminate {exc}")
+            raise
+            return BasicQuantifierExpression(operation, index, constraint, body, is_integral)
 
     def _eliminate_interval(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval,
                             body: Expression,
@@ -70,14 +70,12 @@ class Eliminator:
         if result is not None:
             return result
 
-        raise NotImplementedError("sympy cannot eliminate?")
-        # TODO: enable this
-        # if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
-        #     # iterate through the interval if we can
-        #     return reduce(operation,
-        #                   map(lambda num: body.replace(interval.index, Constant(num)), iter(interval)),
-        #                   operation.identity)
-        # return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
+        if isinstance(interval.lower_bound, Constant) and isinstance(interval.upper_bound, Constant):
+            # iterate through the interval if we can
+            return reduce(operation,
+                          map(lambda num: body.replace(index, Constant(num)), iter(interval)),
+                          operation.identity)
+        return BasicQuantifierExpression(operation, index, interval.to_context(index), body, is_integral)
 
     def _symbolically_eliminate(self, operation: AbelianOperation, index: Variable, interval: ClosedInterval,
                                 body: Expression, is_integral: bool, context: Context) -> Optional[Expression]:

@@ -54,9 +54,7 @@ def return_type_after_application(
     """Given number_of_arguments (<=arity), return the return type after (partial) application."""
     argument_types, return_type = typing.get_args(callable_)
     arity = len(argument_types)
-    if number_of_arguments > arity:
-        raise ValueError(f"number_of_arguments {number_of_arguments} > arity {arity}.")
-    elif number_of_arguments == arity:
+    if number_of_arguments >= arity:
         return return_type
     else:
         return Callable[argument_types[number_of_arguments:], return_type]
@@ -157,6 +155,11 @@ def infer_python_callable_type(
             ):
                 raise TypeError("Wrong conditional expression type.")
             return Callable[argument_types, argument_types[1]]
+        case functions.identity:
+            try:
+                return Callable[argument_types[0], argument_types[0]]
+            except Exception:
+                return Callable[float, float]
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 
@@ -188,7 +191,10 @@ def infer_sympy_object_type(
                 if (
                     len(sympy_object.args) == 0
                 ):  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
-                    raise TypeError(f"expect function application {sympy_object}")
+                    # FIXME: now return float for those variables we don't bookkeep in the dictionary,
+                    #  in a new typing system for SymPy we should just raise Exception here
+                    type_dict[sympy_object] = float
+                    return float
                 _, return_type = typing.get_args(
                     infer_sympy_function_type(sympy_object, type_dict)
                 )
@@ -270,6 +276,8 @@ def sympy_function_to_python_callable(sympy_function: sympy.Basic) -> Callable:
             return sympy_function
         if sympy_function == functions.conditional:
             return sympy_function
+        if sympy_function == sympy.Poly:
+            return functions.identity
         raise ValueError(f"SymPy function {sympy_function} is not recognized.")
 
 
@@ -392,6 +400,8 @@ def python_callable_to_z3_function(
         # if then else
         case functions.conditional:
             return z3.If(x > y, x, y).decl()  # "x>y" is just a placeholder boolean.
+        case functions.identity:
+            raise KeyError(f"don't know how to deal with identity function")
         case _:
             raise ValueError(f"Python callable {python_callable} is not recognized.")
 

@@ -4,7 +4,7 @@ import sympy
 
 import neuralpp.symbolic.functions as functions
 from neuralpp.util.util import distinct_pairwise
-from .basic_expression import BasicQuantifierExpression
+from .basic_expression import BasicQuantifierExpression, BasicExpression
 from .constants import basic_true, basic_false, if_then_else
 from .context_simplifier import ContextSimplifier
 from .eliminator import Eliminator
@@ -61,9 +61,13 @@ class GeneralNormalizer(Normalizer):
             self.profiler = profiler
         self._eliminator = Eliminator(self.profiler)
 
-    def normalize(self, expression: Expression, context: Z3SolverExpression) -> Expression:
+    def normalize(self, expression: Expression, context: Z3SolverExpression, simplify: bool = False) -> Expression:
         with sympy_evaluate(True):
-            return self._normalize(expression, context)
+            result = self._normalize(expression, context)
+            if simplify:
+                return _simplifier.simplify(result, context)
+            else:
+                return result
 
     def _normalize(self, expression: Expression, context: Z3SolverExpression,
                    body_is_normalized: bool = False) -> Expression:
@@ -80,8 +84,7 @@ class GeneralNormalizer(Normalizer):
             case FunctionApplication(function=Constant(value=sympy.Piecewise),
                                      arguments=arguments):
                 with self.profiler.profile_section("piecewise-normalization"):
-                    new_conditions = []
-                    new_expressions = []
+                    new_arguments = []
                     for expression, condition in distinct_pairwise(arguments):
                         if context.is_known_to_imply(condition):
                             print(
@@ -92,9 +95,9 @@ class GeneralNormalizer(Normalizer):
                             print(f"normalize eliminate: {SymPyExpression.convert(condition).sympy_object}")
                             pass
                         else:
-                            new_conditions.append(condition)
-                            new_expressions.append(self._normalize(expression, context & condition))
-                    return make_piecewise(new_conditions, new_expressions)
+                            new_arguments.append(self._normalize(expression, context & condition))
+                            new_arguments.append(condition)
+                    return make_piecewise(new_arguments)
             case FunctionApplication(function=Constant(value=functions.conditional),
                                      arguments=[condition, then, else_]):
                 if context.is_known_to_imply(condition):
@@ -112,6 +115,8 @@ class GeneralNormalizer(Normalizer):
                     return basic_false
                 return if_then_else(expression, True, False)
             case Variable():
+                return expression
+            case FunctionApplication(is_polynomial=True):  # if function is polynomials, we don't have to normalize: it's integrable
                 return expression
             case FunctionApplication(function=function, arguments=arguments):
                 with self.profiler.profile_section("function-normalization"):
@@ -140,19 +145,17 @@ class GeneralNormalizer(Normalizer):
                                         BasicQuantifierExpression(operation, index, constraint & condition, expression,
                                                                   is_integral), context, body_is_normalized=True))
                             with self.profiler.profile_section("symbolic addition"):
-                                result = SymPyExpression.new_function_application(operation, elements)
+                                # result = SymPyExpression.new_function_application(operation, elements)
+                                result = BasicExpression.new_function_application(operation, elements)
                             return result
                         else:
-                            new_expressions = []
-                            conditions = []
+                            new_arguments = []
                             for expression, condition in distinct_pairwise(arguments):
                                 assert not condition.contains(index)
-                                conditions.append(condition)
-                                new_expressions.append(self._normalize(
-                                    BasicQuantifierExpression(operation, index, constraint, expression, is_integral),
-                                    context & condition, body_is_normalized=True))
+                                new_arguments.append(self._normalize(BasicQuantifierExpression(operation, index, constraint, expression, is_integral), context & condition, body_is_normalized=True))
+                                new_arguments.append(condition)
                             with self.profiler.profile_section("make piecewise"):
-                                return make_piecewise(conditions, new_expressions)
+                                return make_piecewise(new_arguments)
 
                     case FunctionApplication(function=Constant(value=functions.conditional),
                                              arguments=[condition, then, else_]):
@@ -180,6 +183,7 @@ class GeneralNormalizer(Normalizer):
             return function(*arguments)
             # return _simplifier.simplify(function(*arguments), context)
         arguments[i] = self._normalize(arguments[i], context)
+        assert arguments[i] is not None
         return self._move_down_and_normalize(function, arguments, context, i)
 
     def _move_down_and_normalize(self,
@@ -195,8 +199,7 @@ class GeneralNormalizer(Normalizer):
         match arguments[i]:
             case FunctionApplication(function=Constant(value=sympy.Piecewise),
                                      arguments=piecewise_arguments):
-                new_conditions = []
-                new_expressions = []
+                new_piecewise_arguments = []
                 for expression, condition in distinct_pairwise(piecewise_arguments):
                     if context.is_known_to_imply(condition):
                         print(
@@ -208,12 +211,11 @@ class GeneralNormalizer(Normalizer):
                         print(f"move_down eliminate: {SymPyExpression.convert(condition).sympy_object}")
                         pass
                     else:
-                        new_conditions.append(condition)
                         new_arguments = arguments[:]
                         new_arguments[i] = expression
-                        new_expressions.append(
-                            self._move_down_and_normalize(function, new_arguments, context & condition, i))
-                return make_piecewise(new_conditions, new_expressions)
+                        new_piecewise_arguments.append(self._move_down_and_normalize(function, new_arguments, context & condition, i))
+                        new_piecewise_arguments.append(condition)
+                return make_piecewise(new_piecewise_arguments)
             case FunctionApplication(function=Constant(value=functions.conditional),
                                      arguments=[condition, then, else_]):
                 then_arguments = arguments[:]
@@ -245,7 +247,8 @@ class GeneralNormalizer(Normalizer):
         1. supports more operations (add, multiply, and, or, ...)
         2. supports multiple intervals & complicated constraints (e.g, 1 <= x <= 100, x != y)
         """
-        if isinstance(body, FunctionApplication) and body.function.value == functions.conditional:
+        if isinstance(body, FunctionApplication) and isinstance(body.function, Constant) and \
+                body.function.value == functions.conditional:
             raise AttributeError("WHAT")
         if context.is_known_to_imply(~constraint):
             return operation.identity

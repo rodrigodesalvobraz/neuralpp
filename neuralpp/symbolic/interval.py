@@ -167,7 +167,7 @@ class MagicInterval:
 
 
 def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool,
-                    profiler: Optional[Profiler] = None,
+                    profiler: Profiler = Profiler(dummy=True),
                     ) -> Expression:
     """
     @param index: the variable that the interval is for
