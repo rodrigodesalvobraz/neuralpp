@@ -356,6 +356,14 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
     @property
     def function(self) -> Expression:
         if self._sympy_object.func == Poly:
+            # SymPy's `Poly` is a function that wraps the polynomial, which is the first argument of the expression.
+            # When converting to BasicConstant, "Poly" is treated as an identity function.
+            # Using Poly(x ** 2 + x + 1) as an example:
+            #   In SymPy, its func=Poly, args=[x**2+x+1, x] (second argument is the "generator")
+            #   In our library, it's an FunctionApplication whose function=identity, arguments=[x**2+x+1]
+            # The so the return type's arity is always 1
+            #
+            # The `float` here is a generalized placeholder for a more precise type (e.g., int) (FIXME)
             return BasicConstant(functions.identity, Callable[[float], float])
 
         if is_sympy_uninterpreted_function(self._sympy_object.func):
@@ -419,7 +427,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
 
     @property
-    def is_polynomials(self) -> bool:
+    def is_polynomial(self) -> bool:
         return self.sympy_object.is_Poly
 
     @property
@@ -472,6 +480,10 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                     )  # distinct_pairwise() turns [a,b,c,d,..] into [(a,b),(c,d),..]
                 else:
                     if any(arg.is_Poly for arg in native_arguments):
+                        # If any of the arguments is a polynomial, we cannot use SymPy operator such as Add, Mul,
+                        # otherwise SymPy raises an exception.
+                        # (see https://docs.sympy.org/latest/explanation/active-deprecations.html#non-expr-args-deprecated)
+                        # So e.g. instead of calling sympy.Mul(poly1, poly2), we call poly1.mul(poly2).
                         if sympy_function == sympy.Mul:
                             if len(native_arguments) != 2:
                                 [print(arg) for arg in native_arguments]
@@ -480,22 +492,12 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                                 sympy_object = native_arguments[0].mul(native_arguments[1])
                                 assert sympy_object.is_Poly
                             elif native_arguments[0].is_Poly:
-                                # try:
                                 sympy_object = native_arguments[0].mul(native_arguments[1])
                                 assert sympy_object.is_Poly
-                                # except Exception as _:
-                                #     sympy_object = native_arguments[0].as_expr() * native_arguments[1]
                             else:  # native_arguments[1].is_Poly
-                                # try:
                                 sympy_object = native_arguments[1].mul(native_arguments[0])
-                                # except Exception as _:
-                                #     sympy_object = native_arguments[1].as_expr() * native_arguments[0]
                         elif sympy_function == sympy.Add:
                             sympy_object = sympy.Add(*native_arguments, evaluate=False)
-                            # assert native_arguments[0].is_Poly
-                            # sympy_object = native_arguments[0]
-                            # for arg in native_arguments[1:]:
-                            #     sympy_object = sympy_object.add(arg)
                         else:
                             raise RuntimeError(f"Unknown function {sympy_function}")
                     else:

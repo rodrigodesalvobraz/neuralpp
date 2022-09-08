@@ -191,6 +191,8 @@ def infer_sympy_object_type(
                 if (
                     len(sympy_object.args) == 0
                 ):  # len(sympy_object.args) could raise (e.g, len(sympy.Add.args))
+                    # FIXME: now return float for those variables we don't bookkeep in the dictionary,
+                    #  in a new typing system for SymPy we should just raise Exception here
                     type_dict[sympy_object] = float
                     return float
                 _, return_type = typing.get_args(

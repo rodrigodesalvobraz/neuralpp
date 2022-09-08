@@ -126,7 +126,8 @@ if __name__ == "__main__":
     evaluation_general("two piecewise",
                        normalization_generator(lambda: basic_integral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise)),
                        {'x': 10.0, 'mu1': 10.0})
-    evaluation_general("2 Normals-expectation", two_normals_expectation, {})
+    # FIXME: the line below is commented out because currently it raises an exception
+    # evaluation_general("2 Normals-expectation", two_normals_expectation, {})
     evaluation_general("1 Normal",
                        normalization_generator(lambda: basic_integral(mu1, Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0), formula)),
                        {'x': 0.0})

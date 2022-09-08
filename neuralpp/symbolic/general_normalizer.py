@@ -116,7 +116,7 @@ class GeneralNormalizer(Normalizer):
                 return if_then_else(expression, True, False)
             case Variable():
                 return expression
-            case FunctionApplication(is_polynomials=True):  # if function is polynomials, we don't have to normalize: it's integrable
+            case FunctionApplication(is_polynomial=True):  # if function is polynomials, we don't have to normalize: it's integrable
                 return expression
             case FunctionApplication(function=function, arguments=arguments):
                 with self.profiler.profile_section("function-normalization"):
