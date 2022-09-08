@@ -247,7 +247,8 @@ class GeneralNormalizer(Normalizer):
         1. supports more operations (add, multiply, and, or, ...)
         2. supports multiple intervals & complicated constraints (e.g, 1 <= x <= 100, x != y)
         """
-        if isinstance(body, FunctionApplication) and isinstance(body.function, Constant) and body.function.value == functions.conditional:
+        if isinstance(body, FunctionApplication) and isinstance(body.function, Constant) and \
+                body.function.value == functions.conditional:
             raise AttributeError("WHAT")
         if context.is_known_to_imply(~constraint):
             return operation.identity

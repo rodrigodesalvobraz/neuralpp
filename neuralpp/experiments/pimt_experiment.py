@@ -1,16 +1,12 @@
 import sympy
 
 from neuralpp.symbolic.basic_expression import BasicExpression
-from neuralpp.symbolic.expression import Variable
 from neuralpp.symbolic.basic_expression import basic_integral, BasicVariable, BasicConstant
 from neuralpp.symbolic.z3_expression import Z3SolverExpression, Z3SolverExpressionDummy
-from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation, make_piecewise_expression
+from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation, \
+    make_piecewise_expression
 from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
-from neuralpp.symbolic.sympy_expression import SymPyExpression
-from fractions import Fraction
 from sympy.utilities.autowrap import autowrap
-from timeit import timeit
-from pickle import dump, load
 from typing import Dict, Any
 import time
 
@@ -40,8 +36,8 @@ two_piecewise = make_piecewise_expression([E1, E2], [x ** 2, x]) * \
 def print_piecewise_test():
     from sympy import Piecewise
     a, b = sympy.symbols('a b')
-    formula = Piecewise((2, a), (3, b))
-    sympy_formula_cython = autowrap(formula, backend='cython', tempdir='../../../../autowraptmp')
+    piecewise_formula = Piecewise((2, a), (3, b))
+    sympy_formula_cython = autowrap(piecewise_formula, backend='cython', tempdir='../../../../autowraptmp')
     print(sympy_formula_cython(True, False))
     print(sympy_formula_cython(True, True))
     print(sympy_formula_cython(False, True))
@@ -52,7 +48,7 @@ def to_printable(sympy_object: sympy.Basic):
     """
     Seems SymPy's codegen cannot print
     """
-    if sympy_object.is_Poly:
+    if isinstance(sympy_object, sympy.Poly):
         result = sympy_object.as_expr()
         return result
     elif sympy_object.is_Piecewise:
