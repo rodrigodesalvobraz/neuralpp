@@ -271,6 +271,10 @@ class SymPyExpression(Expression, ABC):
         body: Expression,
         is_integral: bool,
     ) -> Expression:
+        # There is no general solution to convert a QuantifierExpression to a SymPy-backed one.
+        # Unlike for FunctionApplication where the non-constructable is the exception,
+        # here only a few SymPy-backed quantifier expression can be constructed from a general interface.
+        # Operation is limited to sum and product, and constrain can only be a range.
         raise NotImplementedError()
 
     @classmethod

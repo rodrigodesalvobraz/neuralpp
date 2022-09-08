@@ -147,6 +147,7 @@ class Z3Expression(Expression, ABC):
         body: Expression,
         is_integral: bool,
     ) -> Expression:
+        # Z3 can only represent "forall" and "exists" quantified expressions.
         raise NotImplementedError()
 
     @classmethod

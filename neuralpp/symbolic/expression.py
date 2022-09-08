@@ -5,8 +5,8 @@ from __future__ import (
 import operator
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Callable, Dict
-import neuralpp.symbolic.functions as functions
 
+import neuralpp.symbolic.functions as functions
 from neuralpp.util.callable_util import (
     ExpressionType,
     get_arithmetic_function_type_from_argument_types,
@@ -33,20 +33,23 @@ class Expression(ABC):
 
     @property
     def and_priority(self) -> int:
-        """This property is by default set to 0. Any subclass wishing to 'overshadow' in `and` operator may
-        set this value higher. For example: if a and b are Expressions, both having __and__() overloaded:
+        """
+        This property is by default set to 0 and indicates the priority of
+        an expression being the first element in a conjunction
+        (higher values indicate higher priority).
+        For example: if a and b are Expressions, both having __and__() overloaded:
         >>> a: Expression
         >>> b: Expression
         then
         >>> a & b
         would mean
         >>> a.__and__(b)
-        However, if b is a subclass that overload `and_property` to a >0 value. Then
+        However, if b is a subclass that overload `and_property` to a > 0 value, then
         >>> a & b
         would mean
         >>> b.__and__(a)
 
-        In particualr, this is useful in `Context`, sicne we want `Context` object to always `overshadow` its neighbors.
+        In particualr, this is useful in `Context`, since we want `Context` object to always `overshadow` its neighbors.
         So that
         literal & context
         would cause
@@ -90,33 +93,44 @@ class Expression(ABC):
     @abstractmethod
     def internal_object_eq(self, other) -> bool:
         """
-        Returns True if self and other are of subclass of Expression and their internal representation are equal.
+        Returns True if self and other are instances of Expression and their internal representation are equal.
         This method usually depends on subclass-specific library calls,
         E.g., Z3Expression.internal_object_eq() would leverage z3.eq().
-        This method should be considered as a cheap way to check internal object equality of two symbolic expressions.
+        This method should be considered as a cheap way to check internal object equality of two symbolic expressions
+        known to be instances of the same class, as opposed to expressions represented in different
+        frameworks whose comparison requires conversion.
         """
         pass
 
     def syntactic_eq(self, other) -> bool:
         """
         Returns if self and other are syntactically equivalent, i.e., that they have the same Expression interfaces.
-        E.g, a Z3Expression of "a + b" does not internal_object_eq() a SymPyExpression of "a + b", but a call of
-        syntactic_eq() on the two should return True.
+        E.g, a Z3Expression of "a + b" is not considered equal to a SymPyExpression of "a + b" by internal_object_eq(),
+        but is considered equal to it by syntactic_eq().
         """
         if self.internal_object_eq(other):
             return True
 
         match self, other:
             case AtomicExpression(
-                base_type=self_base_type, atom=self_atom, type=self_type
+                base_type=self_base_type, atom=self_atom, type=_
             ), AtomicExpression(
-                base_type=other_base_type, atom=other_atom, type=other_type
+                base_type=other_base_type, atom=other_atom, type=_
             ):
                 # TODO: fix this
                 # return self_base_type == other_base_type and self_type == other_type and self_atom == other_atom
                 return self_base_type == other_base_type and self_atom == other_atom
-            case (FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments), the_other) | \
-                 (the_other, FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments)):
+            case (  # TODO: remove this case, which is taking care of semantic rather than syntactic equality
+                    # At the moment the treatment of Polynomials depends on this because they are represented
+                    # as applications of the identity function. Once we represent them in their own class,
+                    # we can remove this case.
+                     FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments),
+                     the_other
+                 ) | \
+                 (
+                     the_other,
+                     FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments)
+                 ):
                 assert len(identity_arguments) == 1
                 return identity_arguments[0].syntactic_eq(the_other)
             case (
@@ -183,45 +197,27 @@ class Expression(ABC):
             case QuantifierExpression(
                 subexpressions=subexpressions, is_integral=is_integral
             ):
-                # There is no general solution to convert a QuantifierExpression to a SymPy-backed one.
-                # Unlike for FunctionApplication where the non-constructable is the exception,
-                # here only a few SymPy-backed quantifier expression can be constructed from a general interface.
-                # Operation is limited to sum and product, and constrain can only be a range.
-                # We have similar problem in Z3Expression.new_quantifier_expression,
-                # where operation is limited to "forall" and "exists".
-                # So generally, we shouldn't convert quantifier expressions, only use BasicQuantifierExpression,
-                # and avoid ending up here.
-                return cls.new_quantifier_expression(
-                    *subexpressions, is_integral=is_integral
-                )
+                return cls.new_quantifier_expression(*subexpressions, is_integral=is_integral)
             case _:
                 raise ValueError(
                     f"invalid from_expression {from_expression}: {type(from_expression)}"
                 )
 
-    def get_function_type(self) -> ExpressionType:
+    def get_type(self) -> ExpressionType:
         """
-        For example, a function (the declaration, not the application) can be:
-            add_func_type = Callable[[int, int], int]
-            add_func = Constant(operator.add, add_func_type)
-        get_function_type() serves as a method to retrieve the "function type" of `add_func`, so we can expect:
-            add_func.get_function_type() == add_func_type
-        Note add_func can also be
-            add_func = Variable("add", add_func_type)  # uninterpreted function
-        or
-            three_way_add = Variable("three_way_add", Callable[[int, int, int], int])
-            add_func = FunctionApplication(three_way_add, Constant(0))
-        In both cases we can expect
-            add_func.get_function_type() == add_func_type
+        Returns the type of the expression.
+        TODO: turn into a property.
         """
         match self:
             case Constant(type=type_) | Variable(type=type_):
                 return type_
             case FunctionApplication(function=function, number_of_arguments=num):
                 return function.get_return_type(num)
+            case _:
+                raise NotImplementedError(f"type() not implemented for {self}")
 
     def get_return_type(self, number_of_arguments: int) -> ExpressionType:
-        function_type = self.get_function_type()
+        function_type = self.get_type()
         if not isinstance(function_type, Callable):
             raise TypeError(f"{self}'s function is not of function type.")
         return return_type_after_application(function_type, number_of_arguments)

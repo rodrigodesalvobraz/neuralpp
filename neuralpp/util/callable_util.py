@@ -57,6 +57,7 @@ def return_type_after_application(
     if number_of_arguments >= arity:
         return return_type
     else:
+        # noinspection PyTypeHints
         return Callable[argument_types[number_of_arguments:], return_type]
 
 
