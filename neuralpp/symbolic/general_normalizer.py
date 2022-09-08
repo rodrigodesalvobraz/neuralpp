@@ -248,8 +248,8 @@ class GeneralNormalizer(Normalizer):
         2. supports multiple intervals & complicated constraints (e.g, 1 <= x <= 100, x != y)
         """
         if isinstance(body, FunctionApplication) and isinstance(body.function, Constant) and \
-                body.function.value == functions.conditional:
-            raise AttributeError("WHAT")
+                (body.function.value == functions.conditional or body.function.value == sympy.Piecewise):
+            raise AttributeError(f"{body} should not contain conditional expression")
         if context.is_known_to_imply(~constraint):
             return operation.identity
         result = self._eliminator.eliminate(operation, index, constraint, body, is_integral, context)

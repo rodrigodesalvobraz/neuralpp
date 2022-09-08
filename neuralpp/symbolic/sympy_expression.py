@@ -347,8 +347,10 @@ class SymPyConstant(SymPyExpression, Constant):
 
 class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
     def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+        """
+        Overloading `replace()` to provide a fast path using sympy's native replace() method.
+        """
         with sympy.evaluate(global_parameters.sympy_evaluate):
-            # a fast path
             from_expression_sympy = SymPyExpression.convert(from_expression)
             to_expression_sympy = SymPyExpression.convert(to_expression)
             return SymPyExpression.from_sympy_object(self.sympy_object.replace(from_expression_sympy.sympy_object, to_expression_sympy.sympy_object), _build_type_dict_from_sympy_arguments([self, to_expression_sympy]))
@@ -379,6 +381,11 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
     @property
     def arguments(self) -> List[Expression]:
         if self._sympy_object.func == Poly:
+            # sympy's Poly has >1 arguments,
+            # e.g., sympy.Poly(x+y).args == (x+y,x,y)
+            # where args[1:] are "generators" (https://docs.sympy.org/latest/modules/polys/basics.html).
+            # But since we are converting Poly to "identity", we must wrap arguments accordingly:
+            # it should only contain the first element in `args`.
             native_arguments = [self.native_arguments[0]]
         else:
             native_arguments = self.native_arguments
@@ -487,17 +494,11 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                         if sympy_function == sympy.Mul:
                             if len(native_arguments) != 2:
                                 [print(arg) for arg in native_arguments]
-                                raise
-                            if native_arguments[0].is_Poly and native_arguments[1].is_Poly:
-                                sympy_object = native_arguments[0].mul(native_arguments[1])
-                                assert sympy_object.is_Poly
-                            elif native_arguments[0].is_Poly:
-                                sympy_object = native_arguments[0].mul(native_arguments[1])
-                                assert sympy_object.is_Poly
-                            else:  # native_arguments[1].is_Poly
-                                sympy_object = native_arguments[1].mul(native_arguments[0])
+                                raise RuntimeError(">2 arguments")
+                            sympy_object = native_arguments[0].mul(native_arguments[1])
                         elif sympy_function == sympy.Add:
-                            sympy_object = sympy.Add(*native_arguments, evaluate=False)
+                            # we should do something similar to the case above
+                            raise NotImplementedError("This path is not current used")
                         else:
                             raise RuntimeError(f"Unknown function {sympy_function}")
                     else:

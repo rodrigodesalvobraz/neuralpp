@@ -16,6 +16,7 @@ simplifer = SymPyInterpreter()
 
 def get_normal_piecewise_polynomial_approximation(variable: Variable, mean: Expression, sigma: float, generator: Variable) -> Expression:
     """
+    @param generator: SymPy term for "variable" in a polynomial (see https://docs.sympy.org/latest/modules/polys/basics.html)
     Returns an Expression equivalent to a polynomial that approximates the density of Normal(mean, sigma).
     """
     sigma_constant = BasicExpression.new_constant(sigma)
