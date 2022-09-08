@@ -203,24 +203,11 @@ class Expression(ABC):
                     f"invalid from_expression {from_expression}: {type(from_expression)}"
                 )
 
-    def get_type(self) -> ExpressionType:
-        """
-        Returns the type of the expression.
-        TODO: turn into a property.
-        """
-        match self:
-            case Constant(type=type_) | Variable(type=type_):
-                return type_
-            case FunctionApplication(function=function, number_of_arguments=num):
-                return function.get_return_type(num)
-            case _:
-                raise NotImplementedError(f"type() not implemented for {self}")
 
     def get_return_type(self, number_of_arguments: int) -> ExpressionType:
-        function_type = self.get_type()
-        if not isinstance(function_type, Callable):
+        if not isinstance(self.type, Callable):
             raise TypeError(f"{self}'s function is not of function type.")
-        return return_type_after_application(function_type, number_of_arguments)
+        return return_type_after_application(self.type, number_of_arguments)
 
     def _new_binary_arithmetic(
             self, other, operator_, function_type=None, reverse=False
