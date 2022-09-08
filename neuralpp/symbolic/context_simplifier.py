@@ -58,7 +58,7 @@ class ContextSimplifier(Simplifier):
             if simplified_subexpression is not None:
                 result = result.replace(boolean_subexpression, simplified_subexpression)
                 if result is None:
-                    raise
+                    raise RuntimeError("result is None")
 
         # replace variables
         for variable, replacement in context.variable_replacement_dict.items():

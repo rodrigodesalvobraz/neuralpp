@@ -60,7 +60,7 @@ class ClosedInterval(BasicExpression):
     def __iter__(self) -> Iterable[int]:
         """
         If upper and lower bounds are constant, return a range that's iterable.
-        Otherwise, raise
+        Otherwise, raise TypeError
         """
         match self.lower_bound, self.upper_bound:
             case Constant(value=l, type=builtins.int), Constant(value=r, type=builtins.int):
