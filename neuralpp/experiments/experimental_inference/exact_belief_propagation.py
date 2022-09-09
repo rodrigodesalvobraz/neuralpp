@@ -53,7 +53,6 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
                 if node not in partial_tree else None,
             lambda node_value_pair: node_value_pair.expansion_value
         )
-        self.compute_result_dict(partial_tree.root)
 
     @staticmethod
     def from_factors(factors, query, approximation, expansion_value_function):
@@ -70,14 +69,10 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
     def compute(self, node):
         if node not in self.tree:
             return self.approximation(node, self.tree, self.full_tree)
-        cached = self.result_dict.get(id(node))
-        if cached is not None:
-            return cached
         product_at_node = self.product_at(node)
         vars_summed_out = self.variables_summed_out_at(node, product_at_node.variables)
         result = product_at_node ^ vars_summed_out
-        self[node] = result
-        return self[node]
+        return result
 
     def product_at(self, node):
         incoming_messages = [self.compute(n) for n in self.full_tree.children(node)]

@@ -1,7 +1,8 @@
 from abc import ABC
+from typing import Any
 
 from neuralpp.experiments.experimental_inference.graph_analysis import Tree, PartialFactorSpanningTree, PartialTree
-from neuralpp.util.util import argmax, empty
+from neuralpp.util.util import argmax, empty, get_or_compute_and_put
 
 
 class TreeComputation:
@@ -9,11 +10,12 @@ class TreeComputation:
     Defines a computation evaluated on a tree, with a cache that can be recomputed as children change.
     """
 
-    def compute(self, node):
+    def compute(self, node) -> Any:
         """
-        This defines the value of the TreeComputation on a given node.
+        This computes the value of the TreeComputation on a given node,
+        without using the cache.
 
-        `compute` should not be called recursively, in order to take advantage of caching.
+        This method should not be called recursively, in order to take advantage of caching.
         Instead, use get or call syntax (e.g. `self[child_node]`' or `self(child)`) to retrieve
         the value from the cache or recompute it as needed.
         """
@@ -23,30 +25,15 @@ class TreeComputation:
         self.tree = tree
         self.result_dict = {}
 
-    def __contains__(self, item):
-        return id(item) in self.result_dict
-
-    def __getitem__(self, item):
-        if item in self:
-            return self.result_dict[id(item)]
-        self.compute_result_dict(item)
-        return self.result_dict[id(item)]
-
-    def __setitem__(self, item, value):
-        self.result_dict[id(item)] = value
-
-    def __call__(self, item):
-        return self[item]
-
-    def compute_result_dict(self, node):
-        self[node] = self.compute(node)
+    def __getitem__(self, node):
+        return get_or_compute_and_put(self.result_dict, node, self.compute, key_getter=id)
 
     def invalidate(self, node):
         """
         Invalidate cached value for `node` and its ancestors.
         """
         while node is not None:
-            if node in self:
+            if id(node) in self.result_dict:
                 del self.result_dict[id(node)]
             node = self.tree.parent(node)
 
@@ -74,7 +61,6 @@ class MaximumLeafValueComputation(TreeComputation):
         super().__init__(tree)
         self.leaf_value_function = leaf_value_function
         self.argmax_key = argmax_key
-        self.compute_result_dict(tree.root)
 
     def compute(self, node):
         children = self.tree.children(node)

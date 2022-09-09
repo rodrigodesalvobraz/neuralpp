@@ -57,6 +57,21 @@ def get_or_put(dictionary, key, default):
         return default
 
 
+def get_or_compute_and_put(dictionary, key_base, compute_from_key_base, key_getter=lambda key_base: key_base):
+    """
+    Returns value stored in dict for key_getter(key_base) if present,
+    or compute value (given key_base) and store it in dict under key_getter(key_base).
+    key_getter default value is the identity function.
+    """
+    key = key_getter(key_base)
+    if key in dictionary:
+        return dictionary[key]
+    else:
+        value = compute_from_key_base(key_base)
+        dictionary[key] = value
+        return value
+
+
 def vararg_or_array(arguments_list):
     if len(arguments_list) == 1 and type(arguments_list[0]) in {list, tuple}:
         return arguments_list[0]
