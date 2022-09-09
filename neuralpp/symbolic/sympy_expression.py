@@ -86,6 +86,18 @@ class SymPyExpression(Expression, ABC):
         Overloading `replace()` to provide a fast path using sympy's native replace() method.
         """
         with sympy.evaluate(global_parameters.sympy_evaluate):
+            if not isinstance(self.sympy_object, sympy.Basic):
+                # This means self.sympy_object does not have replace() method,
+                # which is usually the case for sympy functions, e.g. SymPyConstant(sympy.Piecewise)
+                if issubclass(self.sympy_object, sympy.Basic):
+                    from_expression_sympy = SymPyExpression.convert(from_expression)
+                    if from_expression_sympy.sympy_object == self.sympy_object:
+                        return to_expression
+                    else:
+                        return self
+                else:
+                    raise RuntimeError(f"Unknown sympy_object {self.sympy_object}")
+
             from_expression_sympy = SymPyExpression.convert(from_expression)
             to_expression_sympy = SymPyExpression.convert(to_expression)
             return SymPyExpression.from_sympy_object(
@@ -284,7 +296,7 @@ class SymPyExpression(Expression, ABC):
         # Unlike for FunctionApplication where the non-constructable is the exception,
         # here only a few SymPy-backed quantifier expression can be constructed from a general interface.
         # Operation is limited to sum and product, and constrain can only be a range.
-        raise NotImplementedError()
+        raise FutureWarning("Not Implemented")
 
     @classmethod
     def pythonize_value(cls, value: sympy.Basic) -> Any:
@@ -409,6 +421,16 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 
 
 class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
+    def __new__(
+            cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
+    ):
+        if sympy_object.func == sympy.Piecewise:
+            return SymPyPiecewise(sympy_object, type_dict)
+        if sympy_object.is_Poly:
+            return SymPyPoly(sympy_object, type_dict)
+        else:
+            return super().__new__(cls)
+
     def __init__(
         self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
     ):
@@ -418,11 +440,6 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         This function always set type_dict[sympy_object] with the new (inferred or supplied) function_type value.
         The old value, if exists, is only used for consistency checking.
         """
-        if sympy_object.is_Poly:
-            self._function_type = Callable[[], float]
-            SymPyExpression.__init__(self, sympy_object, float, type_dict)
-            return
-
         if not sympy_object.args and not sympy_object.func.is_Function:
             # uninterpreted function can be applied to 0 args
             raise TypeError(f"not a function application. {sympy_object}")
@@ -436,10 +453,6 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
             self._function_type, len(sympy_object.args)
         )
         SymPyExpression.__init__(self, sympy_object, return_type, type_dict)
-
-    @property
-    def is_polynomial(self) -> bool:
-        return self.sympy_object.is_Poly
 
     @property
     def function_type(self) -> ExpressionType:
@@ -515,13 +528,27 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         else:
             return SymPyFunctionApplication(sympy_object, type_dict)
 
-    def __new__(
-        cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
+
+class SymPyPoly(SymPyExpression):
+    def __init__(
+            self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
     ):
-        if sympy_object.func == sympy.Piecewise:
-            return SymPyPiecewise(sympy_object, type_dict)
-        else:
-            return super().__new__(cls)
+        SymPyExpression.__init__(self, sympy_object, float, type_dict)
+
+    @property
+    def is_polynomial(self) -> bool:
+        return True
+
+    @property
+    def poly(self) -> SymPyExpression:
+        return SymPyExpression.from_sympy_object(self.sympy_object.args[0], self.type_dict)
+
+    @property
+    def subexpressions(self) -> List[Expression]:
+        return self.poly.subexpressions
+
+    def set(self, i: int, new_expression: Expression) -> Expression:
+        return self.poly.set(i, new_expression)
 
 
 class SymPyConditionalFunctionApplication(SymPyFunctionApplicationInterface):
