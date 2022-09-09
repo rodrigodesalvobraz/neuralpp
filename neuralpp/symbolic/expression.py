@@ -203,9 +203,8 @@ class Expression(ABC):
                     f"invalid from_expression {from_expression}: {type(from_expression)}"
                 )
 
-
     def get_return_type(self, number_of_arguments: int) -> ExpressionType:
-        if not isinstance(self.type, Callable):
+        if not isinstance(self.type, type(Callable[..., Any])):
             raise TypeError(f"{self}'s function is not of function type.")
         return return_type_after_application(self.type, number_of_arguments)
 
