@@ -40,7 +40,7 @@ from neuralpp.util.sympy_util import (
     is_sympy_integral,
     is_sympy_value,
     is_sympy_sum,
-    sympy_piecewise_to_if_then_else
+    sympy_piecewise_to_if_then_else,
 )
 from neuralpp.util.util import distinct_pairwise, update_consistent_dict
 
@@ -149,10 +149,17 @@ class SymPyExpression(Expression, ABC):
         """try to compute the integral symbolically, if fails, return None. Cached version."""
         try:
             with profiler.profile_section("convert"):
-                body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
-                                                         for argument in [body, index, lower_bound, upper_bound]]
-                type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            if body.sympy_object.is_Poly and index.sympy_object in body.sympy_object.gens:
+                body, index, lower_bound, upper_bound = [
+                    SymPyExpression._convert(argument)
+                    for argument in [body, index, lower_bound, upper_bound]
+                ]
+                type_dict = _build_type_dict_from_sympy_arguments(
+                    [body, index, lower_bound, upper_bound]
+                )
+            if (
+                body.sympy_object.is_Poly
+                and index.sympy_object in body.sympy_object.gens
+            ):
                 body_poly = body.sympy_object
             else:
                 with profiler.profile_section("to poly"):
@@ -350,14 +357,21 @@ class SymPyConstant(SymPyExpression, Constant):
 
 
 class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+    def replace(
+        self, from_expression: Expression, to_expression: Expression
+    ) -> Expression:
         """
         Overloading `replace()` to provide a fast path using sympy's native replace() method.
         """
         with sympy.evaluate(global_parameters.sympy_evaluate):
             from_expression_sympy = SymPyExpression.convert(from_expression)
             to_expression_sympy = SymPyExpression.convert(to_expression)
-            return SymPyExpression.from_sympy_object(self.sympy_object.replace(from_expression_sympy.sympy_object, to_expression_sympy.sympy_object), _build_type_dict_from_sympy_arguments([self, to_expression_sympy]))
+            return SymPyExpression.from_sympy_object(
+                self.sympy_object.replace(
+                    from_expression_sympy.sympy_object, to_expression_sympy.sympy_object
+                ),
+                _build_type_dict_from_sympy_arguments([self, to_expression_sympy]),
+            )
 
     @property
     def function(self) -> Expression:
@@ -419,7 +433,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         The old value, if exists, is only used for consistency checking.
         """
         if sympy_object.is_Poly:
-        # if True:
+            # if True:
             self._function_type = Callable[[], float]
             SymPyExpression.__init__(self, sympy_object, float, type_dict)
             return
@@ -742,4 +756,7 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
 
 def make_piecewise(arguments: List[Expression]):
     from .basic_expression import BasicFunctionApplication
-    return BasicFunctionApplication(SymPyConstant(sympy.Piecewise, Callable[[], float]), arguments)
+
+    return BasicFunctionApplication(
+        SymPyConstant(sympy.Piecewise, Callable[[], float]), arguments
+    )

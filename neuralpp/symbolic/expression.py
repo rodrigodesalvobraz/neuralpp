@@ -10,7 +10,8 @@ import neuralpp.symbolic.functions as functions
 from neuralpp.util.callable_util import (
     ExpressionType,
     get_arithmetic_function_type_from_argument_types,
-    return_type_after_application, get_comparison_function_type_from_argument_types,
+    return_type_after_application,
+    get_comparison_function_type_from_argument_types,
 )
 
 
@@ -69,7 +70,7 @@ class Expression(ABC):
 
     @abstractmethod
     def replace(
-            self, from_expression: Expression, to_expression: Expression
+        self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         """
         Every expression is immutable so replace() returns either self or a new Expression.
@@ -114,32 +115,35 @@ class Expression(ABC):
         match self, other:
             case AtomicExpression(
                 base_type=self_base_type, atom=self_atom, type=_
-            ), AtomicExpression(
-                base_type=other_base_type, atom=other_atom, type=_
-            ):
+            ), AtomicExpression(base_type=other_base_type, atom=other_atom, type=_):
                 # TODO: fix this
                 # return self_base_type == other_base_type and self_type == other_type and self_atom == other_atom
                 return self_base_type == other_base_type and self_atom == other_atom
             case (  # TODO: remove this case, which is taking care of semantic rather than syntactic equality
-                    # At the moment the treatment of Polynomials depends on this because they are represented
-                    # as applications of the identity function. Once we represent them in their own class,
-                    # we can remove this case.
-                     FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments),
-                     the_other
-                 ) | \
-                 (
-                     the_other,
-                     FunctionApplication(function=Constant(value=functions.identity), arguments=identity_arguments)
-                 ):
+                # At the moment the treatment of Polynomials depends on this because they are represented
+                # as applications of the identity function. Once we represent them in their own class,
+                # we can remove this case.
+                FunctionApplication(
+                    function=Constant(value=functions.identity),
+                    arguments=identity_arguments,
+                ),
+                the_other,
+            ) | (
+                the_other,
+                FunctionApplication(
+                    function=Constant(value=functions.identity),
+                    arguments=identity_arguments,
+                ),
+            ):
                 assert len(identity_arguments) == 1
                 return identity_arguments[0].syntactic_eq(the_other)
             case (
-                     FunctionApplication(subexpressions=self_subexpressions),
-                     FunctionApplication(subexpressions=other_subexpressions),
-                 ) | (
-                     QuantifierExpression(subexpressions=self_subexpressions),
-                     QuantifierExpression(subexpressions=other_subexpressions),
-                 ):
+                FunctionApplication(subexpressions=self_subexpressions),
+                FunctionApplication(subexpressions=other_subexpressions),
+            ) | (
+                QuantifierExpression(subexpressions=self_subexpressions),
+                QuantifierExpression(subexpressions=other_subexpressions),
+            ):
                 return len(self_subexpressions) == len(other_subexpressions) and all(
                     lhs.syntactic_eq(rhs)
                     for lhs, rhs in zip(self_subexpressions, other_subexpressions)
@@ -166,19 +170,19 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_function_application(
-            cls, function: Expression, arguments: List[Expression]
+        cls, function: Expression, arguments: List[Expression]
     ) -> Expression:
         pass
 
     @classmethod
     @abstractmethod
     def new_quantifier_expression(
-            cls,
-            operation: Constant,
-            index: Variable,
-            constraint: Expression,
-            body: Expression,
-            is_integral: bool,
+        cls,
+        operation: Constant,
+        index: Variable,
+        constraint: Expression,
+        body: Expression,
+        is_integral: bool,
     ) -> Expression:
         pass
 
@@ -197,12 +201,13 @@ class Expression(ABC):
             case QuantifierExpression(
                 subexpressions=subexpressions, is_integral=is_integral
             ):
-                return cls.new_quantifier_expression(*subexpressions, is_integral=is_integral)
+                return cls.new_quantifier_expression(
+                    *subexpressions, is_integral=is_integral
+                )
             case _:
                 raise ValueError(
                     f"invalid from_expression {from_expression}: {type(from_expression)}"
                 )
-
 
     def get_return_type(self, number_of_arguments: int) -> ExpressionType:
         if not isinstance(self.type, Callable):
@@ -210,7 +215,7 @@ class Expression(ABC):
         return return_type_after_application(self.type, number_of_arguments)
 
     def _new_binary_arithmetic(
-            self, other, operator_, function_type=None, reverse=False
+        self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
             other, operator_, function_type, reverse, arithmetic=True
@@ -222,7 +227,7 @@ class Expression(ABC):
         )
 
     def _new_binary_comparison(
-            self, other, operator_, function_type=None, reverse=False
+        self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
             other,
@@ -234,13 +239,13 @@ class Expression(ABC):
         )
 
     def _new_binary_operation(
-            self,
-            other,
-            operator_,
-            function_type=None,
-            reverse=False,
-            arithmetic=True,
-            arithmetic_arguments=False,
+        self,
+        other,
+        operator_,
+        function_type=None,
+        reverse=False,
+        arithmetic=True,
+        arithmetic_arguments=False,
     ) -> Expression:
         """
         Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
@@ -399,7 +404,7 @@ class AtomicExpression(Expression, ABC):
         return []
 
     def replace(
-            self, from_expression: Expression, to_expression: Expression
+        self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
@@ -482,7 +487,7 @@ class FunctionApplication(Expression, ABC):
             )
 
     def replace(
-            self, from_expression: Expression, to_expression: Expression
+        self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
@@ -632,7 +637,7 @@ class QuantifierExpression(Expression, ABC):
         )
 
     def replace(
-            self, from_expression: Expression, to_expression: Expression
+        self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
