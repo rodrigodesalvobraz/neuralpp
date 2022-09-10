@@ -56,8 +56,8 @@ def test_ebp_tree_expansion():
     def expand_and_recompute():
         expanded_node = expansion_computation[partial_tree.root].node
         partial_tree.add_edge(full_tree.parent(expanded_node), expanded_node)
-        expansion_computation.update_value(expanded_node)
-        expansion_computation(partial_tree.root)  # Trigger lazy re-evaluation
+        expansion_computation.bookkeep_values_in_path_to(expanded_node)
+        _ = expansion_computation[partial_tree.root]  # Trigger lazy re-evaluation
 
     factor_wrs_value = scoring_result(factors[3])
     factor_s_value = scoring_result(factors[2])
@@ -67,7 +67,7 @@ def test_ebp_tree_expansion():
     variable_r_value = scoring_result(r)
     variable_c_value = scoring_result(c)
 
-    assert(len(expansion_computation.result_dict) == 2)
+    assert(len(expansion_computation.result_dict) == 0)  # computation is lazy
     assert(expansion_computation[w] == factor_wrs_value)
     assert(expansion_computation[factors[3]] == factor_wrs_value)
 

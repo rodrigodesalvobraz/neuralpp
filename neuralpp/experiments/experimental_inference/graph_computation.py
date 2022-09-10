@@ -60,9 +60,9 @@ class PartialTreeComputation(TreeComputation, ABC):
         self.bookkeep_values_in_path_to(parent)
 
 
-class MaximumLeafValueComputation(TreeComputation):
+class MaximumLeafValueComputation(PartialTreeComputation):
     """
-    A TreeComputation where the value of a
+    A PartialTreeComputation where the value of a
     leaf is provided by given function leaf_value_function,
     and the value of each non-terminal node
     is the value among the values of its children
