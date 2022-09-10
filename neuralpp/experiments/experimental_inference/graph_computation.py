@@ -39,23 +39,36 @@ class TreeComputation:
 
 
 class PartialTreeComputation(TreeComputation, ABC):
+    """
+    A TreeComputation that provides a way to add new edges to the underlying tree
+    while performing the necessary updates to derived values.
+    """
 
-    def update_value(self, target_node):
+    def bookkeep_values_in_path_to(self, node):
         """
         Method for updating tree values when new edges are added.
 
-        The base behavior of this method is to invalidate the target node. The updated value will
-        be computed lazily from `compute`. Subclasses may override this with more efficient updating
-        schemes.
+        The base behavior of this method is to invalidate the target node,
+        which leads to values depending on it (the values on the path from the root
+        to the node) to be re-calculated when needed.
+        Subclasses may override this with more efficient updating schemes.
         """
-        self.invalidate(target_node)
+        self.invalidate(node)
 
     def add_edge(self, parent, child):
         self.tree.add_edge(parent, child)
-        self.update_value(parent)
+        self.bookkeep_values_in_path_to(parent)
 
 
 class MaximumLeafValueComputation(TreeComputation):
+    """
+    A TreeComputation where the value of a
+    leaf is provided by given function leaf_value_function,
+    and the value of each non-terminal node
+    is the value among the values of its children
+    that products the maximum value
+    is argmax_{v in {value(child) for child in children(node)}} argmax_key(v)
+    """
 
     def __init__(self, tree: Tree, leaf_value_function, argmax_key=None):
         super().__init__(tree)
