@@ -49,7 +49,7 @@ int_to_int_to_int = Callable[[int, int], int]  # int -> int -> int
 def test_constant(expression_factory):
     # Constant can be anything
     constant_one = expression_factory.new_constant(1)
-    constant_abc = expression_factory.new_constant("abc", Callable[[int], int])
+    constant_abc = expression_factory.new_variable("abc", Callable[[int], int])
     assert not constant_one.internal_object_eq(constant_abc)
     assert constant_one.internal_object_eq(expression_factory.new_constant(2 - 1))
     assert constant_one.subexpressions == []

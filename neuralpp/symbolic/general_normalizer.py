@@ -79,6 +79,8 @@ class GeneralNormalizer(Normalizer):
         """
         assert not context.unsatisfiable
         match expression:
+            case Expression(is_polynomial=True):  # if function is polynomials, we don't have to normalize: it's integrable
+                return expression
             case Constant():
                 return expression
             case FunctionApplication(function=Constant(value=sympy.Piecewise),
@@ -116,8 +118,6 @@ class GeneralNormalizer(Normalizer):
                 return if_then_else(expression, True, False)
             case Variable():
                 return expression
-            case FunctionApplication(is_polynomial=True):  # if function is polynomials, we don't have to normalize: it's integrable
-                return expression
             case FunctionApplication(function=function, arguments=arguments):
                 with self.profiler.profile_section("function-normalization"):
                     return self._normalize_function_application(function, arguments, context)
@@ -145,6 +145,9 @@ class GeneralNormalizer(Normalizer):
                                         BasicQuantifierExpression(operation, index, constraint & condition, expression,
                                                                   is_integral), context, body_is_normalized=True))
                             with self.profiler.profile_section("symbolic addition"):
+                                # Compose the result with BasicExpression, so we don't do any extra works
+                                # (whereas using SymPyExpression.new_function_application() can trigger some
+                                # unnecessary simplifications)
                                 # result = SymPyExpression.new_function_application(operation, elements)
                                 result = BasicExpression.new_function_application(operation, elements)
                             return result
@@ -175,6 +178,9 @@ class GeneralNormalizer(Normalizer):
                     case _:
                         with self.profiler.profile_section("quantifier-normalization-eliminate"):
                             return self._eliminate(operation, index, constraint, normalized_body, is_integral, context)
+            case _:
+                raise RuntimeError(f"Unrecognized pattern {expression}.")
+
 
     def _normalize_function_application(self, function: Expression,
                                         arguments: List[Expression],
