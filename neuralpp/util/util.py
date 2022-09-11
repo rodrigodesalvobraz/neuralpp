@@ -2,10 +2,9 @@ import math
 import os
 import random
 from itertools import tee
-from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator
+from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator, Callable
 
 import torch
-
 
 T = TypeVar("T")
 
@@ -85,6 +84,16 @@ def find(iterable, predicate):
 
 def first(iterable):
     return next(iter(iterable), None)
+
+
+def first_of(iterable, predicate: Callable):
+    """
+    Return first element in iterable satisfying predicate, or None.
+    """
+    for e in iterable:
+        if predicate(e):
+            return e
+    return None
 
 
 def union_of_dicts(dict1, dict2):

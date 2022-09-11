@@ -70,10 +70,10 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def internal_object_eq(self, other) -> bool:
         match other:
             case BasicAtomicExpression(
-                base_type=other_base_type, atom=other_atom, type=other_type
+                form=other_form, atom=other_atom, type=other_type
             ):
                 return (
-                    other_base_type == self.base_type
+                    self.form_kind == other.form_kind
                     and self.type == other_type
                     and self.atom == other_atom
                 )

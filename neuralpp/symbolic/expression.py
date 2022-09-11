@@ -12,11 +12,49 @@ from neuralpp.util.callable_util import (
     get_arithmetic_function_type_from_argument_types,
     return_type_after_application, get_comparison_function_type_from_argument_types,
 )
+from neuralpp.util.util import first_of
 
 
 class Expression(ABC):
     def __init__(self, expression_type: ExpressionType):
         self._type = expression_type
+
+    @property
+    def form(self) -> Expression:
+        """
+        Syntactic form of expression.
+        It consists of an expression that is an instance of one of the main interfaces for Expressions:
+        Constant, Variable, FunctionApplication, QuantifiedExpression, etc.
+
+        For expressions that are already instances of such interfaces, it suffices to return self,
+        so this is the default implementation.
+
+        For other subclasses of Expression that may be of varying forms
+        (for example, instances of a class implementing a polynomial may have Constant, Variable or FunctionApplication
+        forms, depending on the specific polynomial),
+        the method must return an instance of one of these interfaces, with the appropriate attributes.
+        One possible implementation in such cases is to return an instance of Basic* classes for
+        the appropriate form, containing the appropriate sub-expressions.
+        For example, polynomial "x" would return BasicVariable("x")
+        while "x^2" would return a BasicFunctionApplication.
+
+        Note that for algorithms using match ... case to be
+        more generally applicable (beyond instances of the form interfaces to unforeseen Expression subclasses),
+        they must match expressions `form` property rather than the expression themselves:
+        match expression.form:
+            case FunctionApplication(function=...)
+        """
+        return self
+
+    @property
+    def form_kind(self) -> type[Expression]:
+        """
+        The interface among Constant, Variable, FunctionApplication and QuantifierExpression
+        that self.form instantiates.
+        Note that this is not the same as type(self.form), which evaluates to a subclass of self.form_kind.
+        This is why we call it form *kind* rather than form *type*.
+        """
+        raise NotImplementedError
 
     @property
     def is_polynomial(self) -> bool:
@@ -116,15 +154,11 @@ class Expression(ABC):
         if self.internal_object_eq(other):
             return True
 
-        match self, other:
-            case AtomicExpression(
-                base_type=self_base_type, atom=self_atom, type=_
-            ), AtomicExpression(
-                base_type=other_base_type, atom=other_atom, type=_
-            ):
+        match self.form, other.form:
+            case AtomicExpression(atom=self_atom), AtomicExpression(atom=other_atom):
                 # TODO: fix this. If SymPyExpression typing system is fixed, `self_type == other_type` should work
-                # return self_base_type == other_base_type and self_type == other_type and self_atom == other_atom
-                return self_base_type == other_base_type and self_atom == other_atom
+                # return self_form == other_form and self_type == other_type and self_atom == other_atom
+                return self.form_kind == other.form_kind and self_atom == other_atom
             case (SymPyPoly(poly=poly), the_other) | (the_other, SymPyPoly(poly=poly)):
                 return poly.syntactic_eq(the_other)
             case (
@@ -379,11 +413,6 @@ class Expression(ABC):
 class AtomicExpression(Expression, ABC):
     @property
     @abstractmethod
-    def base_type(self) -> str:
-        pass
-
-    @property
-    @abstractmethod
     def atom(self) -> Any:
         pass
 
@@ -405,8 +434,8 @@ class AtomicExpression(Expression, ABC):
 
 class Constant(AtomicExpression, ABC):
     @property
-    def base_type(self) -> str:
-        return "Constant"
+    def form_kind(self) -> type[Expression]:
+        return Constant
 
     @property
     def value(self) -> Any:
@@ -418,8 +447,8 @@ class Constant(AtomicExpression, ABC):
 
 class Variable(AtomicExpression, ABC):
     @property
-    def base_type(self) -> str:
-        return "Variable"
+    def form_kind(self) -> type[Expression]:
+        return Variable
 
     @property
     def name(self) -> str:
@@ -431,6 +460,10 @@ class Variable(AtomicExpression, ABC):
 
 class FunctionApplication(Expression, ABC):
     __match_args__ = ("function", "arguments", "number_of_arguments")
+
+    @property
+    def form_kind(self) -> type[Expression]:
+        return FunctionApplication
 
     @property
     @abstractmethod
@@ -573,6 +606,10 @@ class QuantifierExpression(Expression, ABC):
     This, in a sense, is a *generalized* version of quantifier: the operation of "forall" is `and`, the operation
     of "exists" is `or`, the operation of "Sigma" is `sum`, and "Pi" `multiplication`.
     """
+
+    @property
+    def form_kind(self) -> type[Expression]:
+        return QuantifierExpression
 
     @property
     @abstractmethod
