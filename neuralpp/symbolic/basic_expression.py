@@ -55,7 +55,7 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def __init__(self, atom: Any, expression_type: Optional[ExpressionType] = None):
         if expression_type is None and not isinstance(atom, ExpressionType):
             # try to infer type for atom
-            if isinstance(atom, Callable):
+            if callable(atom):
                 expression_type = infer_python_callable_type(atom)
             else:
                 expression_type = type(atom)
@@ -70,10 +70,10 @@ class BasicAtomicExpression(BasicExpression, AtomicExpression, ABC):
     def internal_object_eq(self, other) -> bool:
         match other:
             case BasicAtomicExpression(
-                base_type=other_base_type, atom=other_atom, type=other_type
+                form=other_form, atom=other_atom, type=other_type
             ):
                 return (
-                    other_base_type == self.base_type
+                    self.form_kind == other.form_kind
                     and self.type == other_type
                     and self.atom == other_atom
                 )
