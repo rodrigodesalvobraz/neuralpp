@@ -6,7 +6,7 @@ class Interpreter(ABC):
     @abstractmethod
     def eval(self, expression: Expression, context: Context):
         """
-        Evaluations the `expression` under the constraint of `context` being true.
+        Evaluates the `expression` under the constraint of `context` being true.
         Either returns a value s.t., context -> expression == value
         or raise AttributeError when it's too difficult for the Interpreter; or
         raise Error encountered when applying function.

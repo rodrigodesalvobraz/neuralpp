@@ -40,7 +40,7 @@ from neuralpp.util.sympy_util import (
     is_sympy_integral,
     is_sympy_value,
     is_sympy_sum,
-    sympy_piecewise_to_if_then_else
+    sympy_piecewise_to_if_then_else,
 )
 from neuralpp.util.util import distinct_pairwise, update_consistent_dict
 
@@ -173,10 +173,17 @@ class SymPyExpression(Expression, ABC):
         """try to compute the integral symbolically, if fails, return None. Cached version."""
         try:
             with profiler.profile_section("convert"):
-                body, index, lower_bound, upper_bound = [SymPyExpression._convert(argument)
-                                                         for argument in [body, index, lower_bound, upper_bound]]
-                type_dict = _build_type_dict_from_sympy_arguments([body, index, lower_bound, upper_bound])
-            if body.sympy_object.is_Poly and index.sympy_object in body.sympy_object.gens:
+                body, index, lower_bound, upper_bound = [
+                    SymPyExpression._convert(argument)
+                    for argument in [body, index, lower_bound, upper_bound]
+                ]
+                type_dict = _build_type_dict_from_sympy_arguments(
+                    [body, index, lower_bound, upper_bound]
+                )
+            if (
+                body.sympy_object.is_Poly
+                and index.sympy_object in body.sympy_object.gens
+            ):
                 body_poly = body.sympy_object
             else:
                 with profiler.profile_section("to poly"):
@@ -371,6 +378,7 @@ class SymPyConstant(SymPyExpression, Constant):
 
 
 class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
+
     @property
     def function(self) -> Expression:
         if self._sympy_object.func == Poly:
@@ -440,6 +448,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
         This function always set type_dict[sympy_object] with the new (inferred or supplied) function_type value.
         The old value, if exists, is only used for consistency checking.
         """
+
         if not sympy_object.args and not sympy_object.func.is_Function:
             # uninterpreted function can be applied to 0 args
             raise TypeError(f"not a function application. {sympy_object}")
@@ -769,4 +778,7 @@ class SymPySummation(SymPyExpression, QuantifierExpression):
 
 def make_piecewise(arguments: List[Expression]):
     from .basic_expression import BasicFunctionApplication
-    return BasicFunctionApplication(SymPyConstant(sympy.Piecewise, Callable[[], float]), arguments)
+
+    return BasicFunctionApplication(
+        SymPyConstant(sympy.Piecewise, Callable[[], float]), arguments
+    )
