@@ -201,6 +201,16 @@ def test_basic_function_application():
     )
 
 
+def test_set_does_not_change_original_expression():
+    func1 = BasicConstant(lambda x, y: x + y, int_to_int_to_int)
+    constant_one = BasicConstant(1)
+    constant_two = BasicConstant(2)
+    fa1 = BasicFunctionApplication(func1, [constant_one, constant_two])
+    fa2 = fa1.set(1, BasicConstant(3))
+    assert not (fa1.arguments[0] == BasicConstant(3))
+    assert fa2.arguments[0] == BasicConstant(3)
+
+
 def test_basic_quantifier_expressions():
     from neuralpp.symbolic.constants import int_add, int_multiply
 

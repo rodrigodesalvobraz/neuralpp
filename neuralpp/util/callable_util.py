@@ -9,7 +9,7 @@ from sympy import abc
 import z3
 
 import neuralpp.symbolic.functions as functions
-
+from neuralpp.util.symbolic_error_util import AmbiguousTypeError
 
 # typing.Callable can be ambiguous.
 # Consider the following two tests:

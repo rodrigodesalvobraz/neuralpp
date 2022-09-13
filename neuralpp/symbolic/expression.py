@@ -16,6 +16,18 @@ from neuralpp.util.util import same_len_and_predicate_true_for_all_pairs
 
 
 class Expression(ABC):
+    """
+    Expression is the main interface for all symbolic expressions in the library.
+    It is designed to integrate multiple _backends_ for symbolic computation
+    such as SymPy, Z3 etc through implementations based on such backends.
+
+    Currently, all Expressions must be of one of four _syntactic forms_:
+    Constant, Variable, FunctionApplication, and QuantifierExpression.
+    While those are subinterfaces of Expression, not all implementations
+    of interface must necessarily implement one of those, but all implementations
+    must have properties `form` and `form_kind` informing which
+    interface a current instance satisfies.
+    """
     def __init__(self, expression_type: ExpressionType):
         self._type = expression_type
 
@@ -170,7 +182,7 @@ class Expression(ABC):
         """
         Value is expected to be a python object or a "native" object.
         E.g., SymPyExpression.new_constant()'s legal input would have python `int` and `sympy.Integer`,
-        but not `z3.Int`. Similarly, Z3Expression.new_constant()'s legal input has `int` and `z3.Int` but
+        but not `z3.Int`. Similarly, Z3Expression.new_constant()'s legal input includes `int` and `z3.Int` but
         not `sympy.Integer`.
         """
         pass
@@ -204,7 +216,7 @@ class Expression(ABC):
         """General helper for converting an Expression into this subclass of Expression."""
         if isinstance(from_expression, cls):
             return from_expression
-        match from_expression:
+        match from_expression.form:
             case Constant(value=value, type=type_):
                 return cls.new_constant(value, type_)
             case Variable(name=name, type=type_):
@@ -223,9 +235,11 @@ class Expression(ABC):
                 )
 
     def get_return_type(self, number_of_arguments: int) -> ExpressionType:
-        if not isinstance(self.type, type(Callable[..., Any])):
+        if not isinstance(self.form.type, type(Callable[..., Any])):
             raise TypeError(f"{self}'s function is not of function type.")
-        return return_type_after_application(self.type, number_of_arguments)
+        return return_type_after_application(self.form.type, number_of_arguments)
+
+    # ##### Methods for operator overloading
 
     def _new_binary_arithmetic(
             self, other, operator_, function_type=None, reverse=False
@@ -261,19 +275,17 @@ class Expression(ABC):
             arithmetic_arguments=False,
     ) -> Expression:
         """
-        Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
-        an Expression.
+        Basic method for making a binary operation using the same type backend as `self`.
+        Tries to convert `other` to a Constant if it is not an Expression.
         E.g., if operator_ is `+`, other is `3`. return self + Constant(3).
-        By default, self is the 1st argument and other is the 2nd.
-        If reverse is set to True, it is reversed, so e.g., if operator_ is `-` and reverse is True, then return
-        `other - self`.
+        By default, self is the 1st argument and `other` is the 2nd.
+        If reverse is set to True, it is reversed, so e.g., if operator_ is `-` and reverse is True,
+        the `other - self` is returned instead.
         If `arithmetic` is True, the return type is inferred from the argument types. Otherwise, it's assumed to
         be bool.
         """
         if not isinstance(other, Expression):
-            other = self.new_constant(
-                other, None
-            )  # we can only try to create constant, for variable we need type.
+            other = self.new_constant(other, None)
         arguments = [self, other] if not reverse else [other, self]
         if function_type is None:
             if arithmetic:
@@ -304,7 +316,6 @@ class Expression(ABC):
     def __add__(self, other: Any) -> Expression:
         return self._new_binary_arithmetic(other, operator.add)
 
-    # We can also write __radd__ = __add__. But it may be better to keep the order?
     def __radd__(self, other: Any) -> Expression:
         return self._new_binary_arithmetic(other, operator.add, reverse=True)
 
@@ -386,10 +397,14 @@ class Expression(ABC):
 
     def __bool__(self):
         """
-        We've overloaded our __eq__() to return symbolic expression, if that result cannot be converted to a boolean,
-        __hash__() will not work correctly. (https://docs.python.org/3/reference/datamodel.html#object.__hash__)
+        We've overloaded == to return symbolic expressions (applications of equality).
+        However, the operator == is used in important functions (such as `__hash__`),
+        so in those contexts it is important that it still provides the original boolean result.
+        This is done by providing this Expression -> bool converter,
+        which evaluates expressions representing constant booleans and equalities.
         Refer to test/quick_tests/symbolic/z3_usage_test.py:test_z3_eq_bool() for how Z3 deals with a similar problem.
         """
+        # TODO: why not convert applications of other operators such as !=, <, <= etc?
         match self:
             case Constant(value=value) if isinstance(value, bool):
                 return value
@@ -466,7 +481,8 @@ class FunctionApplication(Expression, ABC):
     def number_of_arguments(self) -> int:
         # in some implementation getting number_of_arguments without calling arguments is useful,
         # e.g., a lazy implementation where arguments are only evaluated when used
-        # Note: this is not `arity`, which is a property of a function, not a function application.
+        # Note: this is not `arity`, which is a property of a function, not of a function application;
+        # it is possible to have a partial list of arguments.
         pass
 
     @property
@@ -482,11 +498,9 @@ class FunctionApplication(Expression, ABC):
     def set(self, i: int, new_expression: Expression) -> Expression:
         if i == 0:
             return self.new_function_application(new_expression, self.arguments)
-
-        # evaluate len after i != 0, if i == 0 we can be lazy
-        if i - 1 < self.number_of_arguments:
-            arguments = self.arguments
-            arguments[i - 1] = new_expression
+        elif (argument_index := i - 1) < self.number_of_arguments:
+            arguments = list(self.arguments)
+            arguments[argument_index] = new_expression
             return self.new_function_application(self.function, arguments)
         else:
             raise IndexError(

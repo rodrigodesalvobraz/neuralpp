@@ -102,6 +102,7 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
         super().__init__(function_type)
 
         self._subexpressions = [function] + arguments
+        self._arguments = self._subexpressions[1:]
 
     @property
     def function(self) -> Expression:
@@ -113,7 +114,7 @@ class BasicFunctionApplication(BasicExpression, FunctionApplication):
 
     @property
     def arguments(self) -> List[Expression]:
-        return self._subexpressions[1:]
+        return self._arguments
 
     @property
     def subexpressions(self) -> List[Expression]:
