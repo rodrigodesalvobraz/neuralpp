@@ -545,6 +545,14 @@ class SymPyPoly(SymPyExpression):
         SymPyExpression.__init__(self, sympy_object, float, type_dict)
 
     @property
+    def form(self) -> Expression:
+        return self.poly
+
+    @property
+    def form_kind(self) -> type[Expression]:
+        return self.poly.form_kind
+
+    @property
     def is_polynomial(self) -> bool:
         return True
 

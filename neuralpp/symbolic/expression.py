@@ -157,12 +157,8 @@ class Expression(ABC):
 
         match self.form, other.form:
             case AtomicExpression(atom=self_atom), AtomicExpression(atom=other_atom):
-                # TODO: fix this. If SymPyExpression typing system is fixed, `self_type == other_type` should work
-                # return self_form == other_form and self_type == other_type and self_atom == other_atom
+                # TODO: once SymPyExpression typing system is fixed, include `self_type == other_type`
                 return self.form_kind == other.form_kind and self_atom == other_atom
-            # TODO: remove special treatment for SymPyPoly once it has form and form_kind implementations
-            case (SymPyPoly(poly=poly), the_other) | (the_other, SymPyPoly(poly=poly)):
-                return poly.syntactic_eq(the_other)
             case _:  # anything not atomic
                 return self.form_kind == other.form_kind and \
                        same_len_and_predicate_true_for_all_pairs(
