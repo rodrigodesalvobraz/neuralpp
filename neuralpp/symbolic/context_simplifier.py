@@ -25,10 +25,10 @@ def _simplify_expression(
 def _collect_subset_expressions_helper(
     expression: Expression, test: Callable[[Expression], bool], result: Set[Expression]
 ):
-"""
-Checks to see if `expression` fullfils the filter `test`
-Also, recursively calls itself on the possible subexpressions in `expression`
-"""
+    """
+    Checks to see if `expression` fullfils the filter `test`
+    Also, recursively calls itself on the possible subexpressions in `expression`
+    """
     if test(expression):
         result.add(expression)
     for sub_expression in expression.subexpressions:

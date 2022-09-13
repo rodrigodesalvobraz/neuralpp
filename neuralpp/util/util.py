@@ -2,7 +2,7 @@ import math
 import os
 import random
 from itertools import tee
-from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator, Callable
+from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator, Callable, Sequence
 
 import torch
 
@@ -673,3 +673,8 @@ def argmax(iterable, func):
     if empty(iterable):
         return None
     return max(iterable, key=func)
+
+
+def same_len_and_predicate_true_for_all_pairs(sequence1: Sequence, sequence2: Sequence, binary_predicate):
+    pair_predicate = lambda pair: binary_predicate(*pair)
+    return len(sequence1) == len(sequence2) and all(map(pair_predicate, zip(sequence1, sequence2)))

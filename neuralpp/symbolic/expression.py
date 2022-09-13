@@ -6,14 +6,13 @@ import operator
 from abc import ABC, abstractmethod
 from typing import List, Any, Optional, Callable, Dict
 
-import neuralpp.symbolic.functions as functions
 from neuralpp.util.callable_util import (
     ExpressionType,
     get_arithmetic_function_type_from_argument_types,
     return_type_after_application,
     get_comparison_function_type_from_argument_types,
 )
-from neuralpp.util.util import first_of
+from neuralpp.util.util import same_len_and_predicate_true_for_all_pairs
 
 
 class Expression(ABC):
@@ -34,10 +33,11 @@ class Expression(ABC):
         (for example, instances of a class implementing a polynomial may have Constant, Variable or FunctionApplication
         forms, depending on the specific polynomial),
         the method must return an instance of one of these interfaces, with the appropriate attributes.
+
         One possible implementation in such cases is to return an instance of Basic* classes for
         the appropriate form, containing the appropriate sub-expressions.
         For example, polynomial "x" would return BasicVariable("x")
-        while "x^2" would return a BasicFunctionApplication.
+        while "x^2" would return a BasicFunctionApplication with the appropriate sub-expressions.
 
         Note that for algorithms using match ... case to be
         more generally applicable (beyond instances of the form interfaces to unforeseen Expression subclasses),
@@ -112,7 +112,7 @@ class Expression(ABC):
 
     @abstractmethod
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         """
         Every expression is immutable so replace() returns either self or a new Expression.
@@ -160,21 +160,13 @@ class Expression(ABC):
                 # TODO: fix this. If SymPyExpression typing system is fixed, `self_type == other_type` should work
                 # return self_form == other_form and self_type == other_type and self_atom == other_atom
                 return self.form_kind == other.form_kind and self_atom == other_atom
+            # TODO: remove special treatment for SymPyPoly once it has form and form_kind implementations
             case (SymPyPoly(poly=poly), the_other) | (the_other, SymPyPoly(poly=poly)):
                 return poly.syntactic_eq(the_other)
-            case (
-                FunctionApplication(subexpressions=self_subexpressions),
-                FunctionApplication(subexpressions=other_subexpressions),
-            ) | (
-                QuantifierExpression(subexpressions=self_subexpressions),
-                QuantifierExpression(subexpressions=other_subexpressions),
-            ):
-                return len(self_subexpressions) == len(other_subexpressions) and all(
-                    lhs.syntactic_eq(rhs)
-                    for lhs, rhs in zip(self_subexpressions, other_subexpressions)
-                )
-            case _:
-                return False
+            case _:  # anything not atomic
+                return self.form_kind == other.form_kind and \
+                       same_len_and_predicate_true_for_all_pairs(
+                           self.subexpressions, other.subexpressions, Expression.syntactic_eq)
 
     @classmethod
     @abstractmethod
@@ -195,19 +187,19 @@ class Expression(ABC):
     @classmethod
     @abstractmethod
     def new_function_application(
-        cls, function: Expression, arguments: List[Expression]
+            cls, function: Expression, arguments: List[Expression]
     ) -> Expression:
         pass
 
     @classmethod
     @abstractmethod
     def new_quantifier_expression(
-        cls,
-        operation: Constant,
-        index: Variable,
-        constraint: Expression,
-        body: Expression,
-        is_integral: bool,
+            cls,
+            operation: Constant,
+            index: Variable,
+            constraint: Expression,
+            body: Expression,
+            is_integral: bool,
     ) -> Expression:
         pass
 
@@ -240,7 +232,7 @@ class Expression(ABC):
         return return_type_after_application(self.type, number_of_arguments)
 
     def _new_binary_arithmetic(
-        self, other, operator_, function_type=None, reverse=False
+            self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
             other, operator_, function_type, reverse, arithmetic=True
@@ -252,7 +244,7 @@ class Expression(ABC):
         )
 
     def _new_binary_comparison(
-        self, other, operator_, function_type=None, reverse=False
+            self, other, operator_, function_type=None, reverse=False
     ) -> Expression:
         return self._new_binary_operation(
             other,
@@ -264,13 +256,13 @@ class Expression(ABC):
         )
 
     def _new_binary_operation(
-        self,
-        other,
-        operator_,
-        function_type=None,
-        reverse=False,
-        arithmetic=True,
-        arithmetic_arguments=False,
+            self,
+            other,
+            operator_,
+            function_type=None,
+            reverse=False,
+            arithmetic=True,
+            arithmetic_arguments=False,
     ) -> Expression:
         """
         Wrapper to make a binary operation in self's class. Tries to convert other to a Constant if it is not
@@ -424,7 +416,7 @@ class AtomicExpression(Expression, ABC):
         return []
 
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
@@ -507,7 +499,7 @@ class FunctionApplication(Expression, ABC):
             )
 
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
@@ -661,7 +653,7 @@ class QuantifierExpression(Expression, ABC):
         )
 
     def replace(
-        self, from_expression: Expression, to_expression: Expression
+            self, from_expression: Expression, to_expression: Expression
     ) -> Expression:
         if from_expression.syntactic_eq(self):
             return to_expression
