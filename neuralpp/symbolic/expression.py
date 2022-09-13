@@ -162,7 +162,7 @@ class Expression(ABC):
             case _:  # anything not atomic
                 return self.form_kind == other.form_kind and \
                        same_len_and_predicate_true_for_all_pairs(
-                           self.subexpressions, other.subexpressions, Expression.syntactic_eq)
+                           self.form.subexpressions, other.form.subexpressions, Expression.syntactic_eq)
 
     @classmethod
     @abstractmethod
