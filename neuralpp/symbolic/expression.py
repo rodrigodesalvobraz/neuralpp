@@ -549,6 +549,18 @@ class Context(Expression, ABC):
         return 1
 
     def _is_known_to_imply_fastpath(self, expression: Expression) -> Optional[bool]:
+        """
+        Provides subclasses with a way to provide an implication decision procedure in some faster way
+        than the full-fledged methods.
+        This is used by Z3ContextExpressionDummy which does not remember any accumulated constraints ("known nothing")
+        and only checks if argument `expression` is true or false.
+        That class is used in an experiment in which we know in advance no unsatisfiable conditions will happen,
+        so we might as well not even check.
+        TODO: check what happens in Z3ContextExpressionDummy when object is not true or false.
+        It seems the slow decision procedure
+        will be unnecessarily followed (unnecessary because Z3ContextExpressionDummy "knows nothing" anyway).
+        TODO: either remove this as a hack, or make it better documented and supported.
+        """
         return None
 
     def is_known_to_imply(self, expression: Expression) -> bool:
@@ -612,6 +624,10 @@ class QuantifierExpression(Expression, ABC):
     of "exists" is `or`, the operation of "Sigma" is `sum`, and "Pi" `multiplication`.
     """
 
+    def __init__(self, expression_type: ExpressionType):
+        super().__init__(expression_type)
+        self._subexpressions = None
+
     @property
     def form_kind(self) -> type[Expression]:
         return QuantifierExpression
@@ -643,7 +659,9 @@ class QuantifierExpression(Expression, ABC):
 
     @property
     def subexpressions(self) -> List[Expression]:
-        return [self.operation, self.index, self.constraint, self.body]
+        if self._subexpressions is None:
+            self._subexpressions = [self.operation, self.index, self.constraint, self.body]
+        return self._subexpressions
 
     @property
     @abstractmethod
@@ -652,11 +670,12 @@ class QuantifierExpression(Expression, ABC):
         @return: whether this QuantifierExpression is an "Integration" instead of a "Summation"
         Currently only makes sense when self.operation.value == operator.add
         This is a quick hack to support integral.
+        TODO: clean up.
         """
         pass
 
     def set(self, i: int, new_expression: Expression) -> QuantifierExpression:
-        subexpressions = self.subexpressions
+        subexpressions = list(self.subexpressions)
         subexpressions[i] = new_expression
         return self.new_quantifier_expression(
             *subexpressions, is_integral=self.is_integral
@@ -676,21 +695,21 @@ class QuantifierExpression(Expression, ABC):
             *new_subexpressions, is_integral=self.is_integral
         )
 
-    def set_operation(self, new_expression: Expression) -> QuantifierExpression:
+    def set_operation(self, new_operation: Expression) -> QuantifierExpression:
         """
         set_*() are a series of functions wrapping set() for better readability.
         Like set(), it does not modify `self`, but instead returns a new expression.
         """
-        return self.set(0, new_expression)
+        return self.set(0, new_operation)
 
-    def set_index(self, new_expression: Expression) -> QuantifierExpression:
-        return self.set(1, new_expression)
+    def set_index(self, new_index: Expression) -> QuantifierExpression:
+        return self.set(1, new_index)
 
-    def set_constraint(self, new_expression: Expression) -> QuantifierExpression:
-        return self.set(2, new_expression)
+    def set_constraint(self, new_constraint: Expression) -> QuantifierExpression:
+        return self.set(2, new_constraint)
 
-    def set_body(self, new_expression: Expression) -> QuantifierExpression:
-        return self.set(3, new_expression)
+    def set_body(self, new_body: Expression) -> QuantifierExpression:
+        return self.set(3, new_body)
 
     def __str__(self) -> str:
         sign = (
