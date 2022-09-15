@@ -196,6 +196,8 @@ class SymPyExpression(Expression, ABC):
                 a = big_f.replace(index.sympy_object, lower_bound.sympy_object)
             with profiler.profile_section("compute diff"):
                 diff = b - a
+                if all([gen.is_number for gen in diff.gens]):
+                    diff = diff.expr
             with profiler.profile_section("wrap"):
                 result = SymPyExpression.from_sympy_object(diff, type_dict)
             return result
@@ -524,7 +526,20 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                             sympy_object = native_arguments[0].mul(native_arguments[1])
                         elif sympy_function == sympy.Add:
                             # we should do something similar to the case above
-                            raise NotImplementedError("This path is not current used")
+                            sympy_object = native_arguments[0]
+                            for i in range(1, len(native_arguments)):
+                                if native_arguments[i] == 0:
+                                    continue
+                                print("not 0:", native_arguments[i])
+                                if sympy_object.is_Poly:
+                                    print("1", sympy_object)
+                                    sympy_object = sympy_object.add(native_arguments[i])
+                                elif native_arguments[i].is_Poly:
+                                    print("2")
+                                    sympy_object = native_arguments[i].add(sympy_object)
+                                else:
+                                    print("3")
+                                    sympy_object += native_arguments[i]
                         else:
                             raise RuntimeError(f"Unknown function {sympy_function}")
                     else:

@@ -126,6 +126,7 @@ class GeneralNormalizer(Normalizer):
                 if context.contains(index):
                     raise ValueError(f"context {context} should not contain index {index}")
                 if context.is_known_to_imply(~constraint):
+                    # simple unsatisfiable interval is eliminated here, e.g., [-4,0] & [1,2]
                     return operation.identity
 
                 if body_is_normalized:

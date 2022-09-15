@@ -111,8 +111,6 @@ class Eliminator:
             else:
                 result = SymPyExpression.symbolic_integral(body, index, interval.lower_bound, interval.upper_bound,
                                                            self.profiler)
-                # result = SymPyExpression.symbolic_integral_cached(body, index, interval.lower_bound,
-                #                                                   interval.upper_bound, self.profiler)
                 return result
 
 
