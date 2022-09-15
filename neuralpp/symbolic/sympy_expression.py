@@ -530,15 +530,11 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
                             for i in range(1, len(native_arguments)):
                                 if native_arguments[i] == 0:
                                     continue
-                                print("not 0:", native_arguments[i])
                                 if sympy_object.is_Poly:
-                                    print("1", sympy_object)
                                     sympy_object = sympy_object.add(native_arguments[i])
                                 elif native_arguments[i].is_Poly:
-                                    print("2")
                                     sympy_object = native_arguments[i].add(sympy_object)
                                 else:
-                                    print("3")
                                     sympy_object += native_arguments[i]
                         else:
                             raise RuntimeError(f"Unknown function {sympy_function}")
