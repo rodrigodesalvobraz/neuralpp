@@ -51,6 +51,7 @@ class Tree(Graph):
 
     def __init__(self):
         self.root = None
+        self.depth_cache = {}
 
     def children(self, node):
         raise NotImplemented()
@@ -60,6 +61,12 @@ class Tree(Graph):
 
     def contains_edge(self, parent, child):
         return self.parent(child) == parent
+
+    def _compute_depth(self, node):
+        return 0 if self.parent(node) is None else self.depth(self.parent(node)) + 1
+
+    def depth(self, node):
+        return util.get_or_compute_and_put(self.depth_cache, node, self._compute_depth, key_getter=id)
 
 
 class PartialTree(Tree):
@@ -154,7 +161,7 @@ class PartialFactorSpanningTree(LazyFactorSpanningTree, PartialTree):
         return self._children.get(id(node), [])
 
     def add_edge(self, parent, child):
-        assert(self.graph.contains_edge(parent, child))
+        assert (self.graph.contains_edge(parent, child))
         if child in self:
             raise Exception(f"Child node {child} has already been added to the tree")
         elif id(parent) in self._children:
@@ -164,7 +171,7 @@ class PartialFactorSpanningTree(LazyFactorSpanningTree, PartialTree):
         self._parents[id(child)] = parent
 
 
-class PartialExpansionTree(Tree):
+class PartialTreePlusOneLevel(Tree):
     """
     This represents the subtree formed by a partial tree + any nodes in the full tree which
     have parents in the partial tree. If the base subtree is changed, the partial expansion tree
@@ -175,7 +182,7 @@ class PartialExpansionTree(Tree):
         super().__init__()
         self.partial_tree = partial_tree
         self.root = self.partial_tree.root
-    
+
     def __contains__(self, item):
         return item in self.partial_tree or self.parent(item) is not None
 

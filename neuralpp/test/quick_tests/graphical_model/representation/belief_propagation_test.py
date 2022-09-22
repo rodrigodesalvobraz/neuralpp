@@ -262,9 +262,9 @@ def test_monotonic_improvement():
 
     # End of configuration
 
-    # Scoring function can be anything since a linear graph has no expansion options
-    def scoring_function(x, partial_tree, full_tree):
-        return 1
+    # We pick shallower nodes for expansion first since these are the most informative (breadth-first).
+    def scoring_function(node, partial_tree, full_tree):
+        return -full_tree.depth(node)
 
     query = None
 

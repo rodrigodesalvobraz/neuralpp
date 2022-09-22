@@ -48,7 +48,7 @@ def test_ebp_tree_expansion():
     partial_tree = PartialFactorSpanningTree(full_tree)
 
     expansion_computation = MaximumLeafValueComputation(
-        PartialExpansionTree(partial_tree),
+        PartialTreePlusOneLevel(partial_tree),
         lambda node, tree: Expansion(node, scoring_function(node, None)) if node not in partial_tree else None,
         lambda node_value_pair: node_value_pair.expansion_value
     )

@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 from neuralpp.experiments.experimental_inference.graph_analysis import LazyFactorSpanningTree, FactorGraph, FactorTree, \
-    PartialFactorSpanningTree, PartialExpansionTree
+    PartialFactorSpanningTree, PartialTreePlusOneLevel
 from neuralpp.experiments.experimental_inference.graph_computation import MaximumLeafValueComputation, \
     PartialTreeComputation
 from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
@@ -47,7 +47,7 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
         self.approximation = approximation
         self.full_tree = full_tree
         self.expansion = MaximumLeafValueComputation(
-            PartialExpansionTree(partial_tree),
+            PartialTreePlusOneLevel(partial_tree),
             lambda node, tree:
                 Expansion(node, expansion_value_function(node, self.tree, self.full_tree))
                 if node not in partial_tree else None,
