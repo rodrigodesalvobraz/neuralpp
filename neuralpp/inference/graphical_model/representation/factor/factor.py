@@ -141,3 +141,6 @@ class Factor:
             )
 
         return assignment_values
+
+    def __repr__(self):
+        return str(self)
