@@ -255,6 +255,7 @@ def test_monotonic_improvement():
     n = 10  # number of factors in the docstring linear model.
     random_query = False  # whether to pick a query at random for the docstring model or use x_0 instead.
 
+    # random model
     use_random_models = False  # use a random model rather than the one described in the docstring.
     number_of_factors = 25  # number of factors in the random model, if used.
     number_of_variables = int(number_of_factors * 2 / 3)  # number of variables in the random model, if used.
@@ -318,11 +319,11 @@ def test_monotonic_improvement():
         if monotonic:
             assert improvement >= -1e-7
 
-        if not anytime.is_complete():
+        if anytime.is_complete():
+            break
+        else:
             last_error = current_error
             anytime.expand(query)
-        else:
-            break
 
     if show_plot:
         plt.title(f"{name}, query {query}")
