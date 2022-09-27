@@ -9,17 +9,19 @@ REQUIRED_MAJOR = 3
 REQUIRED_MINOR = 10
 
 
-TEST_REQUIRES = [
+INSTALL_REQUIRES = [
     "cudatoolkit",
     "pytorch",
     "torchaudio",
     "torchvision",
     "matplotlib",
     "tqdm",
-    "pytest",
-    "pytest-cov",
     "sympy",
     "z3-solver",
+]
+TEST_REQUIRES = [
+    "pytest",
+    "pytest-cov",
 ]
 DEV_REQUIRES = TEST_REQUIRES + [
     "black",
