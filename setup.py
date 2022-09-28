@@ -10,6 +10,7 @@ REQUIRED_MINOR = 10
 
 
 INSTALL_REQUIRES  = [
+    "networkx",
     "torch",
     "torchaudio",
     "torchvision",
