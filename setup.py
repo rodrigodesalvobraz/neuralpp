@@ -10,8 +10,7 @@ REQUIRED_MINOR = 10
 
 
 INSTALL_REQUIRES  = [
-    "cudatoolkit",
-    "pytorch",
+    "torch",
     "torchaudio",
     "torchvision",
     "matplotlib",
@@ -20,6 +19,7 @@ INSTALL_REQUIRES  = [
     "pytest-cov",
     "sympy",
     "z3-solver",
+    "z3",
 ]
 TEST_REQUIRES = [
     "pytest",
