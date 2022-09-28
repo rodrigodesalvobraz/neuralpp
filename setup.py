@@ -9,7 +9,7 @@ REQUIRED_MAJOR = 3
 REQUIRED_MINOR = 10
 
 
-TEST_REQUIRES = [
+INSTALL_REQUIRES  = [
     "cudatoolkit",
     "pytorch",
     "torchaudio",
@@ -21,12 +21,17 @@ TEST_REQUIRES = [
     "sympy",
     "z3-solver",
 ]
+TEST_REQUIRES = [
+    "pytest",
+    "pytest-cov",
+]
 DEV_REQUIRES = TEST_REQUIRES + [
     "black",
     "flake8",
     "flake8-bugbear",
     "mypy",
     "usort",
+    "ufmt",
 ]
 
 
@@ -75,10 +80,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     python_requires=">={}.{}".format(REQUIRED_MAJOR, REQUIRED_MINOR),
-    install_requires=[
-        "torch>=1.8.1",
-        "networkx",
-    ],
+    install_requires=INSTALL_REQUIRES,
     packages=find_packages(
         include=["neuralpp", "neuralpp.*"],
         exclude=["debug", "tests", "website"],
