@@ -10,7 +10,9 @@ from .functions import conditional
 from .expression import Expression
 from .z3_expression import Z3Constant
 from .sympy_expression import SymPyConstant, SymPyFunctionApplication
-from neuralpp.util.callable_util import get_arithmetic_function_return_type_from_argument_types
+from neuralpp.util.callable_util import (
+    get_arithmetic_function_return_type_from_argument_types,
+)
 from .parameters import sympy_evaluate
 
 
@@ -25,12 +27,17 @@ def if_then_else(if_: Any, then_: Any, else_: Any):
                 return type_
             case _:
                 return type(expression)
+
     then_type = _type_of(then_)
     else_type = _type_of(else_)
-    if (then_type == bool and else_type != bool) or (then_type != bool and else_type == bool):
+    if (then_type == bool and else_type != bool) or (
+        then_type != bool and else_type == bool
+    ):
         raise TypeError(f"Cannot accommodate types: {then_type} and {else_type}.")
     elif then_type != else_type:
-        conditional_type = get_arithmetic_function_return_type_from_argument_types([then_type, else_type])
+        conditional_type = get_arithmetic_function_return_type_from_argument_types(
+            [then_type, else_type]
+        )
     else:
         conditional_type = then_type
     return if_then_else_function(conditional_type)(if_, then_, else_)
@@ -136,9 +143,13 @@ sympy_false = SymPyConstant(sympy.S.false, bool)
 
 def min_(expressions: List[Expression]) -> Expression:
     with sympy_evaluate(True):
-        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy.Min, expressions)
+        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
+            sympy.Min, expressions
+        )
 
 
 def max_(expressions: List[Expression]) -> Expression:
     with sympy_evaluate(True):
-        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(sympy.Max, expressions)
+        return SymPyFunctionApplication.from_sympy_function_and_general_arguments(
+            sympy.Max, expressions
+        )
