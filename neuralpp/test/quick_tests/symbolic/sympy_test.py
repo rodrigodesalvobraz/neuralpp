@@ -149,8 +149,7 @@ def test_sympy_bug():
 
     with evaluate(False):
         assert Add(1, 3) != 4  # desired behavior
-        assert Max(1, 3) == 3  # HERE! should not evaluate. If the sympy bug is fixed this line should fail
-        # assert Max(1, 3) != 3  # If the sympy bug is fixed we should use this line
+        assert Max(1, 3) != 3  # If the sympy bug is fixed we should use this line
 
 
 def test_symbolic_summation():
