@@ -38,8 +38,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        conda install -c anaconda cudatoolkit
         pip install .
+        conda install -c anaconda cudatoolkit
 
     - name: Print out package info to help with debug
       run: pip list
