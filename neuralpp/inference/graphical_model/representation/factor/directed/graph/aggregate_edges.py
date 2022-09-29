@@ -4,7 +4,6 @@ from neuralpp.inference.graphical_model.representation.factor.directed.graph.edg
 
 
 class CycleFound(Exception):
-
     def __init__(self, cycle):
         self.cycle = cycle
 
@@ -37,7 +36,9 @@ def make_aggregated_edges_when_eliminating_variable(edges, variable):
     """
     edges_to_children_of_variable = [e for e in edges if e.parent is variable]
     edges_from_parents_of_variable = [e for e in edges if e.child is variable]
-    aggregated_edges_so_far = {(e.parent, e.child): e for e in edges if variable not in e}
+    aggregated_edges_so_far = {
+        (e.parent, e.child): e for e in edges if variable not in e
+    }
     for edge_to_child in edges_to_children_of_variable:
         for edge_from_parent in edges_from_parents_of_variable:
             key = (edge_from_parent.parent, edge_to_child.child)
@@ -47,7 +48,9 @@ def make_aggregated_edges_when_eliminating_variable(edges, variable):
                 # edge is new, so we need to register it and its path if it does not close a cycle
                 path = edge_from_parent.path[:-1] + edge_to_child.path
                 check_there_is_no_cycle(key, path, aggregated_edges_so_far)
-                aggregated_edges_so_far[key] = Edge(edge_from_parent.parent, edge_to_child.child, path)
+                aggregated_edges_so_far[key] = Edge(
+                    edge_from_parent.parent, edge_to_child.child, path
+                )
     aggregated_edges = aggregated_edges_so_far
     return aggregated_edges
 

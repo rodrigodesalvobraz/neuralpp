@@ -9,7 +9,7 @@ REQUIRED_MAJOR = 3
 REQUIRED_MINOR = 10
 
 
-INSTALL_REQUIRES  = [
+INSTALL_REQUIRES = [
     "networkx",
     "torch",
     "torchaudio",

@@ -21,6 +21,7 @@ class CountedAdd:
     """
     Counts the number of times the add function is called and executed, excluding cache retrieval.
     """
+
     call_count = 0
 
     @cache_by_id
@@ -33,6 +34,7 @@ class CountedFibonacci:
     """
     Counts the number of times the fibonacci function is called and executed, excluding cache retrieval.
     """
+
     call_count = 0
 
     @cache_by_id
@@ -41,7 +43,9 @@ class CountedFibonacci:
         value = n.value
         if value <= 1:
             return 1
-        return self.fibonacci(num_wrappers[value-1]) + self.fibonacci(num_wrappers[value-2])
+        return self.fibonacci(num_wrappers[value - 1]) + self.fibonacci(
+            num_wrappers[value - 2]
+        )
 
 
 def test_cache_by_id_on_loop():
@@ -50,15 +54,15 @@ def test_cache_by_id_on_loop():
     n = 10
     m = 5
 
-    assert (test_object_1.call_count == 0)
+    assert test_object_1.call_count == 0
 
     for x in range(n):
         for y in range(n):
             result = test_object_1.add(x, y)
-            assert (result == x + y)
+            assert result == x + y
 
     # Each call to the method should have been counted.
-    assert (test_object_1.call_count == n * n)
+    assert test_object_1.call_count == n * n
 
     # Call the same results again with the same test object
     # These results should all be cached, so there are no direct calls to add
@@ -67,16 +71,16 @@ def test_cache_by_id_on_loop():
             test_object_1.add(x, y)
 
     # The count on this object is still the same as before.
-    assert (test_object_1.call_count == n * n)
+    assert test_object_1.call_count == n * n
 
     # Calls to the method on test_object_2 should be stored separately, so
     # it should have m * m calls of its own even though the non-self args
     # are the same.
-    assert(test_object_2.call_count == 0)
+    assert test_object_2.call_count == 0
     for x in range(m):
         for y in range(m):
             test_object_2.add(x, y)
-    assert (test_object_2.call_count == m * m)
+    assert test_object_2.call_count == m * m
 
 
 def test_fibonacci_recursive():
@@ -84,18 +88,17 @@ def test_fibonacci_recursive():
 
     # Check that fibonacci is computed only once per value in num_wrappers
     test_object.fibonacci(num_wrappers[9])
-    assert(test_object.call_count == 10)
+    assert test_object.call_count == 10
 
     # no new calls when using the same input object
     test_object.fibonacci(num_wrappers[9])
-    assert (test_object.call_count == 10)
+    assert test_object.call_count == 10
 
     # This next call should only result in one non-cached call
     test_object.fibonacci(num_wrappers[10])
-    assert(test_object.call_count == 11)
+    assert test_object.call_count == 11
 
     # this new object does result in a new call, since it is equal
     # to but not the same as the previous wrapper used for 9
     test_object.fibonacci(NumWrapper(9))
-    assert(test_object.call_count == 12)
-
+    assert test_object.call_count == 12

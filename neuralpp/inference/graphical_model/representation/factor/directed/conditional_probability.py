@@ -1,5 +1,4 @@
 class ConditionalProbability(Factor):
-
     @property
     def children(self):
         util.not_implemented(self, "children")

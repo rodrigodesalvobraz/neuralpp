@@ -3,7 +3,9 @@ from typing import Callable, get_args
 
 def test_callable():
     b = [bool for i in range(2)]
-    c1 = Callable[b, int]  # it's weird that PyCharm gives error on this (but it interprets)
+    c1 = Callable[
+        b, int
+    ]  # it's weird that PyCharm gives error on this (but it interprets)
     assert c1 == Callable[[bool, bool], int]
 
     c2 = Callable[[b], int]

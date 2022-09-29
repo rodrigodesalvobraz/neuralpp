@@ -16,7 +16,8 @@ _simplifier = SymPyInterpreter()
 
 
 class ClosedInterval(BasicExpression):
-    """ [lower_bound, upper_bound] """
+    """[lower_bound, upper_bound]"""
+
     def __init__(self, lower_bound, upper_bound):
         if not isinstance(lower_bound, Expression):
             raise AttributeError(f"{lower_bound}")
@@ -45,17 +46,22 @@ class ClosedInterval(BasicExpression):
             return ClosedInterval(self.lower_bound, new_expression)
         raise IndexError("out of scope.")
 
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+    def replace(
+        self, from_expression: Expression, to_expression: Expression
+    ) -> Expression:
         if self.syntactic_eq(from_expression):
             return to_expression
-        return ClosedInterval(self.lower_bound.replace(from_expression, to_expression),
-                              self.upper_bound.replace(from_expression, to_expression))
+        return ClosedInterval(
+            self.lower_bound.replace(from_expression, to_expression),
+            self.upper_bound.replace(from_expression, to_expression),
+        )
 
     def internal_object_eq(self, other) -> bool:
         if not isinstance(other, ClosedInterval):
             return False
-        return self.lower_bound.internal_object_eq(other.lower_bound) and \
-            self.upper_bound.internal_object_eq(other.upper_bound)
+        return self.lower_bound.internal_object_eq(
+            other.lower_bound
+        ) and self.upper_bound.internal_object_eq(other.upper_bound)
 
     def __iter__(self) -> Iterable[int]:
         """
@@ -63,7 +69,9 @@ class ClosedInterval(BasicExpression):
         Otherwise, raise TypeError
         """
         match self.lower_bound, self.upper_bound:
-            case Constant(value=l, type=builtins.int), Constant(value=r, type=builtins.int):
+            case Constant(value=l, type=builtins.int), Constant(
+                value=r, type=builtins.int
+            ):
                 return iter(range(l, r))
             case _:
                 raise TypeError("Lower and upper bounds must both be Constants!")
@@ -71,7 +79,9 @@ class ClosedInterval(BasicExpression):
     @property
     def size(self) -> Expression:
         if self.lower_bound > self.upper_bound:
-            raise AttributeError(f'[{self.lower_bound},{self.upper_bound}] is an empty interval.')
+            raise AttributeError(
+                f"[{self.lower_bound},{self.upper_bound}] is an empty interval."
+            )
         return self.upper_bound - self.lower_bound + 1
 
     def to_context(self, index: Variable) -> Context:
@@ -79,8 +89,14 @@ class ClosedInterval(BasicExpression):
             raise AttributeError("lower bound is None")
         if self.upper_bound is None:
             raise AttributeError("upper bound is None")
-        result = Z3SolverExpression() & (index >= self.lower_bound) & (index <= self.upper_bound)
-        assert isinstance(result, Context)  # otherwise lower_bound <= upper_bound is unsatisfiable
+        result = (
+            Z3SolverExpression()
+            & (index >= self.lower_bound)
+            & (index <= self.upper_bound)
+        )
+        assert isinstance(
+            result, Context
+        )  # otherwise lower_bound <= upper_bound is unsatisfiable
         return result
 
 
@@ -105,7 +121,9 @@ class DottedIntervals(BasicExpression):
     def set(self, i: int, new_expression: Expression) -> Expression:
         raise NotImplementedError("TODO")
 
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+    def replace(
+        self, from_expression: Expression, to_expression: Expression
+    ) -> Expression:
         raise NotImplementedError("TODO")
 
     def internal_object_eq(self, other) -> bool:
@@ -141,6 +159,7 @@ class MagicInterval:
     [x,y] if x > y and z >= y
     [y,y] if x <= y and z <= y
     """
+
     def __init__(self):
         self._lower_bounds = []
         self._upper_bounds = []
@@ -161,14 +180,21 @@ class MagicInterval:
 
     def to_conditional_intervals(self, context: Z3SolverExpression) -> Expression:
         if len(self.lower_bounds) < 1 or len(self.upper_bounds) < 1:
-            raise AttributeError(f"bounds not set. {self.lower_bounds} {self.upper_bounds}")
-        return DottedIntervals(ClosedInterval(max_(self._lower_bounds),
-                                              min_(self.upper_bounds)), [])
+            raise AttributeError(
+                f"bounds not set. {self.lower_bounds} {self.upper_bounds}"
+            )
+        return DottedIntervals(
+            ClosedInterval(max_(self._lower_bounds), min_(self.upper_bounds)), []
+        )
 
 
-def from_constraint(index: Variable, constraint: Context, context: Context, is_integral: bool,
-                    profiler: Profiler = Profiler(dummy=True),
-                    ) -> Expression:
+def from_constraint(
+    index: Variable,
+    constraint: Context,
+    context: Context,
+    is_integral: bool,
+    profiler: Profiler = Profiler(dummy=True),
+) -> Expression:
     """
     @param index: the variable that the interval is for
     @param constraint: the constraint of the quantifier expression
@@ -189,12 +215,16 @@ def from_constraint(index: Variable, constraint: Context, context: Context, is_i
     match constraint:
         case FunctionApplication(function=Constant(value=operator.or_)):
             raise NotImplementedError("Not expecting OR")
-        case FunctionApplication(function=Constant(value=operator.and_), arguments=arguments):
+        case FunctionApplication(
+            function=Constant(value=operator.and_), arguments=arguments
+        ):
             with profiler.profile_section("compute magic interval"):
                 magic_interval = MagicInterval()
                 for argument in arguments:
                     argument = _adjust(argument, index)
-                    _extract_bound_from_constraint(index, argument, magic_interval, is_integral)
+                    _extract_bound_from_constraint(
+                        index, argument, magic_interval, is_integral
+                    )
                 return magic_interval.to_conditional_intervals(context)
         case _:
             raise NotImplementedError("Constraint should be AND of constraints")
@@ -232,7 +262,9 @@ def _extract_bound_from_constraint(
         variable_index = 2
         bound = constraint.subexpressions[1]
     else:
-        raise ValueError(f"intervals is not yet ready to handle more complicated cases {constraint} {index}")
+        raise ValueError(
+            f"intervals is not yet ready to handle more complicated cases {constraint} {index}"
+        )
 
     match possible_inequality:
         case operator.ge:
@@ -268,11 +300,7 @@ def _extract_bound_from_constraint(
     return magic_interval
 
 
-def _check_and_set_bounds(
-    index: int,
-    bound: Expression,
-    magic_interval: MagicInterval
-):
+def _check_and_set_bounds(index: int, bound: Expression, magic_interval: MagicInterval):
     """
     @param index: indicates which bound we are checking => 0 is lower bound and 1 is upper bound
     @param bound: the Constant of the bound (the value inside will be an int)

@@ -17,11 +17,11 @@ def test_context():
     assert not z3.is_var(y)  # z3.is_var means vars in quantifier
     assert not z3.is_var((y == 2).arg(0))
     assert z3.is_int_value((y == 2).arg(1))
-    assert extract_key_to_value_from_assertions([y == 2]) == {'y': 2}
+    assert extract_key_to_value_from_assertions([y == 2]) == {"y": 2}
     context1 = Z3SolverExpression(s1)
     with pytest.raises(KeyError):
         context1.dict[y]
-    assert context1.dict['y'] == 2
+    assert context1.dict["y"] == 2
     assert len(context1.dict) == 1
     assert not context1.unsatisfiable
 
@@ -37,22 +37,24 @@ def test_context():
 
     context4 = context1 & context2
     assert not context4.unsatisfiable
-    assert context4.dict['z'] == 3
+    assert context4.dict["z"] == 3
 
     context5 = context1 & context2 & context3
     assert context5.unsatisfiable
     with pytest.raises(KeyError):
         # because it's already unsatisfiable, asking for value of a variable does not make sense, since
         # we can return anything
-        context5.dict['y']
+        context5.dict["y"]
 
     context6 = context2 & (z < 0)  # and a literal
     assert context6.unsatisfiable
     context7 = (z < 0) & context2  # rand also works
     assert context7.unsatisfiable
 
-    context8 = context1 & dict_to_sympy_context({'z': 4})  # internally convert other types of expressions
-    assert context8.dict['z'] == 4
+    context8 = context1 & dict_to_sympy_context(
+        {"z": 4}
+    )  # internally convert other types of expressions
+    assert context8.dict["z"] == 4
 
     s4 = Solver()
     s4.add(x == y)

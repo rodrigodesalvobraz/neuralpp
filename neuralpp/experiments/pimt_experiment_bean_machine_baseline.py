@@ -32,4 +32,6 @@ for inference in [bm.inference.BMGInference(), bm.CompositionalInference()]:
         num_chains=1,
     )
     end = time.time()
-    print(f"Inference {inference} found {samples[mu2()][0].mean()} in {(end - start):.3} secs.")
+    print(
+        f"Inference {inference} found {samples[mu2()][0].mean()} in {(end - start):.3} secs."
+    )

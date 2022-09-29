@@ -26,7 +26,10 @@ from neuralpp.inference.neural_net.from_log_to_probabilities_adapter import (
 from neuralpp.util.generic_sgd_learner import default_after_epoch
 from neuralpp.util.mnist_util import read_mnist, show_images_and_labels
 from neuralpp.util.pickle_cache import pickle_cache
-from neuralpp.util.util import set_default_tensor_type_and_return_device, go_up_until_we_have_subdirectory
+from neuralpp.util.util import (
+    set_default_tensor_type_and_return_device,
+    go_up_until_we_have_subdirectory,
+)
 
 show_examples = True
 shuffle_data = True

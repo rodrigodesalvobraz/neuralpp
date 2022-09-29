@@ -73,7 +73,6 @@ if __name__ == "__main__":
     # converting to BM
     converter = BeanMachineConverter([marginalized_factor], variable_assignments)
 
-
     # Turns out that since GMM is unsupervised, it's possible for the same mu_k to
     # represents a different component in a different chain, resulting a low ess and
     # rhat values. So the functional here is just to enforce that the k_th smallest

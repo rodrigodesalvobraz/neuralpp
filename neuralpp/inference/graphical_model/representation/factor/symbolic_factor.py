@@ -1,7 +1,11 @@
 import sympy
 from typing import Dict, List, Union
-from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
-from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
+from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
+    AtomicFactor,
+)
+from neuralpp.inference.graphical_model.variable.discrete_variable import (
+    DiscreteVariable,
+)
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.symbolic.expression import Expression
@@ -23,12 +27,14 @@ class SymbolicFactor(AtomicFactor):
         return DiscreteVariable.assignments_product(self.variables)
 
     def _variable_type(self, variable: Variable) -> type:
-        if (isinstance(variable, IntegerVariable)):
+        if isinstance(variable, IntegerVariable):
             return int
         else:
             return float
 
-    def _dict_to_context(self, assignment_dict: dict[Variable, Union[int, float]]) -> Expression:
+    def _dict_to_context(
+        self, assignment_dict: dict[Variable, Union[int, float]]
+    ) -> Expression:
         conjunction = sympy.S.true
         type_dict = {}
         for k, v in assignment_dict.items():
@@ -39,7 +45,9 @@ class SymbolicFactor(AtomicFactor):
 
         return SymPyContext(conjunction, type_dict)
 
-    def condition_on_non_empty_dict(self, assignment_dict: Dict[Variable, Union[int, float]]):
+    def condition_on_non_empty_dict(
+        self, assignment_dict: Dict[Variable, Union[int, float]]
+    ):
         # TODO: handle batch cases
         non_conditioned_variables = [
             v
@@ -52,14 +60,13 @@ class SymbolicFactor(AtomicFactor):
 
         return self.new_instance(non_conditioned_variables, conditioned_expression)
 
-
     def call_after_validation(self, assignment_dict, assignment_values):
         context = self._dict_to_context(assignment_dict)
         return self.interpreter.eval(self.expression, context)
 
     def mul_by_non_identity(self, other):
         """Multiplies factors so that (f1 * f2)(assignment) = f1(assignment)*f2(assignment)
-           Multiply the two expressions together to create a new expression and create a new symbolic factor with that"""
+        Multiply the two expressions together to create a new expression and create a new symbolic factor with that"""
         if not isinstance(other, SymbolicFactor):
             raise Exception(
                 f"Multiplication of SymbolicFactor to factors other than SymbolicFactor is not implemented. "
@@ -95,7 +102,7 @@ class SymbolicFactor(AtomicFactor):
         raise NotImplementedError("TODO")
 
     def randomized_copy(self):
-         raise NotImplementedError("TODO")
+        raise NotImplementedError("TODO")
 
     def __eq__(self, other):
         """
@@ -103,8 +110,10 @@ class SymbolicFactor(AtomicFactor):
         (after appropriate permutation if variables are not in the same order).
         """
         if isinstance(other, SymbolicFactor):
-            return (self.variables == other.variables and
-                self.expression == other.expression)
+            return (
+                self.variables == other.variables
+                and self.expression == other.expression
+            )
         else:
             raise Exception(
                 f"Comparison of SymbolicFactor to factors other than SymbolicFactor is not implemented. "

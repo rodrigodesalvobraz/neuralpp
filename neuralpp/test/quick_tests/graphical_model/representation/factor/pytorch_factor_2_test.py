@@ -4,7 +4,9 @@ from collections import Counter
 import pytest
 import torch
 
-from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import PyTorchTableFactor
+from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
+    PyTorchTableFactor,
+)
 from neuralpp.inference.graphical_model.representation.table.pytorch_log_table import (
     PyTorchLogTable,
 )
@@ -12,7 +14,9 @@ from neuralpp.inference.graphical_model.representation.table.pytorch_table impor
     BatchCoordinatesDoNotAgreeException,
     PyTorchTable,
 )
-from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
+from neuralpp.inference.graphical_model.variable.discrete_variable import (
+    DiscreteVariable,
+)
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.util import util
 from neuralpp.util.discrete_sampling import discrete_sample
@@ -151,7 +155,7 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             variables, function, log_space_expected, batch_size
         )
 
-    fixy = lambda i, x, y: float((10 ** i) * (x * 3 + y))
+    fixy = lambda i, x, y: float((10**i) * (x * 3 + y))
 
     factor = table_factor_from_function_with_batch_row_index(
         (x, y), fixy, log_space, batch_size
@@ -479,14 +483,21 @@ def test_sample(x, y, z, log_space, batch_size):
         # Need to convert tensor to list of list of tensors because apparently
         # there is no way to compute histograms over batches.
         samples_per_factor_batch_row = [
-            [get_assignment(batch_samples, batch_index, sample_index) for sample_index in range(number_of_samples)]
+            [
+                get_assignment(batch_samples, batch_index, sample_index)
+                for sample_index in range(number_of_samples)
+            ]
             for batch_index in range(effective_batch_size)
         ]
 
         for samples_for_row in samples_per_factor_batch_row:
             assignments_histogram = Counter(samples_for_row)
-            assignment_indices_histogram = [assignments_histogram[a] for a in factor.assignments()]
-            empirical_probabilities = util.normalize_tensor(assignment_indices_histogram)
+            assignment_indices_histogram = [
+                assignments_histogram[a] for a in factor.assignments()
+            ]
+            empirical_probabilities = util.normalize_tensor(
+                assignment_indices_histogram
+            )
 
             # Let X_i be the random indicator that the i-th assignment is sampled.
             # X_i is Bernoulli-distributed with the probability p_i that the i-th assignment is sampled.
@@ -499,14 +510,20 @@ def test_sample(x, y, z, log_space, batch_size):
 
             print(f"Theoretical Probabilities: {probabilities}")
             print(f"Empirical   Probabilities: {empirical_probabilities}")
-            print(f"Difference: {[probabilities[i] - empirical_probabilities[i] for i in range(len(probabilities))]}")
-            print(f"Std errors: {[std_err(p, number_of_samples) for p in probabilities]}")
+            print(
+                f"Difference: {[probabilities[i] - empirical_probabilities[i] for i in range(len(probabilities))]}"
+            )
+            print(
+                f"Std errors: {[std_err(p, number_of_samples) for p in probabilities]}"
+            )
             print(f"Tolerance: {absolute_tolerance:.3}")
 
             assert torch.allclose(
                 probabilities, empirical_probabilities, atol=absolute_tolerance
-            ), "Samples deviated from neuralpp.expected distribution; " \
-               "this is possible but should be an extremely rare event."
+            ), (
+                "Samples deviated from neuralpp.expected distribution; "
+                "this is possible but should be an extremely rare event."
+            )
 
 
 def get_assignment(batch_samples, batch_index, sample_index):

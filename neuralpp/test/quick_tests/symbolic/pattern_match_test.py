@@ -68,7 +68,9 @@ def test_pattern_matching_property():
     match e:
         case Click3(position="left", button=_):
             assert False  # not reachable
-        case Click3(position=(x, y), button="left"):  # property is also accepted as __match_args__
+        case Click3(
+            position=(x, y), button="left"
+        ):  # property is also accepted as __match_args__
             assert x == 1 and y == 1
 
 
@@ -100,7 +102,9 @@ def test_pattern_matching_no_init():
     match e:
         case Click4(position="left", button=_):
             assert False  # not reachable
-        case Click4(position=(x, y), button="left"):  # property is also accepted as __match_args__
+        case Click4(
+            position=(x, y), button="left"
+        ):  # property is also accepted as __match_args__
             assert x == 1 and y == 1
 
 

@@ -42,8 +42,10 @@ class TensorVariable(Variable):
 
     def _check_value_dimension(self, tensor):
         if tensor.dim() not in {self.non_batch_dim, self.non_batch_dim + 1}:
-            raise Exception(f"Tensor value for {self} must have dimension "
-                            f"{self.non_batch_dim} or {self.non_batch_dim + 1} (if batch)")
+            raise Exception(
+                f"Tensor value for {self} must have dimension "
+                f"{self.non_batch_dim} or {self.non_batch_dim + 1} (if batch)"
+            )
 
     def __eq__(self, other):
         if not isinstance(other, TensorVariable):

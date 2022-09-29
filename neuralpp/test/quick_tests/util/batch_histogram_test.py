@@ -20,12 +20,24 @@ def test_batch_histogram():
     run_test(data, expected)
 
     data = [
-        [[2, 5, 1, 1], [2, 4, 1, 1], ],
-        [[3, 0, 3, 1], [2, 3, 1, 1], ],
+        [
+            [2, 5, 1, 1],
+            [2, 4, 1, 1],
+        ],
+        [
+            [3, 0, 3, 1],
+            [2, 3, 1, 1],
+        ],
     ]
     expected = [
-        [[0, 2, 1, 0, 0, 1], [0, 2, 1, 0, 1, 0], ],
-        [[1, 1, 0, 2, 0, 0], [0, 2, 1, 1, 0, 0], ],
+        [
+            [0, 2, 1, 0, 0, 1],
+            [0, 2, 1, 0, 1, 0],
+        ],
+        [
+            [1, 1, 0, 2, 0, 0],
+            [0, 2, 1, 1, 0, 0],
+        ],
     ]
     run_test(data, expected)
 
@@ -42,7 +54,9 @@ def test_empty_data():
     run_test(data, expected, num_classes)
 
     data = [[], []]
-    run_test(data, expected=None, exception=RuntimeError)  # num_classes not provided for empty data
+    run_test(
+        data, expected=None, exception=RuntimeError
+    )  # num_classes not provided for empty data
 
 
 def run_test(data, expected, num_classes=-1, exception=None):

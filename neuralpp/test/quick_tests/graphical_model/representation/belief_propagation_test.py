@@ -1,18 +1,25 @@
 import random
 
-from neuralpp.experiments.experimental_inference.approximations import message_approximation
-from neuralpp.experiments.experimental_inference.exact_belief_propagation import ExactBeliefPropagation, \
-    AnytimeExactBeliefPropagation
+from neuralpp.experiments.experimental_inference.approximations import (
+    message_approximation,
+)
+from neuralpp.experiments.experimental_inference.exact_belief_propagation import (
+    ExactBeliefPropagation,
+    AnytimeExactBeliefPropagation,
+)
 from neuralpp.experiments.experimental_inference.graph_analysis import FactorGraph
 from neuralpp.inference.graphical_model.representation.factor.factor import Factor
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
-from neuralpp.inference.graphical_model.representation.random.random_model import generate_model
+from neuralpp.inference.graphical_model.representation.random.random_model import (
+    generate_model,
+)
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
 
 from matplotlib import pyplot as plt
+
 
 def test_ebp_tree():
     prob_cloudy = [0.2, 0.4, 0.4]
@@ -40,7 +47,7 @@ def test_ebp_tree():
 
     # expected_w = PyTorchTableFactor([w], [0.192, 0.332, 0.34, 0.136])
     expected_w = VariableElimination().run(w, factors)
-    assert (ExactBeliefPropagation(factors, w).run() == expected_w)
+    assert ExactBeliefPropagation(factors, w).run() == expected_w
 
     # observe cloudiness at highest level
     observations = {c: 2}
@@ -49,7 +56,10 @@ def test_ebp_tree():
     # this should result in increased chances of rain
     # expected_w_with_conditions = PyTorchTableFactor([w], [0.12, 0.26, 0.42, 0.2])
     expected_w_with_conditions = VariableElimination().run(w, conditioned_factors)
-    assert (ExactBeliefPropagation(conditioned_factors, w).run() == expected_w_with_conditions)
+    assert (
+        ExactBeliefPropagation(conditioned_factors, w).run()
+        == expected_w_with_conditions
+    )
 
 
 def test_ebp_with_loop():
@@ -81,7 +91,7 @@ def test_ebp_with_loop():
     ]
 
     expected_w = VariableElimination().run(w, factors)
-    assert (ExactBeliefPropagation(factors, w).run() == expected_w)
+    assert ExactBeliefPropagation(factors, w).run() == expected_w
 
     # observe cloudiness at highest level
     observations = {c: 2}
@@ -89,7 +99,10 @@ def test_ebp_with_loop():
 
     # this should result in increased chances of rain
     expected_w_with_conditions = VariableElimination().run(w, conditioned_factors)
-    assert (ExactBeliefPropagation(conditioned_factors, w).run() == expected_w_with_conditions)
+    assert (
+        ExactBeliefPropagation(conditioned_factors, w).run()
+        == expected_w_with_conditions
+    )
 
 
 def test_random_model_ebp():
@@ -99,7 +112,7 @@ def test_random_model_ebp():
         )
         query = random.choice([v for f in factors for v in f.variables])
         expected = VariableElimination().run(query, factors)
-        assert (ExactBeliefPropagation(factors, query).run() == expected)
+        assert ExactBeliefPropagation(factors, query).run() == expected
 
 
 def test_incremental_anytime_with_uniform_approximation():
@@ -132,14 +145,14 @@ def test_incremental_anytime_with_uniform_approximation():
         if isinstance(x, IntegerVariable):
             return ord(x.name)
         else:
-            assert (isinstance(x, Factor))
+            assert isinstance(x, Factor)
             return sum([ord(var.name) for var in x.variables])
 
     aebp_computation = AnytimeExactBeliefPropagation.from_factors(
         factors=factors,
         query=w,
         approximation=message_approximation,
-        expansion_value_function=scoring_function
+        expansion_value_function=scoring_function,
     )
 
     approximations = []
@@ -150,52 +163,62 @@ def test_incremental_anytime_with_uniform_approximation():
 
     # First approximation ends up being uniform since all factors leading to the query are uniform
     # Final approximation is the same as the result from Exact Belief Propagation on the entire tree
-    assert (approximations[0] == PyTorchTableFactor([w], [0.25, 0.25, 0.25, 0.25]))
+    assert approximations[0] == PyTorchTableFactor([w], [0.25, 0.25, 0.25, 0.25])
     # assert (approximations[-1] == PyTorchTableFactor([w], [0.192, 0.332, 0.34, 0.136]))
-    assert (approximations[-1] == VariableElimination().run(w, factors))
+    assert approximations[-1] == VariableElimination().run(w, factors)
 
     # Verify intermediates by constructing factor trees equivalent to the expected approximation step and
     # referencing with variable elimination
     variable_elimination_results = []
 
     def run_against_variable_elimination(approximate_factors):
-        variable_elimination_results.append(VariableElimination().run(w, approximate_factors))
+        variable_elimination_results.append(
+            VariableElimination().run(w, approximate_factors)
+        )
 
     def uniform_on_variables_at(node):
         # TODO: Replace with a UniformFactor once this exists
-        return PyTorchTableFactor.from_function(FactorGraph.variables_at(node), lambda *args: 1.0)
+        return PyTorchTableFactor.from_function(
+            FactorGraph.variables_at(node), lambda *args: 1.0
+        )
 
     uniform_r = uniform_on_variables_at(r)
     uniform_s = uniform_on_variables_at(s)
     uniform_c = uniform_on_variables_at(c)
 
-    run_against_variable_elimination([
-        uniform_r,
-        uniform_s,
-        PyTorchTableFactor.from_function([w, r, s], prob_wet_grass)
-    ])
+    run_against_variable_elimination(
+        [
+            uniform_r,
+            uniform_s,
+            PyTorchTableFactor.from_function([w, r, s], prob_wet_grass),
+        ]
+    )
 
-    run_against_variable_elimination([
-        uniform_r,
-        PyTorchTableFactor([s], prob_sprinkler),
-        PyTorchTableFactor.from_function([w, r, s], prob_wet_grass)
-    ])
+    run_against_variable_elimination(
+        [
+            uniform_r,
+            PyTorchTableFactor([s], prob_sprinkler),
+            PyTorchTableFactor.from_function([w, r, s], prob_wet_grass),
+        ]
+    )
 
-    run_against_variable_elimination([
-        uniform_c,
-        PyTorchTableFactor([c, r], prob_rain_given_cloudy),
-        PyTorchTableFactor([s], prob_sprinkler),
-        PyTorchTableFactor.from_function([w, r, s], prob_wet_grass)
-    ])
+    run_against_variable_elimination(
+        [
+            uniform_c,
+            PyTorchTableFactor([c, r], prob_rain_given_cloudy),
+            PyTorchTableFactor([s], prob_sprinkler),
+            PyTorchTableFactor.from_function([w, r, s], prob_wet_grass),
+        ]
+    )
 
     # Some approximations share the same value, since approximations on a variable or a factor on that variable
     # create the same messages.
-    assert (approximations[1] == variable_elimination_results[0])
-    assert (approximations[2] == variable_elimination_results[0])
-    assert (approximations[3] == variable_elimination_results[1])
-    assert (approximations[4] == variable_elimination_results[1])
-    assert (approximations[5] == variable_elimination_results[2])
-    assert (approximations[6] == variable_elimination_results[2])
+    assert approximations[1] == variable_elimination_results[0]
+    assert approximations[2] == variable_elimination_results[0]
+    assert approximations[3] == variable_elimination_results[1]
+    assert approximations[4] == variable_elimination_results[1]
+    assert approximations[5] == variable_elimination_results[2]
+    assert approximations[6] == variable_elimination_results[2]
 
 
 def test_random_model_aebp():
@@ -208,7 +231,7 @@ def test_random_model_aebp():
         if isinstance(x, IntegerVariable):
             return total_ord(x.name)
         else:
-            assert (isinstance(x, Factor))
+            assert isinstance(x, Factor)
             return sum([total_ord(var.name) for var in x.variables])
 
     def run_incremental_aebp_to_completion(factors, query):
@@ -216,7 +239,7 @@ def test_random_model_aebp():
             factors,
             query,
             expansion_value_function=scoring_function,
-            approximation=message_approximation
+            approximation=message_approximation,
         )
         while not aebp.is_complete():
             aebp.expand(query)
@@ -229,7 +252,7 @@ def test_random_model_aebp():
         query = random.choice([v for f in factors for v in f.variables])
         expected = VariableElimination().run(query, factors)
         result = run_incremental_aebp_to_completion(factors, query)
-        assert (result == expected)
+        assert result == expected
 
 
 def test_monotonic_improvement():
@@ -256,9 +279,13 @@ def test_monotonic_improvement():
     random_query = False  # whether to pick a query at random for the docstring model or use x_0 instead.
 
     # random model
-    use_random_models = False  # use a random model rather than the one described in the docstring.
+    use_random_models = (
+        False  # use a random model rather than the one described in the docstring.
+    )
     number_of_factors = 25  # number of factors in the random model, if used.
-    number_of_variables = int(number_of_factors * 2 / 3)  # number of variables in the random model, if used.
+    number_of_variables = int(
+        number_of_factors * 2 / 3
+    )  # number of variables in the random model, if used.
 
     # End of configuration
 
@@ -278,16 +305,18 @@ def test_monotonic_improvement():
         factors = [
             PyTorchTableFactor.from_function(
                 [x[i], x[i + 1]],
-                lambda xi, xip1:
-                (0.9 if xi else 0.1) if xip1 else
-                (0.2 if xi else 0.8))
-            for i in range(n - 1)]
+                lambda xi, xip1: (0.9 if xi else 0.1) if xip1 else (0.2 if xi else 0.8),
+            )
+            for i in range(n - 1)
+        ]
     else:
         # Random models
         name = f"Random model with {number_of_factors} factors and {number_of_variables} variables"
         monotonic = False
         factors = generate_model(
-            number_of_factors=number_of_factors, number_of_variables=number_of_variables, cardinality=2
+            number_of_factors=number_of_factors,
+            number_of_variables=number_of_variables,
+            cardinality=2,
         )
 
     if query is None:
@@ -297,7 +326,7 @@ def test_monotonic_improvement():
         factors,
         query,
         expansion_value_function=scoring_function,
-        approximation=message_approximation
+        approximation=message_approximation,
     )
 
     true_answer = VariableElimination().run(query, factors)
@@ -310,12 +339,15 @@ def test_monotonic_improvement():
     while True:
         current_approximation = anytime[query].normalize()
         true_query = {query: 1}
-        current_error = abs(current_approximation(true_query) - true_answer(true_query)).item()
+        current_error = abs(
+            current_approximation(true_query) - true_answer(true_query)
+        ).item()
         errors.append(current_error)
         improvement = last_error - current_error
         print(
             f"Approximation: {current_approximation}, current error: {current_error:.4f}, "
-            f"last error: {last_error:.4f}, improvement: {improvement}")
+            f"last error: {last_error:.4f}, improvement: {improvement}"
+        )
         if monotonic:
             assert improvement >= -1e-7
 

@@ -1,7 +1,10 @@
 import torch
 
-from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import default_parameters, \
-    solve_learning_problem_from_parameters, make_digits_and_all_true_constraints_values_batches_generator
+from neuralpp.experiments.mnist_semi_supervised.mnist_semi_supervised import (
+    default_parameters,
+    solve_learning_problem_from_parameters,
+    make_digits_and_all_true_constraints_values_batches_generator,
+)
 
 
 # Trains a digit recognizer with the generative model:
@@ -72,7 +75,9 @@ def constraint_function(constraint_index, di, di_plus_one):
     return di_plus_one == di + 1
 
 
-def generate_chain_of_successive_digits_batch(number_of_digits, chain_length, batch_size):
+def generate_chain_of_successive_digits_batch(
+    number_of_digits, chain_length, batch_size
+):
     """
     Must generate an example guaranteed to satisfy all constraints
     """
@@ -89,19 +94,24 @@ def generate_chain_of_successive_digits_batch(number_of_digits, chain_length, ba
     return digit_values
 
 
-chain_of_successive_digits_and_all_true_constraints_batch_generator = \
+chain_of_successive_digits_and_all_true_constraints_batch_generator = (
     make_digits_and_all_true_constraints_values_batches_generator(
         generate_chain_of_successive_digits_batch
     )
+)
 
 parameters = default_parameters()
 parameters.chain_length = 4
 parameters.number_of_constraints = parameters.chain_length - 1
 parameters.number_of_constraint_values = 2  # constraints are boolean
-parameters.indices_of_digit_arguments_of_constraint = indices_of_digit_arguments_of_constraint
+parameters.indices_of_digit_arguments_of_constraint = (
+    indices_of_digit_arguments_of_constraint
+)
 parameters.constraint_function = constraint_function
 
-parameters.custom_digits_and_constraints_values_batches_generator = None  # allows negative examples (false constraints)
+parameters.custom_digits_and_constraints_values_batches_generator = (
+    None  # allows negative examples (false constraints)
+)
 # parameters.custom_digits_and_constraints_values_batches_generator = chain_of_successive_digits_and_all_true_constraints_batch_generator
 
 solve_learning_problem_from_parameters(parameters)

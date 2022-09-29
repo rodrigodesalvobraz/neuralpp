@@ -7,11 +7,20 @@ import builtins
 import z3
 
 from typing import Callable
-from neuralpp.symbolic.basic_expression import BasicVariable, BasicConstant, BasicFunctionApplication
+from neuralpp.symbolic.basic_expression import (
+    BasicVariable,
+    BasicConstant,
+    BasicFunctionApplication,
+)
 from neuralpp.symbolic.basic_interpreter import BasicInterpreter
 from neuralpp.util.symbolic_error_util import UnknownError
-from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication, \
-    SymPyExpression, SymPyContext
+from neuralpp.symbolic.sympy_expression import (
+    SymPyVariable,
+    SymPyConstant,
+    SymPyFunctionApplication,
+    SymPyExpression,
+    SymPyContext,
+)
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 from neuralpp.symbolic.z3_expression import Z3FunctionApplication
 from neuralpp.symbolic.functions import conditional
@@ -48,7 +57,9 @@ def test_basic_interpreter():
 
     # operator
     operator_add = BasicConstant(operator.add, int_to_int_to_int)
-    built_in_add_one_to_two = BasicFunctionApplication(operator_add, [one, BasicConstant(2)])
+    built_in_add_one_to_two = BasicFunctionApplication(
+        operator_add, [one, BasicConstant(2)]
+    )
     assert bi.eval(built_in_add_one_to_two) == 3
 
     # uninterpreted function
@@ -96,17 +107,31 @@ def test_sympy_interpreter():
 
     # more interesting cases where there is a context
     x, y, z = sympy.symbols("x y z")
-    assert si.eval(SymPyFunctionApplication(x * 3, {x: int}),
-                   SymPyContext(sympy.Eq(x, 10, evaluate=False), {x: int})) \
-           == 30
+    assert (
+        si.eval(
+            SymPyFunctionApplication(x * 3, {x: int}),
+            SymPyContext(sympy.Eq(x, 10, evaluate=False), {x: int}),
+        )
+        == 30
+    )
 
     dict1 = {"x": 3, "y": 5}
-    assert si.eval(SymPyFunctionApplication(x * y, {x: int, y: int}),
-                   dict_to_sympy_context(dict1)) == 15
+    assert (
+        si.eval(
+            SymPyFunctionApplication(x * y, {x: int, y: int}),
+            dict_to_sympy_context(dict1),
+        )
+        == 15
+    )
 
     dict2 = {"x": 3, "y": 5, "z": 100}
-    assert si.eval(SymPyFunctionApplication(x * y + z, {x: int, y: int, z: int}),
-                   dict_to_sympy_context(dict2)) == 115
+    assert (
+        si.eval(
+            SymPyFunctionApplication(x * y + z, {x: int, y: int, z: int}),
+            dict_to_sympy_context(dict2),
+        )
+        == 115
+    )
 
     # test operators
     operator_mul = BasicConstant(operator.mul, int_to_int_to_int)
@@ -115,7 +140,9 @@ def test_sympy_interpreter():
 
     operator_pow = BasicConstant(operator.pow, int_to_int_to_int)
     three = SymPyConstant(sympy.Integer(3))
-    two_to_the_third = SymPyExpression.new_function_application(operator_pow, [two, three])
+    two_to_the_third = SymPyExpression.new_function_application(
+        operator_pow, [two, three]
+    )
     assert si.eval(two_to_the_third) == 8
 
     operator_and = BasicConstant(operator.and_, bool_to_bool_to_bool)
@@ -129,35 +156,46 @@ def test_sympy_interpreter():
 
     # it's the case for or
     with pytest.raises(TypeError):
-        SymPyExpression.new_function_application(BasicConstant(operator.or_, bool_to_bool_to_bool), [true, false])
+        SymPyExpression.new_function_application(
+            BasicConstant(operator.or_, bool_to_bool_to_bool), [true, false]
+        )
     # but not the case for "not" (for sympy 1.10.1, wonder if it's a bug?)
-    not_true = SymPyExpression.new_function_application(BasicConstant(operator.invert), [true])
+    not_true = SymPyExpression.new_function_application(
+        BasicConstant(operator.invert), [true]
+    )
     assert not si.eval(not_true)
 
-    one_le_one = SymPyExpression.new_function_application(BasicConstant(operator.le, int_to_int_to_bool), [one, one])
+    one_le_one = SymPyExpression.new_function_application(
+        BasicConstant(operator.le, int_to_int_to_bool), [one, one]
+    )
     assert si.eval(one_le_one)
 
-    one_lt_one = SymPyExpression.new_function_application(BasicConstant(operator.lt, int_to_int_to_bool), [one, one])
+    one_lt_one = SymPyExpression.new_function_application(
+        BasicConstant(operator.lt, int_to_int_to_bool), [one, one]
+    )
     assert not si.eval(one_lt_one)
 
-    max_of_one_three = SymPyExpression.new_function_application(BasicConstant(builtins.max, int_to_int_to_int),
-                                                                [one, three])
+    max_of_one_three = SymPyExpression.new_function_application(
+        BasicConstant(builtins.max, int_to_int_to_int), [one, three]
+    )
     assert max_of_one_three is not None
     assert si.eval(max_of_one_three) == 3
 
-    min_of_three_five = SymPyExpression.new_function_application(BasicConstant(builtins.min, int_to_int_to_int),
-                                                                 [SymPyVariable(x, int),
-                                                                  SymPyVariable(y, int)])
+    min_of_three_five = SymPyExpression.new_function_application(
+        BasicConstant(builtins.min, int_to_int_to_int),
+        [SymPyVariable(x, int), SymPyVariable(y, int)],
+    )
     assert si.eval(min_of_three_five, dict_to_sympy_context(dict1)) == 3
 
 
 def test_sympy_interpreter_simplify():
     si = SymPyInterpreter()
     x, y = sympy.symbols("x y")
-    x_plus_y = SymPyFunctionApplication(x+y, {x: int, y: int})
+    x_plus_y = SymPyFunctionApplication(x + y, {x: int, y: int})
     neg_y = SymPyFunctionApplication(-y, {y: int})  # -y is (-1)*y in sympy
-    x_plus_y_minus_y = SymPyExpression.new_function_application(BasicConstant(operator.add, int_to_int_to_int),
-                                                                [x_plus_y, neg_y])
+    x_plus_y_minus_y = SymPyExpression.new_function_application(
+        BasicConstant(operator.add, int_to_int_to_int), [x_plus_y, neg_y]
+    )
     assert x_plus_y_minus_y.number_of_arguments == 2
     assert x_plus_y_minus_y.type_dict[x] == int
     assert x_plus_y_minus_y.type_dict[y] == int
@@ -171,8 +209,9 @@ def test_sympy_interpreter_simplify():
     assert x_only.type_dict == {x: int}
 
     real_y = SymPyVariable(y, fractions.Fraction)
-    x_plus_real_y = SymPyExpression.new_function_application(BasicConstant(operator.add, int_to_real_to_real),
-                                                             [x_only, real_y])
+    x_plus_real_y = SymPyExpression.new_function_application(
+        BasicConstant(operator.add, int_to_real_to_real), [x_only, real_y]
+    )
     # old y type has been deleted
     assert len(x_plus_real_y.type_dict) == 2
     assert x_plus_real_y.type_dict[x] == int
@@ -181,8 +220,12 @@ def test_sympy_interpreter_simplify():
     # similar as above but with BasicExpression, internal conversion here
     b_x = BasicVariable("x", int)
     b_y = BasicVariable("y", int)
-    b_x_plus_y = BasicFunctionApplication(BasicConstant(operator.add, int_to_int_to_int), [b_x, b_y])
-    b_x_plus_y_minus_y = BasicFunctionApplication(BasicConstant(operator.sub, int_to_int_to_int), [b_x_plus_y, b_y])
+    b_x_plus_y = BasicFunctionApplication(
+        BasicConstant(operator.add, int_to_int_to_int), [b_x, b_y]
+    )
+    b_x_plus_y_minus_y = BasicFunctionApplication(
+        BasicConstant(operator.sub, int_to_int_to_int), [b_x_plus_y, b_y]
+    )
     assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(SymPyVariable(x, int))
     assert si.simplify(b_x_plus_y).sympy_object == x + y
 
@@ -242,14 +285,16 @@ def test_sympy_interpreter_simplify_operator_overload():
     x_3_y_2_context = dict_to_sympy_context({"x": 3, "y": 2})
     f = BasicConstant(conditional, Callable[[bool, int, int], int])
     fa = BasicFunctionApplication(f, [b_x <= 2, b_x * 100, b_y])
-    assert si.simplify(fa).sympy_object == sympy.Piecewise((x*100, x <= 2), (y, True))
+    assert si.simplify(fa).sympy_object == sympy.Piecewise((x * 100, x <= 2), (y, True))
     assert si.simplify(fa, x_2_y_2_context).value == 200
     assert si.simplify(fa, x_3_y_2_context).value == 2
 
     # convert from z3
     z3_x, z3_y = z3.Ints("x y")
     fa1 = Z3FunctionApplication(z3.If(z3_x <= 2, z3_x * 100, z3_y))
-    assert si.simplify(fa1).sympy_object == sympy.Piecewise((x*100, x <= 2), (y, True))
+    assert si.simplify(fa1).sympy_object == sympy.Piecewise(
+        (x * 100, x <= 2), (y, True)
+    )
     assert si.simplify(fa1, x_2_y_2_context).value == 200
     assert si.simplify(fa1, x_3_y_2_context).value == 2
 

@@ -81,7 +81,9 @@ class SymPyExpression(Expression, ABC):
         self._sympy_object = sympy_object
         self._type_dict = type_dict
 
-    def replace(self, from_expression: Expression, to_expression: Expression) -> Expression:
+    def replace(
+        self, from_expression: Expression, to_expression: Expression
+    ) -> Expression:
         """
         Overloading `replace()` to provide a fast path using sympy's native replace() method.
         """
@@ -101,8 +103,10 @@ class SymPyExpression(Expression, ABC):
             from_expression_sympy = SymPyExpression.convert(from_expression)
             to_expression_sympy = SymPyExpression.convert(to_expression)
             return SymPyExpression.from_sympy_object(
-                self.sympy_object.replace(from_expression_sympy.sympy_object, to_expression_sympy.sympy_object),
-                _build_type_dict_from_sympy_arguments([self, to_expression_sympy])
+                self.sympy_object.replace(
+                    from_expression_sympy.sympy_object, to_expression_sympy.sympy_object
+                ),
+                _build_type_dict_from_sympy_arguments([self, to_expression_sympy]),
             )
 
     @property
@@ -378,7 +382,6 @@ class SymPyConstant(SymPyExpression, Constant):
 
 
 class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, ABC):
-
     @property
     def function(self) -> Expression:
         if self._sympy_object.func == Poly:
@@ -430,7 +433,7 @@ class SymPyFunctionApplicationInterface(SymPyExpression, FunctionApplication, AB
 
 class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
     def __new__(
-            cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
+        cls, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
     ):
         if sympy_object.func == sympy.Piecewise:
             return SymPyPiecewise(sympy_object, type_dict)
@@ -540,7 +543,7 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
 
 class SymPyPoly(SymPyExpression):
     def __init__(
-            self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
+        self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
     ):
         SymPyExpression.__init__(self, sympy_object, float, type_dict)
 
@@ -558,7 +561,9 @@ class SymPyPoly(SymPyExpression):
 
     @property
     def poly(self) -> SymPyExpression:
-        return SymPyExpression.from_sympy_object(self.sympy_object.args[0], self.type_dict)
+        return SymPyExpression.from_sympy_object(
+            self.sympy_object.args[0], self.type_dict
+        )
 
     @property
     def subexpressions(self) -> List[Expression]:

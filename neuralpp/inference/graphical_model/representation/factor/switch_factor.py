@@ -1,8 +1,11 @@
 from typing import List
 
-from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
-from neuralpp.inference.graphical_model.representation.factor.continuous.mixture_factor import \
-    MixtureFactor
+from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
+    AtomicFactor,
+)
+from neuralpp.inference.graphical_model.representation.factor.continuous.mixture_factor import (
+    MixtureFactor,
+)
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 from neuralpp.util.util import join
@@ -10,7 +13,9 @@ from neuralpp.util.util import join
 
 class SwitchFactor(AtomicFactor):
     def __init__(self, switch, components):
-        variables: List[Variable] = util.ordered_union_list(component.variables for component in components)
+        variables: List[Variable] = util.ordered_union_list(
+            component.variables for component in components
+        )
         variables.append(switch)
         variables = list(variables)
         super().__init__(variables)
@@ -27,7 +32,9 @@ class SwitchFactor(AtomicFactor):
 
     def condition_on_non_empty_dict(self, assignment_dict):
         if self.switch in assignment_dict:
-            return self.components[assignment_dict[self.switch]].condition(assignment_dict)
+            return self.components[assignment_dict[self.switch]].condition(
+                assignment_dict
+            )
         else:
             return self._transform_components(lambda c: c.condition(assignment_dict))
 

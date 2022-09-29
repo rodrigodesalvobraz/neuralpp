@@ -159,6 +159,5 @@ def run_test_call_multivalue(assignment, expected, neural_factor):
     expected_tensor = torch.tensor(expected)
     actual = neural_factor(assignment)
     print("neural_factor({p: [0, 1], q:1, xor: 1}))", actual)
-    small = torch.tensor([0.05]*len(actual))
+    small = torch.tensor([0.05] * len(actual))
     assert all((actual - expected_tensor) ** 2 < small)
-

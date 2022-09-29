@@ -1,7 +1,11 @@
 from abc import ABC
 from typing import Any
 
-from neuralpp.experiments.experimental_inference.graph_analysis import Tree, PartialFactorSpanningTree, PartialTree
+from neuralpp.experiments.experimental_inference.graph_analysis import (
+    Tree,
+    PartialFactorSpanningTree,
+    PartialTree,
+)
 from neuralpp.util.util import argmax, empty, get_or_compute_and_put
 
 
@@ -26,7 +30,9 @@ class TreeComputation:
         self.result_dict = {}
 
     def __getitem__(self, node):
-        return get_or_compute_and_put(self.result_dict, node, self.compute, key_getter=id)
+        return get_or_compute_and_put(
+            self.result_dict, node, self.compute, key_getter=id
+        )
 
     def invalidate(self, node):
         """

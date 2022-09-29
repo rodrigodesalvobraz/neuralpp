@@ -2,8 +2,12 @@ import functools
 
 import torch
 
-from neuralpp.inference.graphical_model.representation.factor.atomic_factor import AtomicFactor
-from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
+from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
+    AtomicFactor,
+)
+from neuralpp.inference.graphical_model.representation.factor.product_factor import (
+    ProductFactor,
+)
 from neuralpp.util import util
 from neuralpp.util.util import join
 
@@ -16,9 +20,7 @@ class ContinuousFactor(AtomicFactor):
         self.conditioning_dict = conditioning_dict if conditioning_dict else {}
 
     def total_conditioning_dict(self, assignment_dict):
-        return util.union_of_dicts(
-            assignment_dict, self.conditioning_dict
-        )
+        return util.union_of_dicts(assignment_dict, self.conditioning_dict)
 
     def assignments(self):
         self._invalid_method("assignments")
@@ -30,7 +32,9 @@ class ContinuousFactor(AtomicFactor):
 
     @staticmethod
     def _invalid_method(method_name):
-        error = NotImplementedError(f"Factor.{method_name} invalid for factors with continuous variables")
+        error = NotImplementedError(
+            f"Factor.{method_name} invalid for factors with continuous variables"
+        )
         raise error
 
     def mul_by_non_identity(self, other):
@@ -49,5 +53,7 @@ class ContinuousFactor(AtomicFactor):
         self._not_implemented("sample")
 
     def _not_implemented(self, method_name):
-        error = NotImplementedError(f"Factor.{method_name} not yet supported for {type(self)}")
+        error = NotImplementedError(
+            f"Factor.{method_name} not yet supported for {type(self)}"
+        )
         raise error

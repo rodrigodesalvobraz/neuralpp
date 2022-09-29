@@ -1,5 +1,4 @@
 class AbstractConditionalProbability(ConditionalProbability):
-
     def __init__(self, parents, children, edges):
         self.parents = parents
         self.children = children

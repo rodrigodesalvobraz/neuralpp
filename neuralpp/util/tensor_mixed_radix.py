@@ -24,11 +24,13 @@ class TensorMixedRadix:
 
         digits = []
         for i, stride in enumerate(self.strides):
-            i_th_digits = torch.div(values, stride, rounding_mode='floor').int()
+            i_th_digits = torch.div(values, stride, rounding_mode="floor").int()
             values -= i_th_digits * stride
             digits.append(i_th_digits)
 
-        digits_as_vectors = [torch.unsqueeze(i_th_digits, dim=-1) for i_th_digits in digits]
+        digits_as_vectors = [
+            torch.unsqueeze(i_th_digits, dim=-1) for i_th_digits in digits
+        ]
         representation = torch.cat(digits_as_vectors, dim=-1)
 
         return representation

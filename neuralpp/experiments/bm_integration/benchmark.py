@@ -18,7 +18,6 @@ class BenchmarkResult(NamedTuple):
     rhat: xr.Dataset  # rhat convergence measurement
 
 
-
 def benchmark(
     infer_class: bm.inference.base_inference.BaseInference,
     queries: List[bm.RVIdentifier],
@@ -61,7 +60,7 @@ def benchmark(
                 next_n_worlds = []
                 for _ in range(n):
                     next_n_worlds.append(next(sampler))  # draw next sample
-                    pbar.update()  # update progress bar 
+                    pbar.update()  # update progress bar
                 end_time = time.perf_counter()
                 sample_time.append(end_time - begin_time)
                 # collect samples
@@ -82,7 +81,6 @@ def benchmark(
     )
     sample_sizes = np.cumsum(batch_sizes[1:])
     all_sample_time = np.array(all_sample_time)
-
 
     # convert to xarray dataset, which works better with ArviZ
     xr_dataset = mcs.to_xarray()
@@ -111,8 +109,8 @@ def benchmark(
         log_likelihood=np.array(log_likelihood),
         ess=xr.concat(ess, dim="draw"),
         rhat=xr.concat(rhat, dim="draw"),
-
     )
+
 
 def plot_metric(metric: str, sample_sizes: np.ndarray, values: Dict[str, xr.Dataset]):
 
@@ -132,24 +130,21 @@ def plot_metric(metric: str, sample_sizes: np.ndarray, values: Dict[str, xr.Data
     plt.legend()
     plt.show()
 
+
 def generate_plots(benchmark_results: Dict[str, BenchmarkResult]):
     assert len(benchmark_results) > 0
     sample_sizes = next(iter(benchmark_results.values())).sample_sizes
-
 
     # ess vs sample size
     plot_metric(
         "effective sample size",
         sample_sizes,
-        {method_name: result.ess for method_name, result in benchmark_results.items()}
+        {method_name: result.ess for method_name, result in benchmark_results.items()},
     )
 
     # rhat vs sample size
     plot_metric(
         "R_hat",
         sample_sizes,
-        {method_name: result.rhat for method_name, result in benchmark_results.items()}
+        {method_name: result.rhat for method_name, result in benchmark_results.items()},
     )
-
-
-  

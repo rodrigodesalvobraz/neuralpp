@@ -7,7 +7,9 @@ def is_multivalue_coordinate(coordinate):
     """
     Indicates whether given coordinate (index in a table or argument to a function) is a batch
     """
-    return util.is_iterable(coordinate)  # isinstance(coordinate, (list, range, torch.Tensor))
+    return util.is_iterable(
+        coordinate
+    )  # isinstance(coordinate, (list, range, torch.Tensor))
 
 
 def contains_multivalue_coordinate(coordinates):

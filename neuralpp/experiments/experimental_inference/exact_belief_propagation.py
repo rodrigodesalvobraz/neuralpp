@@ -1,15 +1,23 @@
 from collections import namedtuple
 
-from neuralpp.experiments.experimental_inference.graph_analysis import LazyFactorSpanningTree, FactorGraph, FactorTree, \
-    PartialFactorSpanningTree, PartialTreePlusOneLevel
-from neuralpp.experiments.experimental_inference.graph_computation import MaximumLeafValueComputation, \
-    PartialTreeComputation
-from neuralpp.inference.graphical_model.representation.factor.product_factor import ProductFactor
+from neuralpp.experiments.experimental_inference.graph_analysis import (
+    LazyFactorSpanningTree,
+    FactorGraph,
+    FactorTree,
+    PartialFactorSpanningTree,
+    PartialTreePlusOneLevel,
+)
+from neuralpp.experiments.experimental_inference.graph_computation import (
+    MaximumLeafValueComputation,
+    PartialTreeComputation,
+)
+from neuralpp.inference.graphical_model.representation.factor.product_factor import (
+    ProductFactor,
+)
 from neuralpp.util import util
 
 
 class BeliefPropagation:
-
     def __init__(self, tree: FactorTree):
         self.tree = tree
 
@@ -27,8 +35,7 @@ class BeliefPropagation:
 
     def variables_summed_out_at(self, node, all_variables_in_product_at_node):
         return util.subtract(
-            all_variables_in_product_at_node,
-            self.tree.external_variables(node)
+            all_variables_in_product_at_node, self.tree.external_variables(node)
         )
 
 
@@ -41,17 +48,20 @@ Expansion = namedtuple("Expansion", "node expansion_value")
 
 
 class AnytimeExactBeliefPropagation(PartialTreeComputation):
-
-    def __init__(self, partial_tree, full_tree, approximation, expansion_value_function):
+    def __init__(
+        self, partial_tree, full_tree, approximation, expansion_value_function
+    ):
         super().__init__(partial_tree)
         self.approximation = approximation
         self.full_tree = full_tree
         self.expansion = MaximumLeafValueComputation(
             PartialTreePlusOneLevel(partial_tree),
-            lambda node, tree:
-                Expansion(node, expansion_value_function(node, self.tree, self.full_tree))
-                if node not in partial_tree else None,
-            lambda node_value_pair: node_value_pair.expansion_value
+            lambda node, tree: Expansion(
+                node, expansion_value_function(node, self.tree, self.full_tree)
+            )
+            if node not in partial_tree
+            else None,
+            lambda node_value_pair: node_value_pair.expansion_value,
         )
 
     @staticmethod
@@ -61,7 +71,9 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
         """
         full_tree = LazyFactorSpanningTree(FactorGraph(factors), query)
         partial_tree = PartialFactorSpanningTree(full_tree)
-        return AnytimeExactBeliefPropagation(partial_tree, full_tree, approximation, expansion_value_function)
+        return AnytimeExactBeliefPropagation(
+            partial_tree, full_tree, approximation, expansion_value_function
+        )
 
     def run(self):
         return self[self.tree.root].normalize()
@@ -80,8 +92,7 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
 
     def variables_summed_out_at(self, node, all_variables_in_product_at_node):
         return util.subtract(
-            all_variables_in_product_at_node,
-            self.tree.external_variables(node)
+            all_variables_in_product_at_node, self.tree.external_variables(node)
         )
 
     def expand(self, expansion_root):
@@ -95,4 +106,3 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
 
     def is_complete(self):
         return self.expansion[self.tree.root] is None
-

@@ -297,9 +297,7 @@ def sympy_func(request):
 
 def test_python_callable_and_sympy_function_conversion(sympy_func):
     assert (
-        python_callable_to_sympy_function(
-            sympy_function_to_python_callable(sympy_func)
-        )
+        python_callable_to_sympy_function(sympy_function_to_python_callable(sympy_func))
         == sympy_func
     )
 
@@ -449,7 +447,10 @@ def test_constants_operators():
     assert cond_expr.function.value == conditional
 
     assert if_then_else(x == 1, 2, 0.3).type == float  # automatic "round down" type
-    assert if_then_else(x == 1, 2, 0.3).function.type == Callable[[bool, float, float], float]
+    assert (
+        if_then_else(x == 1, 2, 0.3).function.type
+        == Callable[[bool, float, float], float]
+    )
 
 
 def test_sympy_function_application():

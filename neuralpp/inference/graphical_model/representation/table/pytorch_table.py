@@ -130,7 +130,9 @@ class PyTorchTable(Table):
         else:
             all_coordinates = tuple_of_non_batch_slice_coordinates
 
-        self.check_all_multivalue_coordinates_are_1d_and_have_the_same_size(all_coordinates)
+        self.check_all_multivalue_coordinates_are_1d_and_have_the_same_size(
+            all_coordinates
+        )
 
         return self.raw_tensor[all_coordinates]
 
@@ -142,7 +144,9 @@ class PyTorchTable(Table):
         # A[slice(None), range(n)] is equal to A.
         # However, if there are no batch coordinates then we can use slice and obtain the same result,
         # hence the case analysis used here.
-        if any(is_multivalue_coordinate(c) for c in tuple_of_non_batch_slice_coordinates):
+        if any(
+            is_multivalue_coordinate(c) for c in tuple_of_non_batch_slice_coordinates
+        ):
             batch_rows_coordinate = range(self.number_of_batch_rows())
         else:
             batch_rows_coordinate = slice(None)
@@ -151,7 +155,9 @@ class PyTorchTable(Table):
     def check_all_multivalue_coordinates_are_1d_and_have_the_same_size(
         self, all_coordinates
     ):
-        multivalue_coordinates = [c for c in all_coordinates if is_multivalue_coordinate(c)]
+        multivalue_coordinates = [
+            c for c in all_coordinates if is_multivalue_coordinate(c)
+        ]
 
         invalid_multivalue_coordinate = first(
             multivalue_coordinates, lambda bc: len(bc) != 0 and is_iterable(bc[0])
@@ -160,7 +166,8 @@ class PyTorchTable(Table):
             raise BatchCoordinateFirstElementIsIterable(invalid_multivalue_coordinate)
 
         set_of_len_of_multivalue_coordinates = {
-            len(multivalue_coordinate) for multivalue_coordinate in multivalue_coordinates
+            len(multivalue_coordinate)
+            for multivalue_coordinate in multivalue_coordinates
         }
 
         if len(set_of_len_of_multivalue_coordinates) > 1:
@@ -285,13 +292,15 @@ class PyTorchTable(Table):
 
     def potentials_tensor_with_sample_dimension(self, n):
         non_batch_potentials_initial_dimension = 1 if self.batch else 0
-        potentials = \
-            util.unsqueeze_and_expand(
-                self.potentials_tensor(), n, dim=non_batch_potentials_initial_dimension)
+        potentials = util.unsqueeze_and_expand(
+            self.potentials_tensor(), n, dim=non_batch_potentials_initial_dimension
+        )
         return potentials
 
     def linearlize_potentials(self, potentials):
-        return util.fuse_k_last_dimensions_of_tensor(potentials, self.number_of_non_batch_dimensions)
+        return util.fuse_k_last_dimensions_of_tensor(
+            potentials, self.number_of_non_batch_dimensions
+        )
 
     @property
     def non_batch_radices(self):

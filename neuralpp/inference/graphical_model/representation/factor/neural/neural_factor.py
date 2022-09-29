@@ -10,16 +10,25 @@ from neuralpp.inference.graphical_model.representation.factor.pytorch_table_fact
     PyTorchTableFactor,
 )
 from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
-    featurize_dict_frame, expand_univalues_in_dict_frame,
-    cartesian_product_of_tensor_dict_frames, concatenate_into_single_tensor, make_cartesian_features_dict_frame,
+    featurize_dict_frame,
+    expand_univalues_in_dict_frame,
+    cartesian_product_of_tensor_dict_frames,
+    concatenate_into_single_tensor,
+    make_cartesian_features_dict_frame,
     compute_set_of_multivalue_lengths,
 )
 from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
 )
 from neuralpp.util import util
-from neuralpp.util.util import find, join, is_iterable, expand_into_batch, cartesian_prod_2d, \
-    dict_slice
+from neuralpp.util.util import (
+    find,
+    join,
+    is_iterable,
+    expand_into_batch,
+    cartesian_prod_2d,
+    dict_slice,
+)
 
 
 class NeuralFactor(AtomicFactor):
@@ -38,7 +47,7 @@ class NeuralFactor(AtomicFactor):
     """
 
     def __init__(
-            self, neural_net, input_variables, output_variable, conditioning_dict={}
+        self, neural_net, input_variables, output_variable, conditioning_dict={}
     ):
 
         super().__init__(
@@ -50,10 +59,10 @@ class NeuralFactor(AtomicFactor):
         assert isinstance(
             output_variable, DiscreteVariable
         ), f"{NeuralFactor.__name__} requires output variable {output_variable} to be {DiscreteVariable.__name__}"
-        assert (
-                output_variable.cardinality is not None
-        ), f"{NeuralFactor.__name__} requires output variable {output_variable} to have a well-defined cardinality, " \
-           f"but {output_variable} has none"
+        assert output_variable.cardinality is not None, (
+            f"{NeuralFactor.__name__} requires output variable {output_variable} to have a well-defined cardinality, "
+            f"but {output_variable} has none"
+        )
 
         self.input_variables = input_variables
         self.free_input_variables = [
@@ -65,7 +74,7 @@ class NeuralFactor(AtomicFactor):
 
     @staticmethod
     def non_conditioned_variables(
-            input_variables, output_variable, conditioning_variables
+        input_variables, output_variable, conditioning_variables
     ):
         return [
             v
@@ -77,7 +86,9 @@ class NeuralFactor(AtomicFactor):
         return self.neural_net.parameters()
 
     def call_after_validation_MODEL(self, assignment_dict):
-        return self.to_table_factor_if_output_variable_is_conditioned_MODEL(assignment_dict).table.tensor
+        return self.to_table_factor_if_output_variable_is_conditioned_MODEL(
+            assignment_dict
+        ).table.tensor
         # TODO: change underlying table from log to normal space
 
     def call_after_validation(self, assignment_dict, assignment_values):
@@ -104,7 +115,9 @@ class NeuralFactor(AtomicFactor):
                 probabilities = probabilities.expand(len(output_value), -1)
             if not isinstance(output_value, torch.Tensor):
                 output_value = torch.tensor(output_value)
-            probability = probabilities.gather(dim=1, index=output_value.unsqueeze(1)).squeeze()
+            probability = probabilities.gather(
+                dim=1, index=output_value.unsqueeze(1)
+            ).squeeze()
         else:
             if probabilities.dim() == 1:
                 probability = probabilities[output_value]
@@ -120,7 +133,9 @@ class NeuralFactor(AtomicFactor):
 
     def neural_net_input_from_assignment_dict(self, assignment_dict):
         self.check_assignment_dict_is_complete(assignment_dict)
-        self.check_assignment_dict_does_not_contradict_conditioning_dict(assignment_dict)
+        self.check_assignment_dict_does_not_contradict_conditioning_dict(
+            assignment_dict
+        )
 
         assignment_and_conditioning_dict = util.union_of_dicts(
             assignment_dict, self.conditioning_dict
@@ -135,10 +150,14 @@ class NeuralFactor(AtomicFactor):
         # else
         #     concatenate along dimension 0
 
-        multivalue_lengths = compute_set_of_multivalue_lengths(assignment_and_conditioning_dict)
+        multivalue_lengths = compute_set_of_multivalue_lengths(
+            assignment_and_conditioning_dict
+        )
 
         if len(multivalue_lengths) > 1:
-            raise Exception(f"neural factor received multivalue inputs of different lengths: {multivalue_lengths}")
+            raise Exception(
+                f"neural factor received multivalue inputs of different lengths: {multivalue_lengths}"
+            )
 
         tuple_of_featurized_value_tensors = tuple(
             v.featurize(assignment_and_conditioning_dict[v])
@@ -148,7 +167,9 @@ class NeuralFactor(AtomicFactor):
         def variable_value_featurized():
             return (
                 (v, assignment_and_conditioning_dict[v], fvt)
-                for v, fvt in zip(self.input_variables, tuple_of_featurized_value_tensors)
+                for v, fvt in zip(
+                    self.input_variables, tuple_of_featurized_value_tensors
+                )
             )
 
         there_are_multivalues = len(multivalue_lengths) == 1
@@ -156,12 +177,16 @@ class NeuralFactor(AtomicFactor):
         if there_are_multivalues:
             batch_size = next(iter(multivalue_lengths))
             tuple_of_featurized_value_tensors = tuple(
-                expand_into_batch(fvt, batch_size) if not v.is_multivalue(value) else fvt
+                expand_into_batch(fvt, batch_size)
+                if not v.is_multivalue(value)
+                else fvt
                 for v, value, fvt in variable_value_featurized()
             )
 
         dim_to_concatenate = 1 if there_are_multivalues else 0
-        neural_net_input = torch.cat(tuple_of_featurized_value_tensors, dim=dim_to_concatenate)
+        neural_net_input = torch.cat(
+            tuple_of_featurized_value_tensors, dim=dim_to_concatenate
+        )
 
         return neural_net_input
 
@@ -177,7 +202,7 @@ class NeuralFactor(AtomicFactor):
                 raise e
         # using shape[-1] takes care of both cases of probabilities being a batch or not.
         assert (
-                probabilities.shape[-1] == self.output_variable.cardinality
+            probabilities.shape[-1] == self.output_variable.cardinality
         ), f"Neural net {self.neural_net} output must have the same size as output variable '{self.output_variable}' cardinality {self.output_variable.cardinality}, but has size {len(probabilities)} instead"
         return probabilities
 
@@ -248,17 +273,23 @@ class NeuralFactor(AtomicFactor):
 
     def to_table_factor_if_output_variable_is_conditioned(self):
         table_factor = self.to_table_factor_if_output_variable_is_not_conditioned()
-        return table_factor.condition({self.output_variable: self.conditioning_dict[self.output_variable]})
+        return table_factor.condition(
+            {self.output_variable: self.conditioning_dict[self.output_variable]}
+        )
 
     def to_table_factor_if_output_variable_is_not_conditioned(self):
         probabilities_tensor = self.compute_probability_tensor()
-        resulting_factor = self.make_table_factor_for_free_and_output_variables(probabilities_tensor)
+        resulting_factor = self.make_table_factor_for_free_and_output_variables(
+            probabilities_tensor
+        )
         return resulting_factor
 
     def compute_probability_tensor(self):
         return self.compute_probabilities_tensor_for(self.conditioning_dict)
 
-    def compute_probabilities_tensor_for(self, assignment_dict, no_free_variables = False):
+    def compute_probabilities_tensor_for(
+        self, assignment_dict, no_free_variables=False
+    ):
         """
         Returns the probabilities tensor produced by the neural net for a given assignment_dict.
         The probabilities tensor will have an optional batch dimension (determined by whether any
@@ -270,38 +301,55 @@ class NeuralFactor(AtomicFactor):
 
         If there are free variables, they are assumed to be IntegerVariables.
         """
-        relevant_conditioning_dict_frame = dict_slice(assignment_dict, self.input_variables)
-        featurized_conditioning_dict_frame = featurize_dict_frame(relevant_conditioning_dict_frame)
-        expanded_featurized_conditioning_dict_frame = expand_univalues_in_dict_frame(featurized_conditioning_dict_frame)
+        relevant_conditioning_dict_frame = dict_slice(
+            assignment_dict, self.input_variables
+        )
+        featurized_conditioning_dict_frame = featurize_dict_frame(
+            relevant_conditioning_dict_frame
+        )
+        expanded_featurized_conditioning_dict_frame = expand_univalues_in_dict_frame(
+            featurized_conditioning_dict_frame
+        )
 
         if no_free_variables:
             all_inputs_dict_frame = expanded_featurized_conditioning_dict_frame
         else:
-            all_inputs_dict_frame = self.complete_with_free_variables(expanded_featurized_conditioning_dict_frame)
+            all_inputs_dict_frame = self.complete_with_free_variables(
+                expanded_featurized_conditioning_dict_frame
+            )
 
         all_inputs_tensor = concatenate_into_single_tensor(all_inputs_dict_frame)
         probabilities_tensor = self.neural_net(all_inputs_tensor)
         return probabilities_tensor
 
     def complete_with_free_variables(self, expanded_featurized_conditioning_dict_frame):
-        free_input_variables = self.input_variables - expanded_featurized_conditioning_dict_frame.keys()
-        cartesian_free_features_dict_frame = make_cartesian_features_dict_frame(free_input_variables)
-        all_inputs_dict_frame = cartesian_product_of_tensor_dict_frames(expanded_featurized_conditioning_dict_frame,
-                                                                        cartesian_free_features_dict_frame)
+        free_input_variables = (
+            self.input_variables - expanded_featurized_conditioning_dict_frame.keys()
+        )
+        cartesian_free_features_dict_frame = make_cartesian_features_dict_frame(
+            free_input_variables
+        )
+        all_inputs_dict_frame = cartesian_product_of_tensor_dict_frames(
+            expanded_featurized_conditioning_dict_frame,
+            cartesian_free_features_dict_frame,
+        )
         return all_inputs_dict_frame
 
     def make_cartesian_features_dict_frame(variables):
         if len(variables) > 0:
             free_cardinalities = [torch.arange(fv.cardinality) for fv in variables]
             free_assignments = cartesian_prod_2d(free_cardinalities)
-            cartesian_free_features_dict_frame = {variable: free_assignments[:, i]
-                                                  for i, variable in enumerate(variables)}
+            cartesian_free_features_dict_frame = {
+                variable: free_assignments[:, i] for i, variable in enumerate(variables)
+            }
         else:
             cartesian_free_features_dict_frame = {}
         return cartesian_free_features_dict_frame
 
     def make_table_factor_for_free_and_output_variables(self, probabilities_tensor):
-        number_of_batch_rows = probabilities_tensor.numel() // self.number_of_probabilities_per_batch_row
+        number_of_batch_rows = (
+            probabilities_tensor.numel() // self.number_of_probabilities_per_batch_row
+        )
         batch = number_of_batch_rows != 1
         if batch:
             probabilities_shape = (
@@ -310,7 +358,9 @@ class NeuralFactor(AtomicFactor):
             )
         else:
             probabilities_shape = self.non_batch_shape_including_output_variable
-        probabilities_tensor_in_right_shape = probabilities_tensor.reshape(probabilities_shape)
+        probabilities_tensor_in_right_shape = probabilities_tensor.reshape(
+            probabilities_shape
+        )
         resulting_factor = PyTorchTableFactor(
             self.free_input_variables + [self.output_variable],
             probabilities_tensor_in_right_shape,
@@ -322,7 +372,9 @@ class NeuralFactor(AtomicFactor):
     @property
     @functools.lru_cache(1)
     def non_batch_shape_including_output_variable(self):
-        return tuple(v.cardinality for v in self.free_input_variables) + (self.output_variable.cardinality,)
+        return tuple(v.cardinality for v in self.free_input_variables) + (
+            self.output_variable.cardinality,
+        )
 
     @property
     @functools.lru_cache(1)
@@ -338,8 +390,8 @@ class NeuralFactor(AtomicFactor):
 
     def __repr__(self):
         result = (
-                repr(self.neural_net)
-                + f" on {join(self.input_variables)} -> {self.output_variable}"
+            repr(self.neural_net)
+            + f" on {join(self.input_variables)} -> {self.output_variable}"
         )
         if self.conditioning_dict:
             result += f" conditioned on {self.conditioning_dict}"
@@ -357,7 +409,7 @@ class NeuralFactor(AtomicFactor):
         ), f"{NeuralFactor.__name__} received a non-complete assignment. It is missing the neural factor's variable '{find(self.variables, lambda v: v not in assignment_dict)}'. The assignment is {assignment_dict}"
 
     def check_assignment_dict_does_not_contradict_conditioning_dict(
-            self, assignment_dict
+        self, assignment_dict
     ):
         assert self.assignment_dict_does_not_contradict_conditioning(
             assignment_dict

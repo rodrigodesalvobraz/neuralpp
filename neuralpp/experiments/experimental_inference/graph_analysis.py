@@ -1,7 +1,9 @@
 from collections import defaultdict
 from typing import Iterable, Set
 
-from neuralpp.inference.graphical_model.representation.factor.product_factor import Factor
+from neuralpp.inference.graphical_model.representation.factor.product_factor import (
+    Factor,
+)
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 
@@ -22,7 +24,6 @@ class Graph:
 
 
 class FactorGraph(Graph):
-
     def __init__(self, factors):
         self.factors = factors
         self.variable_neighbors = defaultdict(list)
@@ -33,9 +34,12 @@ class FactorGraph(Graph):
                 self.variable_neighbors[v].append(f)
 
     def neighbors(self, node):
-        assert (isinstance(node, Factor) or isinstance(node, Variable))
-        return (node.variables if (isinstance(node, Factor))
-                else self.variable_neighbors[node])
+        assert isinstance(node, Factor) or isinstance(node, Variable)
+        return (
+            node.variables
+            if (isinstance(node, Factor))
+            else self.variable_neighbors[node]
+        )
 
     @staticmethod
     def factor_at(node):
@@ -43,12 +47,11 @@ class FactorGraph(Graph):
 
     @staticmethod
     def variables_at(node):
-        """ All variables which are used directly by a node. """
+        """All variables which are used directly by a node."""
         return node.variables if isinstance(node, Factor) else [node]
 
 
 class Tree(Graph):
-
     def __init__(self):
         self.root = None
         self.depth_cache = {}
@@ -66,11 +69,12 @@ class Tree(Graph):
         return 0 if self.parent(node) is None else self.depth(self.parent(node)) + 1
 
     def depth(self, node):
-        return util.get_or_compute_and_put(self.depth_cache, node, self._compute_depth, key_getter=id)
+        return util.get_or_compute_and_put(
+            self.depth_cache, node, self._compute_depth, key_getter=id
+        )
 
 
 class PartialTree(Tree):
-
     def __init__(self, *args):
         super().__init__()
 
@@ -80,7 +84,6 @@ class PartialTree(Tree):
 
 
 class LazySpanningTree(Tree):
-
     def __init__(self, graph: Graph, root):
         super().__init__()
         self.graph = graph
@@ -93,7 +96,9 @@ class LazySpanningTree(Tree):
 
     def children(self, node):
         if self._children.get(id(node)) is None:
-            available_neighbors = [n for n in self.graph.neighbors(node) if id(n) not in self._parents]
+            available_neighbors = [
+                n for n in self.graph.neighbors(node) if id(n) not in self._parents
+            ]
             for n in available_neighbors:
                 self._parents[id(n)] = node
             self._children[id(node)] = available_neighbors
@@ -115,27 +120,28 @@ class FactorTree(Tree, FactorGraph):
 
 
 class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
-
     def variables(self, node) -> Iterable[Variable]:
-        """ All variables appearing in the subtree rooted at node. """
+        """All variables appearing in the subtree rooted at node."""
         return util.union(
             [
                 self.variables_at(node),
-                util.union([self.variables(child)
-                            for child in self.children(node)])
-            ])
+                util.union([self.variables(child) for child in self.children(node)]),
+            ]
+        )
 
     def siblings_variables(self, node) -> Set[Variable]:
-        """ Variables appearing in the subtree of at least one sibling of node """
+        """Variables appearing in the subtree of at least one sibling of node"""
         if self.parent(node) is None:
             return set()
         else:
-            return util.union(self.variables(sibling)
-                              for sibling in self.children(self.parent(node))
-                              if sibling is not node)
+            return util.union(
+                self.variables(sibling)
+                for sibling in self.children(self.parent(node))
+                if sibling is not node
+            )
 
     def external_variables(self, node) -> Set[Variable]:
-        """ Variables appearing outside subtree of node """
+        """Variables appearing outside subtree of node"""
 
         def local_external_variables(n):
             return self.siblings_variables(n) | set(self.variables_at(node))
@@ -143,7 +149,9 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
         if self.parent(node) is None:
             return set(self.variables_at(node))
         else:
-            return local_external_variables(node) | self.external_variables(self.parent(node))
+            return local_external_variables(node) | self.external_variables(
+                self.parent(node)
+            )
 
 
 class PartialFactorSpanningTree(LazyFactorSpanningTree, PartialTree):
@@ -161,7 +169,7 @@ class PartialFactorSpanningTree(LazyFactorSpanningTree, PartialTree):
         return self._children.get(id(node), [])
 
     def add_edge(self, parent, child):
-        assert (self.graph.contains_edge(parent, child))
+        assert self.graph.contains_edge(parent, child)
         if child in self:
             raise Exception(f"Child node {child} has already been added to the tree")
         elif id(parent) in self._children:

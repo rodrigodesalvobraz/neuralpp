@@ -8,13 +8,32 @@ import math
 
 # cannot use `from sympy import *` because that would import all the "test_*" functions in sympy,
 # causing pytest to run them as well.
-from sympy import symbols, expand, factor, sin, cos, diff, integrate, exp, Integer, Xor, Rational, \
-    sqrt, Sum, lambdify, Indexed, factorial, oo, Integral, Poly
+from sympy import (
+    symbols,
+    expand,
+    factor,
+    sin,
+    cos,
+    diff,
+    integrate,
+    exp,
+    Integer,
+    Xor,
+    Rational,
+    sqrt,
+    Sum,
+    lambdify,
+    Indexed,
+    factorial,
+    oo,
+    Integral,
+    Poly,
+)
 
 
 def test_symbols_basic():
     """SymPy supports simple expression conversions. e.g., `x + 2 * y` is the same as `y + x + y`"""
-    x, y = symbols('x y')
+    x, y = symbols("x y")
     expr = x + 2 * y
     assert expr == x + 2 * y
     assert expr == y + x + y
@@ -26,9 +45,9 @@ def test_expand_and_factor():
     x(x+2y) is not "equal" in the sense of SymPy's symbolic representation as x^2+2xy.
     Some simple customized simplification operations are `expand` and `factor`. Shown in this test case.
     """
-    x, y = symbols('x y')
+    x, y = symbols("x y")
     factor_form_expr = x * (x + 2 * y)
-    expand_form_expr = x ** 2 + 2 * x * y
+    expand_form_expr = x**2 + 2 * x * y
     # Equation `factor_form_expr == expand_form_expr` would pass Z3's checking as they are "equal" in the logical sense.
     assert factor_form_expr != expand_form_expr
     assert expand(factor_form_expr) == expand_form_expr
@@ -36,10 +55,10 @@ def test_expand_and_factor():
 
 
 def test_computation():
-    """ Symbolic computation """
-    x, t, z, nu = symbols('x t z nu')
+    """Symbolic computation"""
+    x, t, z, nu = symbols("x t z nu")
     # for simple formulas integrate and diff are invertible
-    formulas = (x, sin(x), cos(x), sin(x) * cos(x), exp(x), sin(x)*exp(x))
+    formulas = (x, sin(x), cos(x), sin(x) * cos(x), exp(x), sin(x) * exp(x))
     for formula in formulas:
         assert integrate(diff(formula, x), x) == formula
         assert diff(integrate(formula, x), x) == formula
@@ -47,37 +66,37 @@ def test_computation():
     complex_formula = exp(x) * x + x
     assert diff(integrate(complex_formula, x), x) != complex_formula
     # since
-    assert diff(integrate(complex_formula, x), x) == x + (x-1) * exp(x) + exp(x)
+    assert diff(integrate(complex_formula, x), x) == x + (x - 1) * exp(x) + exp(x)
     # and
-    assert complex_formula != x + (x-1) * exp(x) + exp(x)
+    assert complex_formula != x + (x - 1) * exp(x) + exp(x)
 
 
 def test_change_after_create():
-    """changing the binding of python variable does not affect expression already created """
-    x = symbols('x')
+    """changing the binding of python variable does not affect expression already created"""
+    x = symbols("x")
     expr = x + 1
     x = 2
-    assert expr == symbols('x') + 1
+    assert expr == symbols("x") + 1
 
 
 def test_gotchas_xor_and_divide():
-    """Some gotchas of the library: ^ is xor, / can be float division. """
+    """Some gotchas of the library: ^ is xor, / can be float division."""
     # ^ in SymPy is reserved for xor (not exponentiation), as is in Python.
-    x, y = symbols('x y')
+    x, y = symbols("x y")
     assert x ^ y == Xor(x, y)
-    assert x ^ y != x ** y
+    assert x ^ y != x**y
 
     # / in Python3 is float division. So SymPy uses Rational() explicitly.
     # the following tests would pass as the rational 1/2 equals the division result 1/2=0.5
-    assert Rational(1, 2) == 1/2
-    assert Rational(1, 2) == Integer(1)/Integer(2)
+    assert Rational(1, 2) == 1 / 2
+    assert Rational(1, 2) == Integer(1) / Integer(2)
     # things are a little different when it comes to 1/3
-    assert Rational(1, 3) != 1/3
-    assert Rational(1, 3) == Integer(1)/Integer(3)
+    assert Rational(1, 3) != 1 / 3
+    assert Rational(1, 3) == Integer(1) / Integer(3)
 
 
 def test_substitution():
-    """ Test variable substitution. """
+    """Test variable substitution."""
     x, y, z = symbols("x y z")
     expr = cos(x) + 1
     assert expr.subs(x, y) == cos(y) + 1
@@ -85,11 +104,11 @@ def test_substitution():
 
 
 def test_eval():
-    """ Test numerical evaluation. """
+    """Test numerical evaluation."""
     x, i, k = symbols("x i k")
     assert sqrt(8) != math.sqrt(8)
     assert sqrt(8).evalf() == math.sqrt(8)
-    assert cos(2*x).evalf(subs={x: 2.4}) == math.cos(2*2.4)
+    assert cos(2 * x).evalf(subs={x: 2.4}) == math.cos(2 * 2.4)
 
     # lambdify() turns the expression into a python function. It can also be used to evaluate.
     add_expr = x + k
@@ -100,7 +119,7 @@ def test_eval():
 
 
 def test_sum():
-    """ A more detailed test of the Sum quantifier.
+    """A more detailed test of the Sum quantifier.
     In quote of Sum's doc, the first argument is "the general form of terms in the series" and
     the second argument is "(dummy_variable, start, end), with dummy_variable taking all
     integer values from start through end. In accordance with long-standing mathematical convention,
@@ -114,16 +133,18 @@ def test_sum():
     assert expr.doit() == 10100
 
     # In the following examples, `i` is just used to indicate the index of 'x'.
-    expr = Sum(Indexed('x', i), (i, 0, 3))
+    expr = Sum(Indexed("x", i), (i, 0, 3))
     expr_as_func = lambdify(x, expr)
-    assert expr_as_func([1, 2, 3, 4, 5]) == 10  # note x[4] is not added to the sum since the sum is of x[0:3]
-    expr = Sum(Indexed('x', i), (i, 0, 100))
+    assert (
+        expr_as_func([1, 2, 3, 4, 5]) == 10
+    )  # note x[4] is not added to the sum since the sum is of x[0:3]
+    expr = Sum(Indexed("x", i), (i, 0, 100))
     expr_as_func = lambdify(x, expr)
     assert expr_as_func([j for j in range(101)]) == 5050
 
     # Note doit() does *symbolic* evaluation. In the above example we get an integer only because there's no symbol.
     # Also, the interval can be infinite.
-    assert Sum(x**k/factorial(k), (k, 0, oo)).doit() == exp(x)
+    assert Sum(x**k / factorial(k), (k, 0, oo)).doit() == exp(x)
     # You can also call doit() on integral. It makes sense because we can "do" integral.
     assert (2 * Integral(x, x)).doit() == x**2
     # Doc in Sum() defines the following behavior which is a little weird.
@@ -158,7 +179,9 @@ def test_symbolic_summation():
     assert expr.doit() == 5050 * j + 10100
     expr = Sum(i * j, (i, 0, 100000))
     assert expr.doit() == 5000050000 * j
-    expr = Sum(i * j, (i, 10, 1))  # sum[10,1] -> sum[10,2) <==by definition==> -sum[2,10) => -sum[2,9]
+    expr = Sum(
+        i * j, (i, 10, 1)
+    )  # sum[10,1] -> sum[10,2) <==by definition==> -sum[2,10) => -sum[2,9]
     assert expr.doit() == -44 * j == -Sum(i * j, (i, 2, 9)).doit()
     expr = Sum(i * j, (i, 1, 10))
     assert expr.doit() == 55 * j

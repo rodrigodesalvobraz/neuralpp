@@ -1,6 +1,12 @@
 import sympy
-from neuralpp.inference.graphical_model.representation.factor.symbolic_factor import SymbolicFactor
-from neuralpp.symbolic.sympy_expression import SymPyVariable, SymPyConstant, SymPyFunctionApplication
+from neuralpp.inference.graphical_model.representation.factor.symbolic_factor import (
+    SymbolicFactor,
+)
+from neuralpp.symbolic.sympy_expression import (
+    SymPyVariable,
+    SymPyConstant,
+    SymPyFunctionApplication,
+)
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
@@ -8,6 +14,7 @@ from neuralpp.inference.graphical_model.variable_elimination import VariableElim
 from neuralpp.inference.graphical_model.brute_force import BruteForce
 from neuralpp.symbolic.general_normalizer import GeneralNormalizer
 from neuralpp.symbolic.z3_expression import Z3SolverExpression
+
 
 def test_sympy_condition():
     x = IntegerVariable("x", 3)
@@ -24,6 +31,7 @@ def test_sympy_condition():
 
     expected = SymPyVariable(y_symbol, int)
     assert conditioned.expression.syntactic_eq(expected)
+
 
 def test_sympy_if_then_else_condition():
     x = IntegerVariable("x", 3)
@@ -42,13 +50,14 @@ def test_sympy_if_then_else_condition():
     # TODO: Fix this test
     # assert conditioned1.expression.syntactic_eq(expected1)
 
-    conditioned2 = symbolic.condition({x: 1, y:2})
+    conditioned2 = symbolic.condition({x: 1, y: 2})
     expected2 = SymPyConstant.new_constant(3)
     assert conditioned2.expression.syntactic_eq(expected2)
 
-    conditioned3 = symbolic.condition({x: 1, y:0})
+    conditioned3 = symbolic.condition({x: 1, y: 0})
     expected3 = SymPyConstant.new_constant(2)
     assert conditioned3.expression.syntactic_eq(expected3)
+
 
 def test_mul_by_non_identity():
     x = IntegerVariable("x", 3)
@@ -101,6 +110,7 @@ def test_if_then_else_mul_by_non_identity():
     expected = SymPyInterpreter().simplify(expected)
     assert symbolic3_condition.expression.syntactic_eq(expected)
 
+
 def test_sum_out_variable():
     x = IntegerVariable("x", 3)
     y = IntegerVariable("y", 2)
@@ -117,6 +127,7 @@ def test_sum_out_variable():
     expected = SymPyFunctionApplication(3 * y_symbol, {y_symbol: int})
     assert sum_out_x.expression.syntactic_eq(expected)
 
+
 def test_if_then_else_sum_out_variable():
     x = IntegerVariable("x", 3)
     y = IntegerVariable("y", 2)
@@ -130,9 +141,14 @@ def test_if_then_else_sum_out_variable():
     symbolic = SymbolicFactor([x, y], expression1)
     sum_out_x = symbolic ^ x
 
-    expected = if_then_else(0 > y_sympy, 2, 3) + if_then_else(1 > y_sympy, 2, 3) + if_then_else(2 > y_sympy, 2, 3)
+    expected = (
+        if_then_else(0 > y_sympy, 2, 3)
+        + if_then_else(1 > y_sympy, 2, 3)
+        + if_then_else(2 > y_sympy, 2, 3)
+    )
     expected = SymPyInterpreter().simplify(expected)
     assert sum_out_x.expression.syntactic_eq(expected)
+
 
 def test_normalize():
     x = IntegerVariable("x", 3)
@@ -151,8 +167,11 @@ def test_normalize():
     assert sum_variables.expression.syntactic_eq(expected1)
 
     normalized = symbolic.normalize()
-    expected2 = SymPyFunctionApplication(x_symbol * y_symbol / 3, {x_symbol: int, y_symbol: int})
+    expected2 = SymPyFunctionApplication(
+        x_symbol * y_symbol / 3, {x_symbol: int, y_symbol: int}
+    )
     assert normalized.expression.syntactic_eq(expected2)
+
 
 def test_if_then_else_normalize():
     x = IntegerVariable("x", 3)
@@ -174,6 +193,7 @@ def test_if_then_else_normalize():
     expected2 = SymPyInterpreter().simplify(if_then_else(x_sympy > y_sympy, 2, 3) / 15)
     assert normalized.expression.syntactic_eq(expected2)
 
+
 def test_with_variable_elimination():
     x = IntegerVariable("x", 3)
     y = IntegerVariable("y", 2)
@@ -187,12 +207,9 @@ def test_with_variable_elimination():
     model = [
         SymbolicFactor(
             [x, y],
-            if_then_else(x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0))
+            if_then_else(x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0)),
         ),
-        SymbolicFactor(
-            [y, z],
-            if_then_else(y_sympy == z_sympy, 1.0, 0.0)
-        ),
+        SymbolicFactor([y, z], if_then_else(y_sympy == z_sympy, 1.0, 0.0)),
     ]
 
     query = z

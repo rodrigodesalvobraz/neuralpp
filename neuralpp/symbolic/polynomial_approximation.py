@@ -14,7 +14,9 @@ from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
 simplifer = SymPyInterpreter()
 
 
-def get_normal_piecewise_polynomial_approximation(variable: Variable, mean: Expression, sigma: float, generator: Variable) -> Expression:
+def get_normal_piecewise_polynomial_approximation(
+    variable: Variable, mean: Expression, sigma: float, generator: Variable
+) -> Expression:
     """
     @param generator: SymPy term for "variable" in a polynomial (see https://docs.sympy.org/latest/modules/polys/basics.html)
     Returns an Expression equivalent to a polynomial that approximates the density of Normal(mean, sigma).
@@ -28,15 +30,19 @@ def get_normal_piecewise_polynomial_approximation(variable: Variable, mean: Expr
     else:
         new_var = simplifer.simplify(expression=(variable - mean) / sigma_constant)
 
-    standard_normal_piecewise_polynomial = get_standard_normal_piecewise_polynomial_approximation(new_var, generator)
+    standard_normal_piecewise_polynomial = (
+        get_standard_normal_piecewise_polynomial_approximation(new_var, generator)
+    )
 
     if sigma == 1:
         return standard_normal_piecewise_polynomial
     else:
-        return 1/sigma_constant * standard_normal_piecewise_polynomial
+        return 1 / sigma_constant * standard_normal_piecewise_polynomial
 
 
-def get_standard_normal_piecewise_polynomial_approximation(variable: Variable, generator: Variable) -> Expression:
+def get_standard_normal_piecewise_polynomial_approximation(
+    variable: Variable, generator: Variable
+) -> Expression:
     """
     Returns an Expression equivalent to a polynomial that approximates the density of a standard Normal distribution.
     """
@@ -44,15 +50,17 @@ def get_standard_normal_piecewise_polynomial_approximation(variable: Variable, g
     f = lambda x: std_normal.log_prob(torch.tensor(x)).exp()
     segment_boundaries = [float(v) for v in [-4, -3.25, -1.75, 0, 1.75, 3.25, 4]]
     segment_degrees = [3] * len(segment_boundaries)
-    return piecewise_polynomial_approximation(f, variable, segment_degrees, segment_boundaries, generator)
+    return piecewise_polynomial_approximation(
+        f, variable, segment_degrees, segment_boundaries, generator
+    )
 
 
 def piecewise_polynomial_approximation(
-        f: Callable[[float], float],
-        variable: Variable,
-        degree_per_segment: Iterable[int],
-        segment_boundaries: Iterable[float],
-        generator: Variable,
+    f: Callable[[float], float],
+    variable: Variable,
+    degree_per_segment: Iterable[int],
+    segment_boundaries: Iterable[float],
+    generator: Variable,
 ) -> Expression:
     """
     Returns an Expression representing a piecewise polynomial approximating f(variable) in the following way:
@@ -63,11 +71,15 @@ def piecewise_polynomial_approximation(
     """
     polynomials = [
         polynomial_approximation(f, variable, start, end, degree, generator)
-        for ((start, end), degree)
-        in zip(pairwise(segment_boundaries), degree_per_segment)
+        for ((start, end), degree) in zip(
+            pairwise(segment_boundaries), degree_per_segment
+        )
     ]
 
-    conditions = [(start <= variable) & (variable < end) for (start, end) in pairwise(segment_boundaries)]
+    conditions = [
+        (start <= variable) & (variable < end)
+        for (start, end) in pairwise(segment_boundaries)
+    ]
 
     piecewise_polynomial = make_piecewise_expression(conditions, polynomials)
 
@@ -75,12 +87,12 @@ def piecewise_polynomial_approximation(
 
 
 def polynomial_approximation(
-        f: Callable[[float], float],
-        variable: Expression,
-        start: float,
-        end: float,
-        degree: int,
-        generator: Variable,
+    f: Callable[[float], float],
+    variable: Expression,
+    start: float,
+    end: float,
+    degree: int,
+    generator: Variable,
 ) -> Expression:
     """
     Returns an Expression that is equivalent to a polynomial with the specified degree in variable
@@ -94,7 +106,9 @@ def polynomial_approximation(
     return polynomial
 
 
-def from_coefficients_to_polynomial(variable: Expression, coefficients: Sized, generator: Variable) -> Expression:
+def from_coefficients_to_polynomial(
+    variable: Expression, coefficients: Sized, generator: Variable
+) -> Expression:
     """
     Given a variable and a sequence of coefficients a0, ..., an,
     returns an Expression representing a0 * variable ** n + a1 * variable ** (n - 1) + ... + an.
@@ -114,5 +128,9 @@ def make_piecewise_expression(conditions, expressions):
     returns Expression if C1 then E1 else if C2 then E2 else ... else 0.
     assume C1, .., Cn are mutually exclusive
     """
-    arguments = [arg for condition, expression in zip(conditions, expressions) for arg in (expression, condition)]
+    arguments = [
+        arg
+        for condition, expression in zip(conditions, expressions)
+        for arg in (expression, condition)
+    ]
     return make_piecewise(arguments)

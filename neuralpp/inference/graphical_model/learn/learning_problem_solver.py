@@ -1,4 +1,6 @@
-from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import GraphicalModelSGDLearner
+from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import (
+    GraphicalModelSGDLearner,
+)
 from neuralpp.util.util import set_default_tensor_type_and_return_device, join
 
 # This module provides a generic function for solving learning problems.
@@ -8,6 +10,7 @@ from neuralpp.util.util import set_default_tensor_type_and_return_device, join
 # They can then invoke function solve_learning_problem on their learning problem
 # and have it solved.
 # See more details in the documentation of each element.
+
 
 class LearningProblem:
     """
@@ -47,11 +50,11 @@ class LearningProblem:
 
 
 def solve_learning_problem(
-        problem: LearningProblem,
-        try_cuda,
-        lr,
-        loss_decrease_tol,
-        max_epochs_to_go_before_stopping_due_to_loss_decrease
+    problem: LearningProblem,
+    try_cuda,
+    lr,
+    loss_decrease_tol,
+    max_epochs_to_go_before_stopping_due_to_loss_decrease,
 ):
     """
     Solves a LearningProblem.

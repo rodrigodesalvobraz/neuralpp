@@ -5,7 +5,9 @@ from torch.distributions import Normal
 
 from neuralpp.symbolic.basic_expression import BasicExpression
 from neuralpp.symbolic.basic_interpreter import BasicInterpreter
-from neuralpp.symbolic.polynomial_approximation import get_normal_piecewise_polynomial_approximation
+from neuralpp.symbolic.polynomial_approximation import (
+    get_normal_piecewise_polynomial_approximation,
+)
 
 plot = False
 
@@ -16,12 +18,18 @@ def test_normal_polynomial_approximation():
     sigma_value = 2.0
     mean = BasicExpression.new_constant(mean_value)
     x = BasicExpression.new_variable("x", float)
-    normal_piecewise_polynomial_approximation = get_normal_piecewise_polynomial_approximation(x, mean, sigma_value, x)
+    normal_piecewise_polynomial_approximation = (
+        get_normal_piecewise_polynomial_approximation(x, mean, sigma_value, x)
+    )
 
-    x_axis = np.linspace(-6 * sigma_value + mean_value, 6 * sigma_value + mean_value, 800)
+    x_axis = np.linspace(
+        -6 * sigma_value + mean_value, 6 * sigma_value + mean_value, 800
+    )
 
     print("Computing true values")
-    true_normal_values = [Normal(mean_value, sigma_value).log_prob(torch.tensor(x)).exp() for x in x_axis]
+    true_normal_values = [
+        Normal(mean_value, sigma_value).log_prob(torch.tensor(x)).exp() for x in x_axis
+    ]
 
     interpreter = BasicInterpreter()
 
@@ -29,7 +37,10 @@ def test_normal_polynomial_approximation():
 
     def approximate_normal(value: float) -> float:
         return interpreter.eval(
-            normal_piecewise_polynomial_approximation.replace(x, BasicExpression.new_constant(value)))
+            normal_piecewise_polynomial_approximation.replace(
+                x, BasicExpression.new_constant(value)
+            )
+        )
 
     # approximate_normal_values = [approximate_normal(x) for x in x_axis]
 

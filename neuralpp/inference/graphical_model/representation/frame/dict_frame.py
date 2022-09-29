@@ -1,6 +1,10 @@
 import torch
-from neuralpp.util.util import has_len, cartesian_prod_2d, repeat_first_dimension_with_expand, \
-    repeat_interleave_first_dimension
+from neuralpp.util.util import (
+    has_len,
+    cartesian_prod_2d,
+    repeat_first_dimension_with_expand,
+    repeat_interleave_first_dimension,
+)
 
 
 def is_frame(dictionary):
@@ -52,15 +56,14 @@ def expand_univalues_in_dict_frame(tensor_dict_frame):
         raise DictFramesShouldAllHaveTheSameLength()
     else:
         multivalue_length = next(iter(multivalue_lengths))
-        return \
-            {
-                variable: (
-                    value.expand(multivalue_length, *((-1,)*value.dim()))
-                    if not variable.is_multivalue(value)
-                    else value
-                )
-                for variable, value in tensor_dict_frame.items()
-            }
+        return {
+            variable: (
+                value.expand(multivalue_length, *((-1,) * value.dim()))
+                if not variable.is_multivalue(value)
+                else value
+            )
+            for variable, value in tensor_dict_frame.items()
+        }
 
 
 def compute_set_of_lengths(dict_frame):
@@ -69,7 +72,9 @@ def compute_set_of_lengths(dict_frame):
     """
     if len(dict_frame) == 0:
         raise DictionaryShouldHaveAtLeastOneItem()
-    set_of_lengths = {variable.value_len(value) for variable, value in dict_frame.items()}
+    set_of_lengths = {
+        variable.value_len(value) for variable, value in dict_frame.items()
+    }
     return set_of_lengths
 
 
@@ -77,9 +82,11 @@ def compute_set_of_multivalue_lengths(dict_frame):
     """
     Returns the set of lengths of multivalues in dict_frame.
     """
-    return {variable.value_len(value)
-            for variable, value in dict_frame.items()
-            if variable.is_multivalue(value)}
+    return {
+        variable.value_len(value)
+        for variable, value in dict_frame.items()
+        if variable.is_multivalue(value)
+    }
 
 
 def number_of_equal_values_in_dict_frames(dict_frame1, dict_frame2):
@@ -114,15 +121,18 @@ def to_if_tensor(obj, device):
 
 
 def featurize_dict_frame(dict_frame):
-    return {variable: variable.featurize(value) for variable, value in dict_frame.items()}
+    return {
+        variable: variable.featurize(value) for variable, value in dict_frame.items()
+    }
 
 
 def make_cartesian_features_dict_frame(variables):
     if len(variables) > 0:
         free_cardinalities = [torch.arange(fv.cardinality) for fv in variables]
         free_assignments = cartesian_prod_2d(free_cardinalities)
-        cartesian_free_features_dict_frame = {variable: free_assignments[:, i]
-                                              for i, variable in enumerate(variables)}
+        cartesian_free_features_dict_frame = {
+            variable: free_assignments[:, i] for i, variable in enumerate(variables)
+        }
     else:
         cartesian_free_features_dict_frame = {}
     return cartesian_free_features_dict_frame
@@ -148,10 +158,12 @@ def concatenate_non_empty_dict_frame_into_single_2d_tensor(expanded_tensor_dict_
     returns a 2D tensor where element (i,j) is
     the i-th value of the j-th variable.
     """
-    expanded_dict_frame_with_2d_tensor_values = convert_tensor_values_to_at_least_two_dimensions(
-        expanded_tensor_dict_frame
+    expanded_dict_frame_with_2d_tensor_values = (
+        convert_tensor_values_to_at_least_two_dimensions(expanded_tensor_dict_frame)
     )
-    conditioning_tensor = torch.cat(tuple(expanded_dict_frame_with_2d_tensor_values.values()), dim=1)
+    conditioning_tensor = torch.cat(
+        tuple(expanded_dict_frame_with_2d_tensor_values.values()), dim=1
+    )
     return conditioning_tensor
 
 
@@ -170,15 +182,14 @@ def unsqueeze_if_needed_for_at_least_two_dimensions(tensor):
 
 
 def cartesian_product_of_tensor_dict_frames(dict_frame1, dict_frame2):
-    n = generalized_len_of_dict_frame(dict_frame1) \
-        if len(dict_frame1) > 0 \
-        else 1
-    m = generalized_len_of_dict_frame(dict_frame2) \
-        if len(dict_frame2) > 0 \
-        else 1
+    n = generalized_len_of_dict_frame(dict_frame1) if len(dict_frame1) > 0 else 1
+    m = generalized_len_of_dict_frame(dict_frame2) if len(dict_frame2) > 0 else 1
     big_endian_dict_frame1 = repeat_interleave_dict_frame(dict_frame1, m)
     little_endian_dict_frame2 = repeat_dict_frame(dict_frame2, n)
-    cartesian_product_dict_frame = {**big_endian_dict_frame1, **little_endian_dict_frame2}
+    cartesian_product_dict_frame = {
+        **big_endian_dict_frame1,
+        **little_endian_dict_frame2,
+    }
     return cartesian_product_dict_frame
 
 
@@ -187,7 +198,10 @@ def repeat_dict_frame(dict_frame, n):
     Returns new dict frame with values equal to result of expanding the first dimension of every tensor value in
     the original (using util.repeat_first_dimension_with_expand for each value).
     """
-    return {variable: repeat_first_dimension_with_expand(value, n) for variable, value in dict_frame.items()}
+    return {
+        variable: repeat_first_dimension_with_expand(value, n)
+        for variable, value in dict_frame.items()
+    }
 
 
 def repeat_interleave_dict_frame(dict_frame, n):
@@ -195,7 +209,10 @@ def repeat_interleave_dict_frame(dict_frame, n):
     Returns new dict frame with values equal to repeat-interleaving the elements of the first dimenson
     (using util.repeat_interleave_first_dimension for each value).
     """
-    return {variable: repeat_interleave_first_dimension(value, n) for variable, value in dict_frame.items()}
+    return {
+        variable: repeat_interleave_first_dimension(value, n)
+        for variable, value in dict_frame.items()
+    }
 
 
 class DictionaryShouldHaveAtLeastOneItem(BaseException):
@@ -212,9 +229,13 @@ class DictionaryValuesShouldAllHaveTheSameLength(BaseException):
         )
 
 
-class DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength(BaseException):
+class DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength(
+    BaseException
+):
     def __init__(self):
-        super(DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength, self).__init__(
+        super(
+            DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength, self
+        ).__init__(
             "Dictionary values should all have either length 1 or some other shared length"
         )
 

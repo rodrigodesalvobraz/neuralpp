@@ -5,7 +5,7 @@ from neuralpp.symbolic.expression import FunctionApplication
 
 
 def test_basic_constant_closed_intervals():
-    i = BasicVariable('i', int)
+    i = BasicVariable("i", int)
 
     empty_context = Z3SolverExpression()
     constant_context = empty_context & (i < 5) & (i > 0)
@@ -18,8 +18,8 @@ def test_basic_constant_closed_intervals():
 
 
 def test_basic_symbolic_closed_intervals():
-    i = BasicVariable('i', int)
-    x = BasicVariable('x', int)
+    i = BasicVariable("i", int)
+    x = BasicVariable("x", int)
 
     empty_context = Z3SolverExpression()
     constant_context = empty_context & (i < 5) & (i > x)

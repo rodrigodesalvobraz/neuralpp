@@ -72,7 +72,7 @@ def f1_xy(x, y):
 
 
 def f1_ixy(i, x, y):
-    return 10 ** i * f1_xy(x, y)
+    return 10**i * f1_xy(x, y)
 
 
 @pytest.fixture
@@ -704,26 +704,26 @@ def test_sum_out1(class_to_use, table1, batch_size1):
     elif batch_size1 > 0:
         actual = table1.sum_out(0)
         expected = class_to_use.from_array(
-            [[6.0 * 10 ** i, 9.0 * 10 ** i] for i in range(batch_size1)], batch=True
+            [[6.0 * 10**i, 9.0 * 10**i] for i in range(batch_size1)], batch=True
         )
         assert actual == expected
 
         actual = table1.sum_out(1)
         expected = class_to_use.from_array(
-            [[1.0 * 10 ** i, 5.0 * 10 ** i, 9.0 * 10 ** i] for i in range(batch_size1)],
+            [[1.0 * 10**i, 5.0 * 10**i, 9.0 * 10**i] for i in range(batch_size1)],
             batch=True,
         )
         assert actual == expected
 
         actual = table1.sum_out((0, 1))
         expected = class_to_use.from_array(
-            [15.0 * 10 ** i for i in range(batch_size1)], batch=True
+            [15.0 * 10**i for i in range(batch_size1)], batch=True
         )
         assert actual == expected
 
         actual = table1.sum_out([])
         expected = class_to_use.from_array(
-            [15.0 * 10 ** i for i in range(batch_size1)], batch=True
+            [15.0 * 10**i for i in range(batch_size1)], batch=True
         )
         assert actual == expected
 
@@ -772,7 +772,7 @@ def test_sum1(class_to_use, table1, batch_size1):
 
     elif batch_size1 > 0:
         actual = table1.sum()
-        expected = torch.tensor([15.0 * 10 ** i for i in range(batch_size1)])
+        expected = torch.tensor([15.0 * 10**i for i in range(batch_size1)])
         assert torch.allclose(actual, expected)
 
 

@@ -56,7 +56,9 @@ def get_or_put(dictionary, key, default):
         return default
 
 
-def get_or_compute_and_put(dictionary, key_base, compute_from_key_base, key_getter=lambda key_base: key_base):
+def get_or_compute_and_put(
+    dictionary, key_base, compute_from_key_base, key_getter=lambda key_base: key_base
+):
     """
     Returns value stored in dict for key_getter(key_base) if present,
     or compute value (given key_base) and store it in dict under key_getter(key_base).
@@ -264,10 +266,10 @@ def set_default_tensor_type_and_return_device(try_cuda, print=print):
 
 
 def run_noisy_test(
-        noisy_test,
-        prob_spurious_failure=0.1,
-        target_prob_of_unfair_rejection=0.01,
-        print=print,
+    noisy_test,
+    prob_spurious_failure=0.1,
+    target_prob_of_unfair_rejection=0.01,
+    print=print,
 ):
     """
     A utility for testing routines that may fail, even if correct, with a small probability (a spurious failure).
@@ -370,7 +372,9 @@ def go_up_until_we_have_subdirectory(subdir):
     while not os.path.isdir(subdir):
         if os.getcwd() == "/":
             os.chdir(initial_directory)
-            raise FileNotFoundError(f"Cannot find ancestor of '{initial_directory}' containing subdirectory '{subdir}'")
+            raise FileNotFoundError(
+                f"Cannot find ancestor of '{initial_directory}' containing subdirectory '{subdir}'"
+            )
         os.chdir("..")
 
 
@@ -389,7 +393,9 @@ def expand_into_batch(tensor, batch_size):
     number_of_non_batch_dimensions = tensor.dim()
     expansion_of_first_dimension = [batch_size]
     expansion_of_remaining_dimensions = [-1] * number_of_non_batch_dimensions
-    expansions_by_dimensions = expansion_of_first_dimension + expansion_of_remaining_dimensions
+    expansions_by_dimensions = (
+        expansion_of_first_dimension + expansion_of_remaining_dimensions
+    )
     return tensor_with_newly_added_batch_dimension.expand(expansions_by_dimensions)
 
 
@@ -447,7 +453,10 @@ def repeat_first_dimension_with_expand(tensor, n):
     original_first_dimension_length = tensor.shape[0]
     final_first_dimension_length = n * original_first_dimension_length
     final_shape = (final_first_dimension_length,) + tensor.shape[1:]
-    one_d = tensor.reshape(1, tensor.numel(), )
+    one_d = tensor.reshape(
+        1,
+        tensor.numel(),
+    )
     expanded = one_d.expand(n, *((-1,) * (one_d.dim() - 1)))
     result = expanded.reshape(final_shape)
     return result
@@ -562,7 +571,11 @@ def choose_elements_without_replacement(candidates_provider_function, conditions
     for condition in conditions:
         candidates = [c for c in candidates_provider_function() if condition(c)]
         non_repeated_candidates = [c for c in candidates if c not in selected_elements]
-        selected_element = None if empty(non_repeated_candidates) else random.choice(non_repeated_candidates)
+        selected_element = (
+            None
+            if empty(non_repeated_candidates)
+            else random.choice(non_repeated_candidates)
+        )
         selected_elements.append(selected_element)
     return selected_elements
 
@@ -577,15 +590,16 @@ def tensor1d_append(tensor1d, value):
 
 
 def list_for_each(
-        values,
-        function1=None,
-        function2=None,
-        filter_index=None,
-        filter_element=None,
-        post=None,
-        post_index_result=None,
-        pre=None,  # tags available if user wants to use them
-        body=None):
+    values,
+    function1=None,
+    function2=None,
+    filter_index=None,
+    filter_element=None,
+    post=None,
+    post_index_result=None,
+    pre=None,  # tags available if user wants to use them
+    body=None,
+):
     """
     list_for_each(values, body)
     list_for_each(values, pre, body)
@@ -612,7 +626,9 @@ def list_for_each(
         if function2 is None:
             pass  # use pre and body named arguments if present
         else:
-            raise Exception("list_for_each: first positional argument not specified but second one is")
+            raise Exception(
+                "list_for_each: first positional argument not specified but second one is"
+            )
     elif function2 is None:
         if body is None:
             body = function1
@@ -656,7 +672,9 @@ def check_consistency_of_two_dicts(dict1: Dict, dict2: Dict):
     intersection_keys = dict1.keys() & dict2.keys()
     for key in intersection_keys:
         if dict1[key] != dict2[key]:
-            raise ValueError(f"inconsistent dicts on {key}: {dict1[key]} and {dict2[key]}.")
+            raise ValueError(
+                f"inconsistent dicts on {key}: {dict1[key]} and {dict2[key]}."
+            )
 
 
 def update_consistent_dict(dict1: Dict, dict2: Dict):
@@ -675,6 +693,10 @@ def argmax(iterable, func):
     return max(iterable, key=func)
 
 
-def same_len_and_predicate_true_for_all_pairs(sequence1: Sequence, sequence2: Sequence, binary_predicate):
+def same_len_and_predicate_true_for_all_pairs(
+    sequence1: Sequence, sequence2: Sequence, binary_predicate
+):
     pair_predicate = lambda pair: binary_predicate(*pair)
-    return len(sequence1) == len(sequence2) and all(map(pair_predicate, zip(sequence1, sequence2)))
+    return len(sequence1) == len(sequence2) and all(
+        map(pair_predicate, zip(sequence1, sequence2))
+    )

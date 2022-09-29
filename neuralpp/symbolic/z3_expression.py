@@ -107,7 +107,11 @@ class Z3Expression(Expression, ABC):
         if isinstance(type_, type(Callable[..., Any])):
             # isinstance(type_, Callable) is wrong: e.g., isinstance(int, Callable)==True
             argument_types, return_type = typing.get_args(type_)
-            z3_var = z3.Function(name, *map(type_to_z3_sort, argument_types), type_to_z3_sort(return_type))
+            z3_var = z3.Function(
+                name,
+                *map(type_to_z3_sort, argument_types),
+                type_to_z3_sort(return_type),
+            )
         else:
             z3_var = z3.Const(name, type_to_z3_sort(type_))
         return Z3Variable(z3_var)

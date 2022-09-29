@@ -67,8 +67,31 @@ def test_sample(normalized_product_factor):
     torch.manual_seed(2)
 
     print("Samples from neuralpp.normalized product:")
-    actual = [normalized_product_factor.sample() for i in range(20)]  # TODO: use batch sampling when available
-    expected = [torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 2], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([1, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32)]
+    actual = [
+        normalized_product_factor.sample() for i in range(20)
+    ]  # TODO: use batch sampling when available
+    expected = [
+        torch.tensor([1, 1], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 2], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([1, 1], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 1], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([1, 1], dtype=torch.int32),
+        torch.tensor([1, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([1, 1], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+        torch.tensor([1, 0], dtype=torch.int32),
+        torch.tensor([0, 0], dtype=torch.int32),
+    ]
     print(f"Expected: {expected}")
     print(f"Actual  : {actual}")
     assert all((torch.equal(a, e) for a, e in zip(actual, expected)))

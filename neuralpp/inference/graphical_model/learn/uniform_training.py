@@ -11,6 +11,8 @@ class UniformTraining(GenericSGDLearner):
 
     def loss_function(self, batch):
         probabilities = self.model(batch)
-        uniform_probabilities = torch.tensor(self.singleton_probability).repeat(len(batch), self.number_of_classes)
+        uniform_probabilities = torch.tensor(self.singleton_probability).repeat(
+            len(batch), self.number_of_classes
+        )
         loss = torch.square(uniform_probabilities - probabilities).sum()
         return loss
