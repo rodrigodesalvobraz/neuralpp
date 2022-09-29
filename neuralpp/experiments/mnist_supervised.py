@@ -76,19 +76,13 @@ def main():
     conv_net = FromLogToProbabilitiesAdapter(ConvNet())
 
     model = [
-        NeuralFactor(
-            conv_net, input_variables=[image_var], output_variable=digit_var
-        ),
+        NeuralFactor(conv_net, input_variables=[image_var], output_variable=digit_var),
     ]
 
     print(f"Computing accuracy before training...")
     train_data_loader = MultiFrameDataLoader(train_dataset)
-    accuracy = compute_accuracy_on_frames_data_loader(
-        train_data_loader, model, device
-    )
-    print(
-        f"Accuracy on training dataset before training: {accuracy*100:.2f}%"
-    )
+    accuracy = compute_accuracy_on_frames_data_loader(train_data_loader, model, device)
+    print(f"Accuracy on training dataset before training: {accuracy*100:.2f}%")
 
     def epoch_hook(learner):
         default_after_epoch(learner, end_str=" ")
@@ -121,10 +115,7 @@ def make_dataset(digit_var, image_var, phase="train"):
         [torch.stack(images_by_digits[phase][d]) for d in digits]
     )
     all_digits_tensor = torch.cat(
-        [
-            torch.tensor([d]).repeat(len(images_by_digits[phase][d]))
-            for d in digits
-        ]
+        [torch.tensor([d]).repeat(len(images_by_digits[phase][d])) for d in digits]
     )
 
     if shuffle_data:
@@ -150,12 +141,8 @@ def show_first_examples(dataset, n_rows, n_cols):
     first_observed_frame, first_query_frame = dataset[0]
     (
         images,
-    ) = (
-        first_observed_frame.values()
-    )  # first_observed_frame is a singleton dict
-    (
-        labels,
-    ) = first_query_frame.values()  # first_query_frame is a singleton dict
+    ) = first_observed_frame.values()  # first_observed_frame is a singleton dict
+    (labels,) = first_query_frame.values()  # first_query_frame is a singleton dict
     show_images_and_labels(n_rows, n_cols, images, labels)
 
 

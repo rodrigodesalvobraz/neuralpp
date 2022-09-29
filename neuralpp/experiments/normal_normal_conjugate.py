@@ -61,9 +61,7 @@ if __name__ == "__main__":
 
     # An equivalent BM model for reference
     class NormalNormalModel:
-        def __init__(
-            self, mu: torch.Tensor, std: torch.Tensor, sigma: torch.Tensor
-        ):
+        def __init__(self, mu: torch.Tensor, std: torch.Tensor, sigma: torch.Tensor):
             self.mu_ = mu
             self.std_ = std
             self.sigma_ = sigma

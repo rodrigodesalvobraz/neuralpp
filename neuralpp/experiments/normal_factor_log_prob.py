@@ -26,7 +26,5 @@ prob = normal_factor(
 print(prob)
 
 # compare to the log prob from calling torch distribution directly
-log_prob = dist.Normal(torch.tensor(0.0), torch.tensor(1.0)).log_prob(
-    torch.tensor(0.0)
-)
+log_prob = dist.Normal(torch.tensor(0.0), torch.tensor(1.0)).log_prob(torch.tensor(0.0))
 assert prob == log_prob.exp()

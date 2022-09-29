@@ -68,9 +68,7 @@ def batch_argmax(tensor, batch_dim=1):
         else:  # non-batch dimensions are empty, so argmax indices are undefined
             raise NoArgMaxIndices()
     else:  # We actually have elements to maximize, so we search for them
-        indices_of_non_batch_portion = (
-            tensor_with_flat_non_batch_portion.argmax(dim=-1)
-        )
+        indices_of_non_batch_portion = tensor_with_flat_non_batch_portion.argmax(dim=-1)
         batch_of_unraveled_indices = unravel_indices(
             indices_of_non_batch_portion, non_batch_shape
         )
@@ -78,9 +76,7 @@ def batch_argmax(tensor, batch_dim=1):
     if dimension_of_indices == 1:
         # above function makes each unraveled index of a n-D tensor a n-long tensor
         # however indices of 1D tensors are typically represented by scalars, so we squeeze them in this case.
-        batch_of_unraveled_indices = batch_of_unraveled_indices.squeeze(
-            dim=-1
-        )
+        batch_of_unraveled_indices = batch_of_unraveled_indices.squeeze(dim=-1)
     return batch_of_unraveled_indices
 
 

@@ -51,9 +51,7 @@ def test_basic_interpreter():
     assert bi.eval(add_one_to_one) == 2
 
     python_divide = BasicConstant(lambda x, y: x / y, int_to_int_to_int)
-    divide_by_zero = BasicFunctionApplication(
-        python_divide, [one, BasicConstant(0)]
-    )
+    divide_by_zero = BasicFunctionApplication(python_divide, [one, BasicConstant(0)])
     with pytest.raises(ZeroDivisionError):
         bi.eval(divide_by_zero)
 
@@ -66,9 +64,7 @@ def test_basic_interpreter():
 
     # uninterpreted function
     uninterpreted_func = BasicVariable("func", int_to_int_to_int)
-    uninterpreted_application = BasicFunctionApplication(
-        uninterpreted_func, [one]
-    )
+    uninterpreted_application = BasicFunctionApplication(uninterpreted_func, [one])
     with pytest.raises(AttributeError):
         bi.eval(uninterpreted_application)
 
@@ -101,9 +97,7 @@ def test_sympy_interpreter():
     # operator
     operator_add = BasicConstant(operator.add, int_to_int_to_int)
     two = SymPyConstant(sympy.Integer(2))
-    add_one_to_two = SymPyExpression.new_function_application(
-        operator_add, [one, two]
-    )
+    add_one_to_two = SymPyExpression.new_function_application(operator_add, [one, two])
     assert si.eval(add_one_to_two) == 3
 
     # cannot evaluate variable
@@ -141,9 +135,7 @@ def test_sympy_interpreter():
 
     # test operators
     operator_mul = BasicConstant(operator.mul, int_to_int_to_int)
-    two_times_two = SymPyExpression.new_function_application(
-        operator_mul, [two, two]
-    )
+    two_times_two = SymPyExpression.new_function_application(operator_mul, [two, two])
     assert si.eval(two_times_two) == 4
 
     operator_pow = BasicConstant(operator.pow, int_to_int_to_int)
@@ -234,9 +226,7 @@ def test_sympy_interpreter_simplify():
     b_x_plus_y_minus_y = BasicFunctionApplication(
         BasicConstant(operator.sub, int_to_int_to_int), [b_x_plus_y, b_y]
     )
-    assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(
-        SymPyVariable(x, int)
-    )
+    assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(SymPyVariable(x, int))
     assert si.simplify(b_x_plus_y).sympy_object == x + y
 
     # with a context
@@ -281,9 +271,7 @@ def test_sympy_interpreter_simplify_operator_overload():
     b_y = BasicVariable("y", int)
     b_x_plus_y = b_x + b_y
     b_x_plus_y_minus_y = b_x_plus_y - b_y
-    assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(
-        SymPyVariable(x, int)
-    )
+    assert si.simplify(b_x_plus_y_minus_y).internal_object_eq(SymPyVariable(x, int))
     assert si.simplify(b_x_plus_y).sympy_object == x + y
 
     # with a context
@@ -297,9 +285,7 @@ def test_sympy_interpreter_simplify_operator_overload():
     x_3_y_2_context = dict_to_sympy_context({"x": 3, "y": 2})
     f = BasicConstant(conditional, Callable[[bool, int, int], int])
     fa = BasicFunctionApplication(f, [b_x <= 2, b_x * 100, b_y])
-    assert si.simplify(fa).sympy_object == sympy.Piecewise(
-        (x * 100, x <= 2), (y, True)
-    )
+    assert si.simplify(fa).sympy_object == sympy.Piecewise((x * 100, x <= 2), (y, True))
     assert si.simplify(fa, x_2_y_2_context).value == 200
     assert si.simplify(fa, x_3_y_2_context).value == 2
 

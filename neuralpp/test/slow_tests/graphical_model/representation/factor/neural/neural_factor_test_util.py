@@ -35,9 +35,9 @@ def check_and_show_conditional_distributions(
         ]
         assert abs(sum(potentials) - 1) < 0.0001
 
-        for (
-            output_assignment_dict
-        ) in DiscreteVariable.assignments_product_dicts([output_variable]):
+        for output_assignment_dict in DiscreteVariable.assignments_product_dicts(
+            [output_variable]
+        ):
             potential, assignment_dict = compute_potential_and_assignment(
                 neural_factor, input_assignment_dict, output_assignment_dict
             )
@@ -49,9 +49,7 @@ def check_and_show_conditional_distributions(
             )
 
             if ground_truth is not None:
-                assignment = [
-                    assignment_dict[v] for v in neural_factor.variables
-                ]
+                assignment = [assignment_dict[v] for v in neural_factor.variables]
                 ground_probability = ground_truth(*assignment)
                 print(f" (ground truth: {round(ground_probability, 3)})")
                 if not util.close(potential, ground_probability, tolerance):
@@ -79,8 +77,6 @@ def compute_potential_and_assignment(
     input_assignment_dict: Dict[DiscreteVariable, Any],
     output_assignment_dict: Dict[DiscreteVariable, Any],
 ):
-    assignment_dict = merge_dicts(
-        input_assignment_dict, output_assignment_dict
-    )
+    assignment_dict = merge_dicts(input_assignment_dict, output_assignment_dict)
     potential = neural_factor(assignment_dict)
     return potential, assignment_dict

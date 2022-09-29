@@ -24,13 +24,9 @@ class PyTorchTableFactor(TableFactor):
             variables,
             array_or_table_of_potentials
             if isinstance(array_or_table_of_potentials, PyTorchTable)
-            else PyTorchLogTable.from_array(
-                array_or_table_of_potentials, batch=batch
-            )
+            else PyTorchLogTable.from_array(array_or_table_of_potentials, batch=batch)
             if log_space
-            else PyTorchTable.from_array(
-                array_or_table_of_potentials, batch=batch
-            ),
+            else PyTorchTable.from_array(array_or_table_of_potentials, batch=batch),
         )
         assert self.table.non_batch_shape == (
             variables_shape := tuple(v.cardinality for v in variables)
@@ -58,19 +54,11 @@ class PyTorchTableFactor(TableFactor):
         batch = batch_size is not None
 
         variable_ranges = [range(v.cardinality) for v in variables]
-        ranges = (
-            variable_ranges
-            if not batch
-            else [range(batch_size)] + variable_ranges
-        )
+        ranges = variable_ranges if not batch else [range(batch_size)] + variable_ranges
 
-        table_shape = (
-            shape(variables) if not batch else (batch_size, *shape(variables))
-        )
+        table_shape = shape(variables) if not batch else (batch_size, *shape(variables))
 
-        table = table_class.from_function(
-            table_shape, ranges, function, batch
-        )
+        table = table_class.from_function(table_shape, ranges, function, batch)
 
         return constructor(variables, table)
 

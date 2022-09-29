@@ -28,14 +28,10 @@ def get_normal_piecewise_polynomial_approximation(
         else:
             new_var = simplifer.simplify(expression=variable - mean)
     else:
-        new_var = simplifer.simplify(
-            expression=(variable - mean) / sigma_constant
-        )
+        new_var = simplifer.simplify(expression=(variable - mean) / sigma_constant)
 
     standard_normal_piecewise_polynomial = (
-        get_standard_normal_piecewise_polynomial_approximation(
-            new_var, generator
-        )
+        get_standard_normal_piecewise_polynomial_approximation(new_var, generator)
     )
 
     if sigma == 1:
@@ -52,9 +48,7 @@ def get_standard_normal_piecewise_polynomial_approximation(
     """
     std_normal = Normal(0.0, 1.0)
     f = lambda x: std_normal.log_prob(torch.tensor(x)).exp()
-    segment_boundaries = [
-        float(v) for v in [-4, -3.25, -1.75, 0, 1.75, 3.25, 4]
-    ]
+    segment_boundaries = [float(v) for v in [-4, -3.25, -1.75, 0, 1.75, 3.25, 4]]
     segment_degrees = [3] * len(segment_boundaries)
     return piecewise_polynomial_approximation(
         f, variable, segment_degrees, segment_boundaries, generator
@@ -108,9 +102,7 @@ def polynomial_approximation(
     assert len(xs) == degree + 1
     ys = np.array([f(x) for x in xs])
     coefficients = np.polyfit(xs, ys, degree)
-    polynomial = from_coefficients_to_polynomial(
-        variable, coefficients, generator
-    )
+    polynomial = from_coefficients_to_polynomial(variable, coefficients, generator)
     return polynomial
 
 
@@ -125,9 +117,7 @@ def from_coefficients_to_polynomial(
     gen = SymPyExpression.convert(generator).sympy_object
     var_poly = Poly.from_list(coefficients, var)
     sympy_result = Poly.from_poly(var_poly, gen)
-    result = SymPyExpression.from_sympy_object(
-        sympy_result, {var: float, gen: float}
-    )
+    result = SymPyExpression.from_sympy_object(sympy_result, {var: float, gen: float})
     assert result is not None
     return result
 

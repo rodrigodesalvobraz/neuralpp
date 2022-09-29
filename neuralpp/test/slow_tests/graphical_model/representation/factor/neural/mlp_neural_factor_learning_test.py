@@ -26,11 +26,9 @@ def make_bernoulli_dataset(x, y):
     DATASET_SIZE = 1000
     p = [0.3, 0.9]
 
-    x_value = lambda i: 0 if i < DATASET_SIZE / 2 else 1
-    y_value = lambda i: bernoulli(p[x_value(i)])
-    dataset = [
-        ({x: x_value(i)}, {y: y_value(i)}) for i in range(DATASET_SIZE)
-    ]
+    x_value = lambda i: 0 if i < DATASET_SIZE / 2 else 1  # noqa: E731
+    y_value = lambda i: bernoulli(p[x_value(i)])  # noqa: E731
+    dataset = [({x: x_value(i)}, {y: y_value(i)}) for i in range(DATASET_SIZE)]
     random.shuffle(dataset)
     return dataset
 
@@ -59,9 +57,7 @@ def mlp_neural_factor_learning():
     print("Dataset mean y for x = 1:", y_mean_for_x_1)
 
     graphical_model = [neural_factor]
-    GraphicalModelSGDLearner(
-        graphical_model, dataset, loss_decrease_tol=1e-3
-    ).learn()
+    GraphicalModelSGDLearner(graphical_model, dataset, loss_decrease_tol=1e-3).learn()
 
     def ground_truth(x, y):
         if x == 0:

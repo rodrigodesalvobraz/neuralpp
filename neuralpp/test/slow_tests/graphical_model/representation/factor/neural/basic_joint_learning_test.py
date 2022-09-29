@@ -56,19 +56,13 @@ def joint_learning():
         dataset, ground_truth_model
     ).item()
 
-    print(
-        f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}"
-    )
+    print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
 
-    GraphicalModelSGDLearner(
-        learned_model, dataset, loss_decrease_tol=1e-3
-    ).learn()
+    GraphicalModelSGDLearner(learned_model, dataset, loss_decrease_tol=1e-3).learn()
 
     cross_entropy = cross_entropy_for_dataset(dataset, learned_model).item()
 
-    print(
-        f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}"
-    )
+    print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
     print(f"Learned model cross entropy     : {cross_entropy :.3f}")
 
     for observation_dict, query_dict in random.sample(dataset, 10):

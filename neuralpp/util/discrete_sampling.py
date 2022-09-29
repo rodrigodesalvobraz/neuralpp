@@ -14,6 +14,4 @@ def discrete_sample(points, get_probability):
         total_probability_so_far += get_probability(point)
         if u < total_probability_so_far:
             return point
-    raise Exception(
-        "Discrete probability provided for sampling is not normalized"
-    )
+    raise Exception("Discrete probability provided for sampling is not normalized")

@@ -105,9 +105,7 @@ def test_depth_two_tree():
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker(
-                [TensorVariable, TensorVariable], make_gaussian_with_mean
-            ),
+            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
         ],
         loop_coefficient=0.0,
     )
@@ -119,9 +117,7 @@ def test_depth_two_tree():
     for i in range(1, 4):
         seed_variable = TensorVariable(f"x{i}")
         mean_parent = TensorVariable(f"x{i + 3}")
-        expected[seed_variable] = make_gaussian_with_mean(
-            [seed_variable, mean_parent]
-        )
+        expected[seed_variable] = make_gaussian_with_mean([seed_variable, mean_parent])
     for i in range(4, 7):
         mean_parent = TensorVariable(f"x{i}")
         expected[mean_parent] = make_standard_gaussian(mean_parent)
@@ -143,9 +139,7 @@ def test_depth_two_attempted_loops():
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker(
-                [TensorVariable, TensorVariable], make_gaussian_with_mean
-            ),
+            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
         ],
         loop_coefficient=1.0,
     )
@@ -215,9 +209,7 @@ def test_multi_type():
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker(
-                [TensorVariable, TensorVariable], make_gaussian_with_mean
-            ),
+            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
             FactorMaker(
                 [
                     TensorVariable,
@@ -304,9 +296,7 @@ def test_multi_type_large_scale(loop_coefficient):
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker(
-                [TensorVariable, TensorVariable], make_gaussian_with_mean
-            ),
+            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
             FactorMaker(
                 [
                     TensorVariable,

@@ -63,9 +63,7 @@ def test_ebp_tree():
 
     # this should result in increased chances of rain
     # expected_w_with_conditions = PyTorchTableFactor([w], [0.12, 0.26, 0.42, 0.2])
-    expected_w_with_conditions = VariableElimination().run(
-        w, conditioned_factors
-    )
+    expected_w_with_conditions = VariableElimination().run(w, conditioned_factors)
     assert (
         ExactBeliefPropagation(conditioned_factors, w).run()
         == expected_w_with_conditions
@@ -108,9 +106,7 @@ def test_ebp_with_loop():
     conditioned_factors = [f.condition(observations) for f in factors]
 
     # this should result in increased chances of rain
-    expected_w_with_conditions = VariableElimination().run(
-        w, conditioned_factors
-    )
+    expected_w_with_conditions = VariableElimination().run(w, conditioned_factors)
     assert (
         ExactBeliefPropagation(conditioned_factors, w).run()
         == expected_w_with_conditions
@@ -175,9 +171,7 @@ def test_incremental_anytime_with_uniform_approximation():
 
     # First approximation ends up being uniform since all factors leading to the query are uniform
     # Final approximation is the same as the result from Exact Belief Propagation on the entire tree
-    assert approximations[0] == PyTorchTableFactor(
-        [w], [0.25, 0.25, 0.25, 0.25]
-    )
+    assert approximations[0] == PyTorchTableFactor([w], [0.25, 0.25, 0.25, 0.25])
     # assert (approximations[-1] == PyTorchTableFactor([w], [0.192, 0.332, 0.34, 0.136]))
     assert approximations[-1] == VariableElimination().run(w, factors)
 
@@ -241,7 +235,7 @@ def test_random_model_aebp():
 
     # Prefers nodes with more variable names later in the alphabet
     def scoring_function(x, partial_tree, full_tree):
-        total_ord = lambda s: sum(ord(c) for c in s)
+        total_ord = lambda s: sum(ord(c) for c in s)  # noqa: E731
         if isinstance(x, IntegerVariable):
             return total_ord(x.name)
         else:
@@ -286,16 +280,16 @@ def test_monotonic_improvement():
 
     # Beginning of configuration
 
-    show_plot = (
-        False  # whether to show a plot of errors as anytime is iterated
-    )
+    show_plot = False  # whether to show a plot of errors as anytime is iterated
 
     # docstring model (linear graph)
     n = 10  # number of factors in the docstring linear model.
     random_query = False  # whether to pick a query at random for the docstring model or use x_0 instead.
 
     # random model
-    use_random_models = False  # use a random model rather than the one described in the docstring.
+    use_random_models = (
+        False  # use a random model rather than the one described in the docstring.
+    )
     number_of_factors = 25  # number of factors in the random model, if used.
     number_of_variables = int(
         number_of_factors * 2 / 3
@@ -319,9 +313,7 @@ def test_monotonic_improvement():
         factors = [
             PyTorchTableFactor.from_function(
                 [x[i], x[i + 1]],
-                lambda xi, xip1: (0.9 if xi else 0.1)
-                if xip1
-                else (0.2 if xi else 0.8),
+                lambda xi, xip1: (0.9 if xi else 0.1) if xip1 else (0.2 if xi else 0.8),
             )
             for i in range(n - 1)
         ]

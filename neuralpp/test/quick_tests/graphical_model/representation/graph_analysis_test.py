@@ -1,8 +1,15 @@
 from neuralpp.experiments.experimental_inference.exact_belief_propagation import (
     Expansion,
 )
-from neuralpp.experiments.experimental_inference.graph_analysis import *
-from neuralpp.experiments.experimental_inference.graph_computation import *
+from neuralpp.experiments.experimental_inference.graph_analysis import (
+    FactorGraph,
+    LazyFactorSpanningTree,
+    PartialFactorSpanningTree,
+    PartialTreePlusOneLevel,
+)
+from neuralpp.experiments.experimental_inference.graph_computation import (
+    MaximumLeafValueComputation,
+)
 from neuralpp.inference.graphical_model.representation.factor.factor import (
     Factor,
 )
@@ -65,9 +72,7 @@ def test_ebp_tree_expansion():
         expanded_node = expansion_computation[partial_tree.root].node
         partial_tree.add_edge(full_tree.parent(expanded_node), expanded_node)
         expansion_computation.bookkeep_values_in_path_to(expanded_node)
-        _ = expansion_computation[
-            partial_tree.root
-        ]  # Trigger lazy re-evaluation
+        _ = expansion_computation[partial_tree.root]  # Trigger lazy re-evaluation
 
     factor_wrs_value = scoring_result(factors[3])
     factor_s_value = scoring_result(factors[2])

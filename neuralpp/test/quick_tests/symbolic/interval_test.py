@@ -10,9 +10,7 @@ def test_basic_constant_closed_intervals():
     empty_context = Z3SolverExpression()
     constant_context = empty_context & (i < 5) & (i > 0)
 
-    dotted_interval = from_constraint(
-        i, constant_context, empty_context, False
-    )
+    dotted_interval = from_constraint(i, constant_context, empty_context, False)
     interval = dotted_interval.interval
 
     assert interval.lower_bound.syntactic_eq(Z3Expression.new_constant(1))
@@ -26,9 +24,7 @@ def test_basic_symbolic_closed_intervals():
     empty_context = Z3SolverExpression()
     constant_context = empty_context & (i < 5) & (i > x)
 
-    dotted_interval = from_constraint(
-        i, constant_context, empty_context, False
-    )
+    dotted_interval = from_constraint(i, constant_context, empty_context, False)
     interval = dotted_interval.interval
 
     assert interval.lower_bound.syntactic_eq(1 + x)
@@ -37,9 +33,7 @@ def test_basic_symbolic_closed_intervals():
     empty_context = Z3SolverExpression()
     constant_context = empty_context & (i <= x + 5) & (i > x + 2)
 
-    dotted_interval = from_constraint(
-        i, constant_context, empty_context, False
-    )
+    dotted_interval = from_constraint(i, constant_context, empty_context, False)
     interval = dotted_interval.interval
 
     assert interval.lower_bound.syntactic_eq(3 + x)

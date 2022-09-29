@@ -26,9 +26,7 @@ import torch
 
 if __name__ == "__main__":
     K = 2  # number of components
-    data = torch.tensor(
-        [0.0, 1.0, 10.0, 11.0, 12.0]
-    )  # a tiny dataset of 5 points
+    data = torch.tensor([0.0, 1.0, 10.0, 11.0, 12.0])  # a tiny dataset of 5 points
 
     # for simplicity (since we haven't implemented other distributions yet), assume
     # uniform cluster size and a fixed std of 2.0 for each cluster
@@ -80,9 +78,7 @@ if __name__ == "__main__":
     print("marginalized_factor:", marginalized_factor)
 
     # converting to BM
-    converter = BeanMachineConverter(
-        [marginalized_factor], variable_assignments
-    )
+    converter = BeanMachineConverter([marginalized_factor], variable_assignments)
 
     # Turns out that since GMM is unsupervised, it's possible for the same mu_k to
     # represents a different component in a different chain, resulting a low ess and
@@ -93,9 +89,7 @@ if __name__ == "__main__":
     # comparison.
     @bm.functional
     def component(k):
-        component_vals = [
-            converter.invoke_rv_function_of(mu) for mu in mu_out
-        ]
+        component_vals = [converter.invoke_rv_function_of(mu) for mu in mu_out]
         return sorted(component_vals)[k]
 
     # begin inference

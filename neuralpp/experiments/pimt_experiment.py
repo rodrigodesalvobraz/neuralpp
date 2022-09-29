@@ -24,9 +24,7 @@ mu1 = BasicVariable("mu1", float)
 mu2 = BasicVariable("mu2", float)
 
 # P(x, mu1, mu2) = Normal(x | mu1, 1.0) * Normal(mu1 | mu2, 1.0) * Normal(mu2 | 0.0, 1.0) propto
-formula = get_normal_piecewise_polynomial_approximation(
-    x, mu1, 1.0, generator=mu1
-)
+formula = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0, generator=mu1)
 joint_simple = get_normal_piecewise_polynomial_approximation(
     x, mu1, 1.0, generator=mu1
 ) * get_normal_piecewise_polynomial_approximation(
@@ -34,9 +32,7 @@ joint_simple = get_normal_piecewise_polynomial_approximation(
 )
 joint = (
     get_normal_piecewise_polynomial_approximation(x, mu1, 1.0, generator=mu1)
-    * get_normal_piecewise_polynomial_approximation(
-        mu1, mu2, 1.0, generator=mu1
-    )
+    * get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0, generator=mu1)
     * get_normal_piecewise_polynomial_approximation(
         mu2, BasicExpression.new_constant(0.0), 1.0, generator=mu1
     )
@@ -77,9 +73,7 @@ def to_printable(sympy_object: sympy.Basic):
             *[(to_printable(expr), cond) for expr, cond in sympy_object.args]
         )
     elif sympy_object.func.is_Add:
-        return sympy_object.func(
-            *[to_printable(expr) for expr in sympy_object.args]
-        )
+        return sympy_object.func(*[to_printable(expr) for expr in sympy_object.args])
     else:
         return sympy_object
 
@@ -163,8 +157,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu2,
-                Z3SolverExpression.from_expression(mu2 > -20.0)
-                & (mu2 < 20.0),
+                Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0),
                 two_piecewise,
             )
         ),
@@ -177,8 +170,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu1,
-                Z3SolverExpression.from_expression(mu1 > -20.0)
-                & (mu1 < 20.0),
+                Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0),
                 formula,
             )
         ),
@@ -189,8 +181,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu1,
-                Z3SolverExpression.from_expression(mu1 > -20.0)
-                & (mu1 < 20.0),
+                Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0),
                 joint_simple.replace(x, BasicConstant(1.0)),
             )
         ),
@@ -201,8 +192,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu1,
-                Z3SolverExpression.from_expression(mu1 > -20.0)
-                & (mu1 < 20.0),
+                Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0),
                 joint_simple.replace(x, BasicConstant(0.0)),
             )
         ),
@@ -213,8 +203,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu1,
-                Z3SolverExpression.from_expression(mu1 > -20.0)
-                & (mu1 < 20.0),
+                Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0),
                 joint_simple,
             )
         ),
@@ -225,8 +214,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu1,
-                Z3SolverExpression.from_expression(mu1 > -20.0)
-                & (mu1 < 20.0),
+                Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0),
                 joint.replace(x, BasicConstant(0.0)),
             )
         ),
@@ -247,8 +235,7 @@ if __name__ == "__main__":
         normalization_generator(
             lambda: basic_integral(
                 mu1,
-                Z3SolverExpression.from_expression(mu1 > -20.0)
-                & (mu1 < 20.0),
+                Z3SolverExpression.from_expression(mu1 > -20.0) & (mu1 < 20.0),
                 joint,
             )
         ),

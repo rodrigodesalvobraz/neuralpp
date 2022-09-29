@@ -7,9 +7,7 @@ class TensorMixedRadix:
     """
 
     def __init__(self, radices):
-        self.strides, self.max_value = self.compute_strides_and_max_value(
-            radices
-        )
+        self.strides, self.max_value = self.compute_strides_and_max_value(radices)
 
     def representation(self, values: torch.Tensor):
         """
@@ -19,18 +17,14 @@ class TensorMixedRadix:
         As a consequence, the shape of the result will be (*values.shape, len(self.strides))
         """
         if values.numel() == 0:
-            return torch.zeros(
-                (*values.shape, len(self.strides)), dtype=torch.int
-            )
+            return torch.zeros((*values.shape, len(self.strides)), dtype=torch.int)
 
         if (m := values.max()) > self.max_value:
             raise MaxValueException(m, self.max_value)
 
         digits = []
         for i, stride in enumerate(self.strides):
-            i_th_digits = torch.div(
-                values, stride, rounding_mode="floor"
-            ).int()
+            i_th_digits = torch.div(values, stride, rounding_mode="floor").int()
             values -= i_th_digits * stride
             digits.append(i_th_digits)
 

@@ -21,7 +21,6 @@ from neuralpp.inference.graphical_model.variable.integer_variable import (
     IntegerVariable,
 )
 from neuralpp.util import util
-from neuralpp.util.discrete_sampling import discrete_sample
 
 
 @pytest.fixture
@@ -108,9 +107,7 @@ def batch_function_adapter_from_function_without_batch_row_index(
         )
         if batch:
             batch_row_index = args[0]
-            potential = (
-                batch_row_index + 1
-            ) * potential_without_batch_row_index
+            potential = (batch_row_index + 1) * potential_without_batch_row_index
         else:
             potential = potential_without_batch_row_index
         return potential
@@ -159,14 +156,10 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             variables, function, log_space_expected, batch_size
         )
 
-    fixy = lambda i, x, y: float((10**i) * (x * 3 + y))
+    fixy = lambda i, x, y: float((10**i) * (x * 3 + y))  # noqa: E731
 
     factor = table_factor_from_function_with_batch_row_index(
         (x, y), fixy, log_space, batch_size
-    )
-
-    table_class_to_use = (
-        PyTorchLogTable if log_space_expected else PyTorchTable
     )
 
     tests = [
@@ -279,9 +272,7 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             {x: [0, 1], y: [0, 1, 0]},  # batch coordinates do not coincide
         ]
 
-        for (
-            illegal_conditioning_for_batch
-        ) in illegal_conditionings_for_batches:
+        for illegal_conditioning_for_batch in illegal_conditionings_for_batches:
             try:
                 factor[illegal_conditioning_for_batch]
                 raise AssertionError(
@@ -295,9 +286,7 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             {x: [0, 1], y: [0, 1, 0]},  # batch coordinates do not coincide
         ]
 
-        for (
-            illegal_conditioning_for_non_batch
-        ) in illegal_conditionings_for_non_batches:
+        for illegal_conditioning_for_non_batch in illegal_conditionings_for_non_batches:
             try:
                 factor[illegal_conditioning_for_non_batch]
                 raise AssertionError(
@@ -343,8 +332,8 @@ def test_get_item(x, y, log_space, log_space_expected, batch_size):
 
 def test_mul(x, y, z, log_space1, log_space2, batch_size):
 
-    f_x_y = lambda x, y: float((x + 1) * (y + 1))
-    f_y_z = lambda y, z: float((y + 1) * (z + 1) * 10)
+    f_x_y = lambda x, y: float((x + 1) * (y + 1))  # noqa: E731
+    f_y_z = lambda y, z: float((y + 1) * (z + 1) * 10)  # noqa: E731
 
     factor1 = table_factor_from_function_without_batch_row_index(
         (x, y), f_x_y, log_space1, batch_size
@@ -413,9 +402,7 @@ def test_get_assignment_index(x, y, z):
     for i, v in enumerate(variables):
         selected_variables = variables[:i]
         assignment_index = 0
-        for assignment in DiscreteVariable.assignments_product(
-            selected_variables
-        ):
+        for assignment in DiscreteVariable.assignments_product(selected_variables):
             assert assignment_index == get_assignment_index(
                 assignment, selected_variables
             )
@@ -449,9 +436,7 @@ def test_sample(x, y, z, log_space, batch_size):
 
         number_of_assignments = math.prod(v.cardinality for v in variables)
         potentials = range(number_of_assignments)
-        probabilities = torch.tensor(potentials, dtype=torch.float) / sum(
-            potentials
-        )
+        probabilities = torch.tensor(potentials, dtype=torch.float) / sum(potentials)
 
         # Create a factor in which each assignment's probability is proportional to its position
         # in the list of assignments (it's *index*).
@@ -463,7 +448,7 @@ def test_sample(x, y, z, log_space, batch_size):
         else:
 
             def f(*assignment):
-                batch_index, assignment = assignment[0], assignment[1:]
+                _, assignment = assignment[0], assignment[1:]
                 return get_assignment_index(assignment, variables)
 
         factor = PyTorchTableFactor.from_function(
@@ -481,15 +466,11 @@ def test_sample(x, y, z, log_space, batch_size):
         # all p_i are in [0, 0.5]. Since they are always monotonically increasing,
         # the std error of the last one is the largest.
         if number_of_assignments < 4:
-            max_std_err = max(
-                std_err(p, number_of_samples) for p in probabilities
-            )
+            max_std_err = max(std_err(p, number_of_samples) for p in probabilities)
             print(f"Searched for max std err and found {max_std_err:.3}")
         else:
             max_std_err = std_err(probabilities[-1], number_of_samples)
-            print(
-                f"Took last std err for max std err and found {max_std_err:.3}"
-            )
+            print(f"Took last std err for max std err and found {max_std_err:.3}")
 
         z_score = (
             5  # a sample with fall out of this range extremely rarely; a Z-score of 4
@@ -497,9 +478,7 @@ def test_sample(x, y, z, log_space, batch_size):
             # (A Z-score of 4 means a probability of (1 out of 10K runs) * 365 ~= 28).
         )
         absolute_tolerance = z_score * max_std_err
-        print(
-            f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}"
-        )
+        print(f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}")
 
         samples = factor.sample(number_of_samples)
 

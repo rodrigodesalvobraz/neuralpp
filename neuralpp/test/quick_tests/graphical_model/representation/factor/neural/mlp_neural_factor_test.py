@@ -24,6 +24,4 @@ def mlp_neural_factor_generates_distributions():
 
 
 def test_joint_learning():
-    try_noisy_test_up_to_n_times(
-        mlp_neural_factor_generates_distributions, n=3
-    )
+    try_noisy_test_up_to_n_times(mlp_neural_factor_generates_distributions, n=3)

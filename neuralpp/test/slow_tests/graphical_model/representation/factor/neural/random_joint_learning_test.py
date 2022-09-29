@@ -60,9 +60,7 @@ def run_tests(
 
     number_of_passing_tests = sum(test_results)
 
-    print(
-        f"Successful tests: {number_of_passing_tests} out of {number_of_tests}"
-    )
+    print(f"Successful tests: {number_of_passing_tests} out of {number_of_tests}")
 
     assert number_of_passing_tests > required_percentage * number_of_tests, (
         f"Only {number_of_passing_tests} passed among {number_of_tests} tests. "
@@ -87,8 +85,7 @@ def one_test(
 ):
 
     assert (
-        number_of_query_variables + number_of_observed_variables
-        <= number_of_variables
+        number_of_query_variables + number_of_observed_variables <= number_of_variables
     ), f"number of query variables + number of observed variables must be less than number of variables, but got {number_of_query_variables}, {number_of_observed_variables}, {number_of_variables} respectively"
 
     print(message)
@@ -107,10 +104,7 @@ def one_test(
         debug_model("Initial state of model to be learned:", learned_model)
 
         number_of_replaced_factors = sum(
-            [
-                l_f is not g_f
-                for l_f, g_f in zip(learned_model, ground_truth_model)
-            ]
+            [l_f is not g_f for l_f, g_f in zip(learned_model, ground_truth_model)]
         )
 
         print("Number of ground truth factors:", len(ground_truth_model))
@@ -136,18 +130,14 @@ def one_test(
         dataset, ground_truth_model
     ).item()
 
-    print(
-        f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}"
-    )
+    print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
 
     data_loader = MultiFrameDataLoader(dataset, batch_size=10)
     cross_entropy = GraphicalModelSGDLearner(
         learned_model, data_loader, loss_decrease_tol=loss_decrease_tol
     ).learn()
 
-    print(
-        f"Ground truth model cross entropy: {ground_truth_cross_entropy:.3f}"
-    )
+    print(f"Ground truth model cross entropy: {ground_truth_cross_entropy:.3f}")
     print(f"Learned model cross entropy     : {cross_entropy:.3f}")
 
     debug_model("Learned model after learning is completed:", learned_model)
@@ -190,9 +180,7 @@ def make_models(
         FixedPyTorchTableFactor,
     )
     selected_for_replacement = set(
-        util.select_indices_fraction(
-            number_of_factors, fraction_of_replaced_factors
-        )
+        util.select_indices_fraction(number_of_factors, fraction_of_replaced_factors)
     )
     learned_model = [
         replace(ground_truth_model[i])

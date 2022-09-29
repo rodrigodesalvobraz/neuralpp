@@ -86,7 +86,5 @@ class MaximumLeafValueComputation(PartialTreeComputation):
         if empty(children):
             return self.leaf_value_function(node, self.tree)
         else:
-            candidates = [
-                self[child] for child in children if self[child] is not None
-            ]
+            candidates = [self[child] for child in children if self[child] is not None]
             return argmax(candidates, self.argmax_key)

@@ -50,9 +50,7 @@ class Profiler:
         finally:
             if not self._dummy:
                 end = monotonic()
-                self._logs[section_name].add_time_delta(
-                    end - self._current_start_time
-                )
+                self._logs[section_name].add_time_delta(end - self._current_start_time)
                 self._current_section, self._current_start_time = (
                     old_section,
                     end,

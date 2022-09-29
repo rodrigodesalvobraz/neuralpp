@@ -82,9 +82,7 @@ def f1_ixy(i, x, y):
 def table1(class_to_use, batch_size1):
 
     if batch_size1 == -1:
-        table1 = class_to_use.from_function(
-            (3, 2), (range(3), range(2)), f1_xy
-        )
+        table1 = class_to_use.from_function((3, 2), (range(3), range(2)), f1_xy)
     else:
         table1 = class_to_use.from_function(
             (batch_size1, 3, 2),
@@ -136,9 +134,7 @@ def test_init_table1(table1, batch_size1):
         )
     table1_shape = (3, 2)
     table1_length = 6
-    run_init_test(
-        batch_size1, table1, table1_length, table1_data, table1_shape
-    )
+    run_init_test(batch_size1, table1, table1_length, table1_data, table1_shape)
 
 
 def test_init_table2(table2, batch_size2):
@@ -146,9 +142,7 @@ def test_init_table2(table2, batch_size2):
     table2_data = [0.7, 0.2, 0.1] * (1 if batch_size2 == -1 else batch_size2)
     table2_shape = (3,)
     table2_length = 3
-    run_init_test(
-        batch_size2, table2, table2_length, table2_data, table2_shape
-    )
+    run_init_test(batch_size2, table2, table2_length, table2_data, table2_shape)
 
 
 def test_init_empty(empty, batch_size_empty):
@@ -156,16 +150,12 @@ def test_init_empty(empty, batch_size_empty):
     empty_data = []
     empty_shape = (0,)
     empty_length = 0
-    run_init_test(
-        batch_size_empty, empty, empty_length, empty_data, empty_shape
-    )
+    run_init_test(batch_size_empty, empty, empty_length, empty_data, empty_shape)
 
 
 def run_init_test(batch_size, table, table_length, table_data, table_shape):
     if batch_size == -1:
-        assert torch.allclose(
-            table.potentials_tensor(), torch.tensor(table_data)
-        )
+        assert torch.allclose(table.potentials_tensor(), torch.tensor(table_data))
         assert len(table) == table_length
     else:
         assert torch.allclose(
@@ -226,9 +216,7 @@ def run_expand_test(table, batch_size, class_to_use):
         assert actual_table_expand == expected_table_expand
 
 
-def make_expected_expanded(
-    table, shape_to_insert, dim, class_to_use, batch_size
-):
+def make_expected_expanded(table, shape_to_insert, dim, class_to_use, batch_size):
     if batch_size == -1:
         batch_dim = ()
     else:
@@ -244,8 +232,7 @@ def make_expected_expanded(
     def f(*args):
         effective_dim = dim if batch_size == -1 else dim + 1
         args_without_expansion = (
-            args[:effective_dim]
-            + args[effective_dim + len(shape_to_insert) :]
+            args[:effective_dim] + args[effective_dim + len(shape_to_insert) :]
         )
         return table.potentials_tensor()[args_without_expansion].item()
         # Note that we need to use table.potentials_tensor()[] rather than table[]
@@ -358,10 +345,7 @@ def run_non_batch_slice_tests_no_assumption_of_equal_batch_rows(
                 expected_data.append(function(*prefix_arguments))
             else:
                 for v in range(original_non_batch_shape[dim]):
-                    if (
-                        coordinates[dim] == slice(None)
-                        or coordinates[dim] == v
-                    ):
+                    if coordinates[dim] == slice(None) or coordinates[dim] == v:
                         process_from_dim(dim + 1, prefix_arguments + [v])
 
         for row in range(number_of_data_rows):
@@ -378,9 +362,7 @@ def run_non_batch_slice_tests_no_assumption_of_equal_batch_rows(
         else:
             shape = (number_of_data_rows, *non_batch_shape)
         expected_tensor = torch.tensor(expected_data).reshape(shape)
-        expected = class_to_use.from_array(
-            expected_tensor, batch=(batch_size != -1)
-        )
+        expected = class_to_use.from_array(expected_tensor, batch=(batch_size != -1))
         assert table.slice(coordinates) == expected
         assert torch.allclose(table[coordinates], expected_tensor)
 
@@ -429,9 +411,7 @@ def run_non_batch_slice_tests_assuming_equal_batch_rows(
         assert actual == expected
 
 
-def run_non_batch_slice_tests2(
-    table, table_name, tests, batch_size, class_to_use
-):
+def run_non_batch_slice_tests2(table, table_name, tests, batch_size, class_to_use):
     """
     Tests slice without batch coordinates (multiple values for the same coordinate).
     """
@@ -487,9 +467,7 @@ def test_batch_slice1(class_to_use, table1, batch_size1):
             assert actual == expected
     else:  # multi-row batch
         n = table1.number_of_batch_rows()
-        assert (
-            n % 2 == 0
-        ), "This test assumes the batch has an even number of rows"
+        assert n % 2 == 0, "This test assumes the batch has an even number of rows"
         for coordinates in [
             [1, 1],
             [[0, 1] * (n // 2), [0, 1] * (n // 2)],
@@ -564,9 +542,7 @@ def run_get_item_test(tests, table, batch_size):
         print(f"{coordinates}: {actual}")
         expected = make_tensor_from_row_array(batch_size, expected_row_array)
         print("expected:", expected)
-        assert actual.shape == expected.shape and torch.allclose(
-            actual, expected
-        )
+        assert actual.shape == expected.shape and torch.allclose(actual, expected)
 
 
 def test_mul(class_to_use):
@@ -576,52 +552,36 @@ def test_mul(class_to_use):
     # First we test some basic non-batch, non-empty cases
 
     table1 = class_to_use.from_array([[1.0, 2.0], [3.0, 4.0]], batch=False)
-    table2 = class_to_use.from_array(
-        [[10.0, 20.0], [30.0, 40.0]], batch=False
-    )
-    expected = class_to_use.from_array(
-        [[10.0, 40.0], [90.0, 160.0]], batch=False
-    )
+    table2 = class_to_use.from_array([[10.0, 20.0], [30.0, 40.0]], batch=False)
+    expected = class_to_use.from_array([[10.0, 40.0], [90.0, 160.0]], batch=False)
     run_mul_test(expected, table1, table2)
 
-    table1 = class_to_use.from_array(
-        [[10.0, 20.0], [30.0, 40.0]], batch=False
-    )
+    table1 = class_to_use.from_array([[10.0, 20.0], [30.0, 40.0]], batch=False)
     table2 = class_to_use.from_array([[1.0, 2.0], [3.0, 4.0]], batch=False)
-    expected = class_to_use.from_array(
-        [[10.0, 40.0], [90.0, 160.0]], batch=False
-    )
+    expected = class_to_use.from_array([[10.0, 40.0], [90.0, 160.0]], batch=False)
     run_mul_test(expected, table1, table2)
 
     # Now we move to some one-batch cases
 
     table1 = class_to_use.from_array([1.0, 2.0], batch=False)
     table2 = class_to_use.from_array([[10.0, 20.0], [30.0, 40.0]], batch=True)
-    expected = class_to_use.from_array(
-        [[10.0, 40.0], [30.0, 80.0]], batch=True
-    )
+    expected = class_to_use.from_array([[10.0, 40.0], [30.0, 80.0]], batch=True)
     run_mul_test(expected, table1, table2)
 
     table1 = class_to_use.from_array([[1.0, 2.0], [3.0, 4.0]], batch=True)
     table2 = class_to_use.from_array([10.0, 20.0], batch=False)
-    expected = class_to_use.from_array(
-        [[10.0, 40.0], [30.0, 80.0]], batch=True
-    )
+    expected = class_to_use.from_array([[10.0, 40.0], [30.0, 80.0]], batch=True)
     run_mul_test(expected, table1, table2)
 
     # We continue on to one-batch cases, but now the batches are empty
     # we use tensors to give tables the right shape.
 
     table1 = class_to_use.from_array([1.0, 2.0], batch=False)
-    table2 = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 2), batch=True
-    )
+    table2 = class_to_use.from_array(torch.tensor([]).reshape(0, 2), batch=True)
     expected = table2
     run_mul_test(expected, table1, table2)
 
-    table1 = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 2), batch=True
-    )
+    table1 = class_to_use.from_array(torch.tensor([]).reshape(0, 2), batch=True)
     table2 = class_to_use.from_array([10.0, 20.0], batch=False)
     expected = table1
     run_mul_test(expected, table1, table2)
@@ -629,15 +589,11 @@ def test_mul(class_to_use):
     # Now we make even the non-batch side empty as well.
 
     table1 = class_to_use.from_array([], batch=False)
-    table2 = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 0), batch=True
-    )
+    table2 = class_to_use.from_array(torch.tensor([]).reshape(0, 0), batch=True)
     expected = table2
     run_mul_test(expected, table1, table2)
 
-    table1 = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 0), batch=True
-    )
+    table1 = class_to_use.from_array(torch.tensor([]).reshape(0, 0), batch=True)
     table2 = class_to_use.from_array([], batch=False)
     expected = table1
     run_mul_test(expected, table1, table2)
@@ -646,15 +602,11 @@ def test_mul(class_to_use):
     # (still empty thought to match the non-batches).
 
     table1 = class_to_use.from_array([], batch=False)
-    table2 = class_to_use.from_array(
-        torch.tensor([]).reshape(10, 0), batch=True
-    )
+    table2 = class_to_use.from_array(torch.tensor([]).reshape(10, 0), batch=True)
     expected = table2
     run_mul_test(expected, table1, table2)
 
-    table1 = class_to_use.from_array(
-        torch.tensor([]).reshape(10, 0), batch=True
-    )
+    table1 = class_to_use.from_array(torch.tensor([]).reshape(10, 0), batch=True)
     table2 = class_to_use.from_array([], batch=False)
     expected = table1
     run_mul_test(expected, table1, table2)
@@ -672,37 +624,25 @@ def test_mul(class_to_use):
 
     table1 = class_to_use.from_array([[1.0, 2.0], [3.0, 5.0]], batch=True)
     table2 = class_to_use.from_array([[10.0, 20.0], [30.0, 40.0]], batch=True)
-    expected = class_to_use.from_array(
-        [[10.0, 40.0], [90.0, 200.0]], batch=True
-    )
+    expected = class_to_use.from_array([[10.0, 40.0], [90.0, 200.0]], batch=True)
     run_mul_test(expected, table1, table2)
 
     table1 = class_to_use.from_array([[10.0, 20.0], [30.0, 40.0]], batch=True)
     table2 = class_to_use.from_array([[1.0, 2.0], [3.0, 5.0]], batch=True)
-    expected = class_to_use.from_array(
-        [[10.0, 40.0], [90.0, 200.0]], batch=True
-    )
+    expected = class_to_use.from_array([[10.0, 40.0], [90.0, 200.0]], batch=True)
     run_mul_test(expected, table1, table2)
 
     # Now, both batches have zero rows
 
-    table1 = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 2), batch=True
-    )
-    table2 = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 2), batch=True
-    )
-    expected = class_to_use.from_array(
-        torch.tensor([]).reshape(0, 2), batch=True
-    )
+    table1 = class_to_use.from_array(torch.tensor([]).reshape(0, 2), batch=True)
+    table2 = class_to_use.from_array(torch.tensor([]).reshape(0, 2), batch=True)
+    expected = class_to_use.from_array(torch.tensor([]).reshape(0, 2), batch=True)
     run_mul_test(expected, table1, table2)
 
     # Now, both are batches but one has zero rows and the other has multiple rows
     # This should fail as the two batches must have the same number of rows
     try:
-        table1 = class_to_use.from_array(
-            torch.tensor([]).reshape(0, 2), batch=True
-        )
+        table1 = class_to_use.from_array(torch.tensor([]).reshape(0, 2), batch=True)
         table2 = class_to_use.from_array([[1.0, 2.0], [3.0, 5.0]], batch=True)
         actual = table1 * table2
         raise AssertionError(
@@ -779,10 +719,7 @@ def test_sum_out1(class_to_use, table1, batch_size1):
 
         actual = table1.sum_out(1)
         expected = class_to_use.from_array(
-            [
-                [1.0 * 10**i, 5.0 * 10**i, 9.0 * 10**i]
-                for i in range(batch_size1)
-            ],
+            [[1.0 * 10**i, 5.0 * 10**i, 9.0 * 10**i] for i in range(batch_size1)],
             batch=True,
         )
         assert actual == expected
@@ -824,9 +761,7 @@ def test_sum_out_empty(class_to_use, empty, batch_size_empty):
 
 def run_sum_out_test(table, table_name, batch_size, class_to_use, tests):
     for dim, expected_array in tests:
-        expected = make_table_from_row_array(
-            class_to_use, batch_size, expected_array
-        )
+        expected = make_table_from_row_array(class_to_use, batch_size, expected_array)
         actual = table.sum_out(dim)
         print(f"{table_name}.sum_out({dim}): {actual}")
         print("expected:", expected)
@@ -896,21 +831,15 @@ def test_normalize2(class_to_use, table2, batch_size2):
     # because we need to divide all elements by the partition function, an operation that is not available for arrays.
     expected_row_array = (torch.tensor([0.7, 0.2, 0.1]) / 1).tolist()
 
-    run_normalize_test(
-        table2, "table2", batch_size2, expected_row_array, class_to_use
-    )
+    run_normalize_test(table2, "table2", batch_size2, expected_row_array, class_to_use)
 
 
 def test_normalize_empty(class_to_use, empty, batch_size_empty):
     pass  # can't normalize the empty table
 
 
-def run_normalize_test(
-    table, table_name, batch_size, expected_row_array, class_to_use
-):
-    expected = make_table_from_row_array(
-        class_to_use, batch_size, expected_row_array
-    )
+def run_normalize_test(table, table_name, batch_size, expected_row_array, class_to_use):
+    expected = make_table_from_row_array(class_to_use, batch_size, expected_row_array)
     actual = table.normalize()
     print(f"{table_name}: {actual}")
     print("expected:", expected)
@@ -931,9 +860,9 @@ def make_table_from_row_array(class_to_use, batch_size, expected_row_array):
         # even if the batch is empty (creating a table from neuralpp.an empty array renders its shape equal to (0)).
         non_batch_shape = util.array_shape(expected_row_array)
         total_shape = (batch_size, *non_batch_shape)
-        expected_tensor = torch.tensor(
-            [expected_row_array] * batch_size
-        ).reshape(total_shape)
+        expected_tensor = torch.tensor([expected_row_array] * batch_size).reshape(
+            total_shape
+        )
         expected = class_to_use.from_array(expected_tensor, batch)
     else:
         expected = class_to_use.from_array(expected_row_array, batch)
@@ -952,9 +881,7 @@ def make_table_from_non_batch_data_array(
         ).reshape(total_shape)
         expected = class_to_use.from_array(expected_tensor, batch)
     else:
-        expected = class_to_use.from_array(
-            expected_non_batch_data_array, batch
-        )
+        expected = class_to_use.from_array(expected_non_batch_data_array, batch)
     return expected
 
 
@@ -963,9 +890,7 @@ def make_tensor_from_row_array(batch_size, expected_row_array):
     if batch:
         non_batch_shape = util.array_shape(expected_row_array)
         total_shape = (batch_size, *non_batch_shape)
-        expected = torch.tensor([expected_row_array] * batch_size).reshape(
-            total_shape
-        )
+        expected = torch.tensor([expected_row_array] * batch_size).reshape(total_shape)
     else:
         expected = torch.tensor(expected_row_array)
     return expected

@@ -18,10 +18,8 @@ class PyTorchLogTable(PyTorchTable):
         if isinstance(array_of_potentials, torch.Tensor):
             tensor = log_without_inf_non_differentiable(array_of_potentials)
         else:
-            log_of_potentials = (
-                log_of_nested_list_without_inf_non_differentiable(
-                    array_of_potentials
-                )
+            log_of_potentials = log_of_nested_list_without_inf_non_differentiable(
+                array_of_potentials
             )
             tensor = torch.tensor(log_of_potentials, requires_grad=True)
         table = PyTorchLogTable(tensor, batch)
@@ -40,9 +38,7 @@ class PyTorchLogTable(PyTorchTable):
         log_probability_tensor = log_without_inf_non_differentiable(
             prob_space.raw_tensor
         )
-        leaf_tensor = (
-            log_probability_tensor.clone().detach().requires_grad_(True)
-        )
+        leaf_tensor = log_probability_tensor.clone().detach().requires_grad_(True)
         return PyTorchLogTable(leaf_tensor, batch)
 
     # Methods depending on structure and value representation choice (here, log)
@@ -51,9 +47,7 @@ class PyTorchLogTable(PyTorchTable):
         return super().__getitem__(non_batch_slice_coordinates).exp()
 
     @staticmethod
-    def raw_tensor_of_product_of_potentials_of_raw_tensors(
-        raw_tensor_1, raw_tensor_2
-    ):
+    def raw_tensor_of_product_of_potentials_of_raw_tensors(raw_tensor_1, raw_tensor_2):
         return raw_tensor_1 + raw_tensor_2  # + since we are at log-space
 
     def sum_out(self, dim):
@@ -75,13 +69,9 @@ class PyTorchLogTable(PyTorchTable):
     def normalize(self):
         normal_space_table = PyTorchTable(self.raw_tensor.exp(), self.batch)
         normalized_in_normal_space = normal_space_table.normalize()
-        normalized_in_normal_space_raw_tensor = (
-            normalized_in_normal_space.raw_tensor
-        )
+        normalized_in_normal_space_raw_tensor = normalized_in_normal_space.raw_tensor
         # we can use log directly because the normal-space raw tensor came from neuralpp.exponentiation
-        normalized_in_log_space_raw_tensor = (
-            normalized_in_normal_space_raw_tensor.log()
-        )
+        normalized_in_log_space_raw_tensor = normalized_in_normal_space_raw_tensor.log()
         return PyTorchLogTable(normalized_in_log_space_raw_tensor, self.batch)
 
     def randomize(self):

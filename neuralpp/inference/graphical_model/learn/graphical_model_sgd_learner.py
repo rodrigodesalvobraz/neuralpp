@@ -55,9 +55,7 @@ class GraphicalModelSGDLearner(GenericSGDLearner):
 
     def get_number_of_datapoints_in_batch(self, batch):
         (observation_batch, query_assignment_batch) = batch
-        return generalized_len_of_dict_frames(
-            observation_batch, query_assignment_batch
-        )
+        return generalized_len_of_dict_frames(observation_batch, query_assignment_batch)
 
     def loss_function(self, batch):
         (observation_batch, query_assignment_batch) = batch

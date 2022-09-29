@@ -90,9 +90,7 @@ class PyTorchTable(Table):
         return self.raw_tensor.numel()
 
     def assignments(self):
-        return itertools.product(
-            *[range(dim) for dim in self.non_batch_shape]
-        )
+        return itertools.product(*[range(dim) for dim in self.non_batch_shape])
 
     def expand(self, shape_to_be_inserted, dim):
         """
@@ -117,9 +115,7 @@ class PyTorchTable(Table):
             [0] + [p + 1 for p in permutation] if self.batch else permutation
         )
         permuted_raw_tensor = self.raw_tensor.permute(effective_permutation)
-        return self.new_table_from_raw_entries(
-            permuted_raw_tensor, self.batch
-        )
+        return self.new_table_from_raw_entries(permuted_raw_tensor, self.batch)
 
     def pytorch_parameters(self):
         return [self.raw_tensor]
@@ -127,13 +123,9 @@ class PyTorchTable(Table):
     def get_raw_tensor_slice(self, non_batch_slice_coordinates):
         # see the documentation for Table.__getitem__ to better understand this implementation
         if is_iterable(non_batch_slice_coordinates):
-            tuple_of_non_batch_slice_coordinates = tuple(
-                non_batch_slice_coordinates
-            )
+            tuple_of_non_batch_slice_coordinates = tuple(non_batch_slice_coordinates)
         else:
-            tuple_of_non_batch_slice_coordinates = (
-                non_batch_slice_coordinates,
-            )
+            tuple_of_non_batch_slice_coordinates = (non_batch_slice_coordinates,)
 
         if self.batch:
             # pick the value for the assignment in each batch row
@@ -162,8 +154,7 @@ class PyTorchTable(Table):
         # However, if there are no batch coordinates then we can use slice and obtain the same result,
         # hence the case analysis used here.
         if any(
-            is_multivalue_coordinate(c)
-            for c in tuple_of_non_batch_slice_coordinates
+            is_multivalue_coordinate(c) for c in tuple_of_non_batch_slice_coordinates
         ):
             batch_rows_coordinate = range(self.number_of_batch_rows())
         else:
@@ -182,9 +173,7 @@ class PyTorchTable(Table):
             lambda bc: len(bc) != 0 and is_iterable(bc[0]),
         )
         if invalid_multivalue_coordinate is not None:
-            raise BatchCoordinateFirstElementIsIterable(
-                invalid_multivalue_coordinate
-            )
+            raise BatchCoordinateFirstElementIsIterable(invalid_multivalue_coordinate)
 
         set_of_len_of_multivalue_coordinates = {
             len(multivalue_coordinate)
@@ -201,9 +190,7 @@ class PyTorchTable(Table):
         new_table_is_batch = self.batch or contains_multivalue_coordinate(
             non_batch_slice_coordinates
         )
-        return self.new_table_from_raw_entries(
-            raw_tensor_slice, new_table_is_batch
-        )
+        return self.new_table_from_raw_entries(raw_tensor_slice, new_table_is_batch)
 
     # Methods depending on structure and value representation choice (here, normal space rather than log)
 
@@ -234,27 +221,19 @@ class PyTorchTable(Table):
             # if 'other' is the same type as self, more assumptions can be made about raw tensors,
             # allowing greater efficiency -- the assumptions are encapsulated
             # in the implementation of method raw_tensor_of_product_of_potentials_of_raw_tensors
-            raw_tensor = (
-                self.raw_tensor_of_product_of_potentials_of_raw_tensors(
-                    self.raw_tensor, other.raw_tensor
-                )
+            raw_tensor = self.raw_tensor_of_product_of_potentials_of_raw_tensors(
+                self.raw_tensor, other.raw_tensor
             )
-            return self.new_table_from_raw_entries(
-                raw_tensor, result_is_batch
-            )
+            return self.new_table_from_raw_entries(raw_tensor, result_is_batch)
         else:
             # otherwise, pay the penalty of possibly converting back and forth from neuralpp.non-potential raw tensors.
             # Note: operating on potentials is not less efficiency for class PyTorchTable,
             # but is be for sub-classes using different representations, such as PyTorchLogTable
-            array_of_potentials = (
-                self.potentials_tensor() * other.potentials_tensor()
-            )
+            array_of_potentials = self.potentials_tensor() * other.potentials_tensor()
             return self.from_array(array_of_potentials, result_is_batch)
 
     @staticmethod
-    def raw_tensor_of_product_of_potentials_of_raw_tensors(
-        raw_tensor_1, raw_tensor_2
-    ):
+    def raw_tensor_of_product_of_potentials_of_raw_tensors(raw_tensor_1, raw_tensor_2):
         """
         Returns the raw_tensor representing the product of potentials corresponding to two raw tensors
         (raw tensors must come from neuralpp.the same class).
@@ -282,25 +261,19 @@ class PyTorchTable(Table):
             def effective_dimension_value(d):
                 return d
 
-        effective_dim = util.map_iterable_or_value(
-            effective_dimension_value, dim
-        )
+        effective_dim = util.map_iterable_or_value(effective_dimension_value, dim)
 
         potential_tensor = torch.sum(self.raw_tensor, effective_dim)
         return self.from_array(potential_tensor, self.batch)
 
     def sum(self):
         if self.batch:
-            return torch.sum(
-                self.raw_tensor, dim=all_dims_but_first(self.raw_tensor)
-            )
+            return torch.sum(self.raw_tensor, dim=all_dims_but_first(self.raw_tensor))
         else:
             return torch.sum(self.raw_tensor)
 
     def argmax(self):
-        indices = batch_argmax(
-            self.raw_tensor, batch_dim=1 if self.batch else 0
-        )
+        indices = batch_argmax(self.raw_tensor, batch_dim=1 if self.batch else 0)
         return indices
 
     def normalize(self):
@@ -310,9 +283,7 @@ class PyTorchTable(Table):
             # for the non-batch dimensions.
             trailing_size_one_dimensions = [1] * len(self.non_batch_shape)
             n_rows = self.raw_tensor.shape[0]
-            partitions = self.sum().reshape(
-                n_rows, *trailing_size_one_dimensions
-            )
+            partitions = self.sum().reshape(n_rows, *trailing_size_one_dimensions)
             normalized_potential_tensor = self.raw_tensor / partitions
             return self.from_array(normalized_potential_tensor, self.batch)
         else:
@@ -324,15 +295,9 @@ class PyTorchTable(Table):
             potentials = self.potentials_tensor_with_sample_dimension(n)
         else:
             potentials = self.potentials_tensor()
-        potentials_of_assignment_indices = self.linearlize_potentials(
-            potentials
-        )
-        assignment_indices = Categorical(
-            potentials_of_assignment_indices
-        ).sample()
-        assignments = self.non_batch_radices.representation(
-            assignment_indices
-        )
+        potentials_of_assignment_indices = self.linearlize_potentials(potentials)
+        assignment_indices = Categorical(potentials_of_assignment_indices).sample()
+        assignments = self.non_batch_radices.representation(assignment_indices)
         return assignments
 
     def potentials_tensor_with_sample_dimension(self, n):
@@ -362,14 +327,10 @@ class PyTorchTable(Table):
         return self._number_of_non_batch_dimensions
 
     def randomize(self):
-        self.raw_tensor = torch.rand(
-            self.raw_tensor.shape, requires_grad=True
-        )
+        self.raw_tensor = torch.rand(self.raw_tensor.shape, requires_grad=True)
 
     def randomized_copy(self):
-        potential_tensor = torch.rand(
-            self.raw_tensor.shape, requires_grad=True
-        )
+        potential_tensor = torch.rand(self.raw_tensor.shape, requires_grad=True)
         return self.from_array(potential_tensor, self.batch)
 
     def __eq__(self, other):
@@ -403,9 +364,7 @@ class PyTorchTable(Table):
         The method uses method 'potentials_tensor' so sub-classes only need to override that to re-use this method.
         """
         return ("batch " if self.batch else "") + str(
-            map_of_nested_list(
-                lambda v: round(v, 4), self.potentials_tensor().tolist()
-            )
+            map_of_nested_list(lambda v: round(v, 4), self.potentials_tensor().tolist())
         )
 
     def potentials_tensor(self):

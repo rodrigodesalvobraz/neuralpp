@@ -17,9 +17,7 @@ class ContinuousFactor(AtomicFactor):
 
     def __init__(self, variables, conditioning_dict=None):
         super().__init__(variables)
-        self.conditioning_dict = (
-            conditioning_dict if conditioning_dict else {}
-        )
+        self.conditioning_dict = conditioning_dict if conditioning_dict else {}
 
     def total_conditioning_dict(self, assignment_dict):
         return util.union_of_dicts(assignment_dict, self.conditioning_dict)

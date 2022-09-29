@@ -113,9 +113,7 @@ class Factor:
 
     def _not_implemented(self, name):
         # creating a variable first prevents compiler from thinking this is an abstract method
-        error = NotImplementedError(
-            f"{name} not implemented for {type(self)}"
-        )
+        error = NotImplementedError(f"{name} not implemented for {type(self)}")
         raise error
 
     # Convenience methods

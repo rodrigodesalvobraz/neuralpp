@@ -194,9 +194,7 @@ def test_if_then_else_normalize():
     assert sum_variables.expression.syntactic_eq(expected1)
 
     normalized = symbolic.normalize()
-    expected2 = SymPyInterpreter().simplify(
-        if_then_else(x_sympy > y_sympy, 2, 3) / 15
-    )
+    expected2 = SymPyInterpreter().simplify(if_then_else(x_sympy > y_sympy, 2, 3) / 15)
     assert normalized.expression.syntactic_eq(expected2)
 
 
@@ -213,9 +211,7 @@ def test_with_variable_elimination():
     model = [
         SymbolicFactor(
             [x, y],
-            if_then_else(
-                x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0)
-            ),
+            if_then_else(x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0)),
         ),
         SymbolicFactor([y, z], if_then_else(y_sympy == z_sympy, 1.0, 0.0)),
     ]

@@ -58,9 +58,7 @@ class ContextSimplifier(Simplifier):
         expression: Expression, context: Z3SolverExpression
     ) -> Expression:
         try:
-            result = ContextSimplifier.sympy_interpreter.simplify(
-                expression, context
-            )
+            result = ContextSimplifier.sympy_interpreter.simplify(expression, context)
         except ConversionError:
             result = expression
 
@@ -75,9 +73,7 @@ class ContextSimplifier(Simplifier):
                 boolean_subexpression, context
             )
             if simplified_subexpression is not None:
-                result = result.replace(
-                    boolean_subexpression, simplified_subexpression
-                )
+                result = result.replace(boolean_subexpression, simplified_subexpression)
                 if result is None:
                     raise RuntimeError("result is None")
 
@@ -104,12 +100,8 @@ class ContextSimplifier(Simplifier):
             if context.unsatisfiable:
                 raise ValueError(f"Context {context} is unsatisfiable.")
 
-            new_expression = ContextSimplifier._simplify_pass(
-                expression, context
-            )
+            new_expression = ContextSimplifier._simplify_pass(expression, context)
             while not new_expression.syntactic_eq(expression):
                 expression = new_expression
-                new_expression = ContextSimplifier._simplify_pass(
-                    expression, context
-                )
+                new_expression = ContextSimplifier._simplify_pass(expression, context)
             return new_expression

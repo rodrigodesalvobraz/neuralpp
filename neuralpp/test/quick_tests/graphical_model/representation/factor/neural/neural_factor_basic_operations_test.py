@@ -106,9 +106,7 @@ def test_conditioning():
     p_and_xor_are_true = neural_factor.condition({p: 1, xor: 1})
     print("xor | p and xor:", p_and_xor_are_true)
     print("xor | p and xor table:", p_and_xor_are_true.table_factor)
-    assert p_and_xor_are_true.table_factor == PyTorchTableFactor(
-        [q], [0.9921, 0.0]
-    )
+    assert p_and_xor_are_true.table_factor == PyTorchTableFactor([q], [0.9921, 0.0])
 
     all_true = neural_factor.condition({p: 1, q: 1, xor: 1})
     print("xor | all true:", all_true)

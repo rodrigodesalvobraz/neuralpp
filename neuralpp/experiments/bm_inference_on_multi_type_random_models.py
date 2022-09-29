@@ -45,9 +45,7 @@ from neuralpp.util.util import empty, list_for_each
 
 
 def main():
-    print(
-        "Started at:", datetime.datetime.now().strftime("%Y-%mv-%d %H:%M:%S")
-    )
+    print("Started at:", datetime.datetime.now().strftime("%Y-%mv-%d %H:%M:%S"))
 
     print("Randomly generating model")
     util.set_seed()
@@ -111,14 +109,10 @@ def main():
         def __init__(self, name: str, factors: List[Factor]):
             self.name = name
             self.factors = factors
-            self.variables = list(
-                set(v for f in factors for v in f.variables)
-            )
+            self.variables = list(set(v for f in factors for v in f.variables))
             self.variables.sort(key=lambda v: str(v))
             self.discrete_variables = list(
-                filter(
-                    lambda v: isinstance(v, DiscreteVariable), self.variables
-                )
+                filter(lambda v: isinstance(v, DiscreteVariable), self.variables)
             )
             self.continuous_variables = util.subtract(
                 self.variables, self.discrete_variables
@@ -163,8 +157,7 @@ def main():
             queries=queries,
             observations=converter.observations,
             num_samples=number_of_samples_per_estimation,
-            num_adaptive_samples=number_of_samples_per_estimation
-            // number_of_chains,
+            num_adaptive_samples=number_of_samples_per_estimation // number_of_chains,
             num_chains=number_of_chains,
         )
         return samples
@@ -183,9 +176,7 @@ def main():
                         variables, range=10
                     ),
                 ),
-                FactorMaker(
-                    [TensorVariable, TensorVariable], make_gaussian_with_mean
-                ),
+                FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
                 # repeating multiple times to increase chance of using switches
                 FactorMaker(
                     types_of_variables_in_switch_of_gaussians,
@@ -225,9 +216,7 @@ def main():
         if use_simple_mixture_of_gaussians_instead:
             cardinality_of_discrete_variables = 5
             distance_between_means = 2
-            index = IntegerVariable(
-                "index", cardinality_of_discrete_variables
-            )
+            index = IntegerVariable("index", cardinality_of_discrete_variables)
             y = TensorVariable("y")
             components = [
                 make_shifted_standard_gaussian_given_shift(
@@ -250,8 +239,7 @@ def main():
     ) -> Tuple[Tuple[Model, Model], Variable]:
         original_model = Model("Original", original_factors)
         marginalized_factors = ProductFactor.factors(
-            ProductFactor(original_factors)
-            ^ original_model.discrete_variables
+            ProductFactor(original_factors) ^ original_model.discrete_variables
         )
         marginalized_factors = [
             f for f in marginalized_factors if not empty(f.variables)
@@ -274,14 +262,11 @@ def main():
         print("Randomly generating samples")
         return (original_model, marginalized_model), query
 
-    def generate_model_variants_and_query() -> Tuple[
-        Tuple[Model, Model], Variable
-    ]:
+    def generate_model_variants_and_query() -> Tuple[Tuple[Model, Model], Variable]:
         return make_model_variants_and_query(generate_original_factors())
 
     model_variants_and_queries_per_generated_model = [
-        generate_model_variants_and_query()
-        for _ in range(number_of_generated_models)
+        generate_model_variants_and_query() for _ in range(number_of_generated_models)
     ]
 
     util.set_seed()  # Same model, different samples
@@ -314,9 +299,7 @@ def main():
                 model_variants_and_queries_per_generated_model[0][0],
                 lambda model_variant: get_estimate_and_time(
                     model=model_variant,
-                    query=model_variants_and_queries_per_generated_model[0][
-                        1
-                    ],
+                    query=model_variants_and_queries_per_generated_model[0][1],
                     number_of_samples=number_of_samples,
                 ),
             ),
@@ -331,13 +314,9 @@ def main():
 
     assert len(data) == len(numbers_of_samples)
     assert len(data[0]) == number_of_estimations
-    assert len(data[0][0]) == len(
-        model_variants_and_queries_per_generated_model[0][0]
-    )
+    assert len(data[0][0]) == len(model_variants_and_queries_per_generated_model[0][0])
 
-    def aggregate_data_over_estimations(
-        tensor_aggregation_function, data_field_index
-    ):
+    def aggregate_data_over_estimations(tensor_aggregation_function, data_field_index):
         return [
             [
                 tensor_aggregation_function(
@@ -366,9 +345,7 @@ def main():
     print(f"Times    : {mean_time_by_model_by_number_of_samples}")
 
     colors = ["red", "blue"]
-    for model_index in range(
-        len(model_variants_and_queries_per_generated_model[0][0])
-    ):
+    for model_index in range(len(model_variants_and_queries_per_generated_model[0][0])):
         variance_by_number_of_samples = [
             variance_by_model[model_index]
             for variance_by_model in variance_by_model_by_number_of_samples
@@ -384,9 +361,7 @@ def main():
         )
     plt.show()
 
-    print(
-        "Finished at:", datetime.datetime.now().strftime("%Y-%mv-%d %H:%M:%S")
-    )
+    print("Finished at:", datetime.datetime.now().strftime("%Y-%mv-%d %H:%M:%S"))
 
 
 def ongoing_summary(
@@ -406,12 +381,8 @@ def ongoing_summary(
             tensor_of_estimates = torch.tensor(estimates_so_far)
             mean_of_estimates = tensor_of_estimates.mean()
             variance_of_estimates = tensor_of_estimates.var()
-            estimates_to_show = tensor_of_estimates[
-                -max_number_of_estimations_shown:
-            ]
-            estimates_str = util.join(
-                [f"{e1 :.3f}" for e1 in estimates_to_show]
-            )
+            estimates_to_show = tensor_of_estimates[-max_number_of_estimations_shown:]
+            estimates_str = util.join([f"{e1 :.3f}" for e1 in estimates_to_show])
             estimates_description = (
                 "variance_of_estimates"
                 if len(tensor_of_estimates) <= max_number_of_estimations_shown

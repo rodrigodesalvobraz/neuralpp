@@ -14,9 +14,7 @@ class ProductFactor(Factor):
     def __init__(self, factors: List[Factor]):
         # collect all variables
         factors = [f for f in factors if f is not Group.identity]
-        variables = itertools.chain.from_iterable(
-            f.variables for f in factors
-        )
+        variables = itertools.chain.from_iterable(f.variables for f in factors)
         # getting unique variables while keeping the order (dict maintain insertion
         # order by default)
         variables = dict.fromkeys(variables).keys()
@@ -31,9 +29,7 @@ class ProductFactor(Factor):
         return math.prod(f(assignment_dict) for f in self._factors)
 
     def condition_on_non_empty_dict(self, assignment_dict):
-        return ProductFactor(
-            list(f.condition(assignment_dict) for f in self._factors)
-        )
+        return ProductFactor(list(f.condition(assignment_dict) for f in self._factors))
 
     def randomize(self):
         for f in self._factors:
@@ -59,9 +55,7 @@ class ProductFactor(Factor):
         if factors_without_variable:
             return ProductFactor(
                 factors_without_variable
-                + [
-                    result_of_summing_out_variable_from_product_of_factors_with_variable
-                ]
+                + [result_of_summing_out_variable_from_product_of_factors_with_variable]
             )
         else:
             return result_of_summing_out_variable_from_product_of_factors_with_variable

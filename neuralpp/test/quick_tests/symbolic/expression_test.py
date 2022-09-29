@@ -49,19 +49,15 @@ int_to_int_to_int = Callable[[int, int], int]  # int -> int -> int
 def test_constant(expression_factory):
     # Constant can be anything
     constant_one = expression_factory.new_constant(1)
-    constant_abc = expression_factory.new_variable(
-        "abc", Callable[[int], int]
-    )
+    constant_abc = expression_factory.new_variable("abc", Callable[[int], int])
     assert not constant_one.internal_object_eq(constant_abc)
-    assert constant_one.internal_object_eq(
-        expression_factory.new_constant(2 - 1)
-    )
+    assert constant_one.internal_object_eq(expression_factory.new_constant(2 - 1))
     assert constant_one.subexpressions == []
     assert not constant_one.contains(constant_abc)
     assert constant_one.contains(constant_one)  # A constant contains() itself
-    assert constant_one.replace(
-        constant_one, constant_abc
-    ).internal_object_eq(constant_abc)
+    assert constant_one.replace(constant_one, constant_abc).internal_object_eq(
+        constant_abc
+    )
     with pytest.raises(IndexError):
         constant_one.set(1, constant_abc)
     assert constant_one.value == 1
@@ -92,18 +88,14 @@ def test_variable(expression_factory):
     variable_x = expression_factory.new_variable("x", int)
     variable_y = expression_factory.new_variable("y", int)
     assert not variable_x.internal_object_eq(variable_y)
-    assert variable_x.internal_object_eq(
-        expression_factory.new_variable("x", int)
-    )
+    assert variable_x.internal_object_eq(expression_factory.new_variable("x", int))
     assert not variable_x.internal_object_eq(
         expression_factory.new_variable("x", bool)
     )  # must be of the same type
     assert variable_x.subexpressions == []
     assert not variable_x.contains(variable_y)
     assert variable_x.contains(variable_x)
-    assert variable_x.replace(variable_x, variable_y).internal_object_eq(
-        variable_y
-    )
+    assert variable_x.replace(variable_x, variable_y).internal_object_eq(variable_y)
     with pytest.raises(IndexError):
         variable_x.set(1, variable_y)
     assert variable_x.name == "x"
@@ -126,8 +118,7 @@ def test_basic_function_application():
         BasicFunctionApplication(func1, [constant_one, constant_two])
     )
     assert (
-        BasicFunctionApplication(func1, [constant_one, constant_two]).type
-        == int_type
+        BasicFunctionApplication(func1, [constant_one, constant_two]).type == int_type
     )
     # using operator.add is easy to compare (operator.add == operator.add) and thus more desirable than using lambda.
     func2 = BasicConstant(operator.add, int_to_int_to_int)
@@ -165,16 +156,12 @@ def test_basic_function_application():
         BasicFunctionApplication(func2, [constant_one, fa2])
     )
     assert fa1.contains(constant_two)
-    assert fa3.contains(
-        constant_two
-    )  # shows that search of contains() is deep.
+    assert fa3.contains(constant_two)  # shows that search of contains() is deep.
 
     # replace() is also deep and not in-place (returns a new object instead of modify the called on)
     fa4 = fa3.replace(constant_two, constant_one)
     assert not fa4.internal_object_eq(fa3)
-    assert fa3.internal_object_eq(
-        BasicFunctionApplication(func3, [constant_one, fa2])
-    )
+    assert fa3.internal_object_eq(BasicFunctionApplication(func3, [constant_one, fa2]))
     assert fa4.internal_object_eq(
         BasicFunctionApplication(
             func3,
@@ -198,9 +185,7 @@ def test_basic_function_application():
     )
     fa6 = fa2.set(1, BasicVariable("a", int_type))
     assert fa6.internal_object_eq(
-        BasicFunctionApplication(
-            func2, [BasicVariable("a", int_type), constant_two]
-        )
+        BasicFunctionApplication(func2, [BasicVariable("a", int_type), constant_two])
     )
     with pytest.raises(IndexError):
         fa4.set(3, constant_one)
@@ -313,9 +298,7 @@ def sympy_func(request):
 
 def test_python_callable_and_sympy_function_conversion(sympy_func):
     assert (
-        python_callable_to_sympy_function(
-            sympy_function_to_python_callable(sympy_func)
-        )
+        python_callable_to_sympy_function(sympy_function_to_python_callable(sympy_func))
         == sympy_func
     )
 
@@ -333,9 +316,7 @@ def test_function_application(expression_factory):
     """General test cases for function application."""
     constant_one = expression_factory.new_constant(1)
     constant_two = expression_factory.new_constant(2)
-    add_func = expression_factory.new_constant(
-        operator.add, int_to_int_to_int
-    )
+    add_func = expression_factory.new_constant(operator.add, int_to_int_to_int)
     fa = expression_factory.new_function_application(
         add_func, [constant_one, constant_two]
     )
@@ -358,9 +339,7 @@ def test_function_application(expression_factory):
 
     assert constant_one.internal_object_eq(expression_factory.new_constant(1))
 
-    fa2 = expression_factory.new_function_application(
-        add_func, [constant_one, fa]
-    )
+    fa2 = expression_factory.new_function_application(add_func, [constant_one, fa])
     fa2 = fa2.replace(constant_one, constant_two)
     assert fa2.syntactic_eq(
         expression_factory.new_function_application(
@@ -378,15 +357,11 @@ def test_function_application(expression_factory):
     assert fa2.subexpressions[0].type == int_to_int_to_int
     assert fa2.subexpressions[1].type == int
     assert fa2.subexpressions[2].type == int  # return type
-    assert (
-        fa2.subexpressions[2].function.type == int_to_int_to_int
-    )  # return type
+    assert fa2.subexpressions[2].function.type == int_to_int_to_int  # return type
     assert fa2.subexpressions[2].subexpressions[1].type == int
     assert fa2.subexpressions[2].subexpressions[2].type == int
 
-    fa3 = fa.set(
-        0, expression_factory.new_constant(operator.mul, int_to_int_to_int)
-    )
+    fa3 = fa.set(0, expression_factory.new_constant(operator.mul, int_to_int_to_int))
     assert fa3.internal_object_eq(
         expression_factory.new_function_application(
             expression_factory.new_constant(operator.mul, int_to_int_to_int),
@@ -431,21 +406,13 @@ def test_operator_overloading(expression_factory):
     expr = b1 & b2 | ~b3
     assert expr.function.type == Callable[[bool, bool], bool]  # or
     if expression_factory != SymPyExpression:
-        assert (
-            expr.arguments[0].function.type == Callable[[bool, bool], bool]
-        )  # and
-        assert (
-            expr.arguments[1].function.type == Callable[[bool], bool]
-        )  # not
+        assert expr.arguments[0].function.type == Callable[[bool, bool], bool]  # and
+        assert expr.arguments[1].function.type == Callable[[bool], bool]  # not
         expr1 = b1 & True
         assert expr1.function.type == Callable[[bool, bool], bool]
     else:  # sympy changes the argument order
-        assert (
-            expr.arguments[0].function.type == Callable[[bool], bool]
-        )  # not
-        assert (
-            expr.arguments[1].function.type == Callable[[bool, bool], bool]
-        )  # and
+        assert expr.arguments[0].function.type == Callable[[bool], bool]  # not
+        assert expr.arguments[1].function.type == Callable[[bool, bool], bool]  # and
         # Also, we cannot create a function application of b1 & True in SymPy because it always short-circuits in this
         # situation. The internal sympy object is not a function application, so it fails our type check.
         # (Even if we don't raise at creation, we cannot get e.g. expr1.argument[1]
@@ -481,9 +448,7 @@ def test_constants_operators():
     assert cond_expr.arguments[2].value == 0.3
     assert cond_expr.function.value == conditional
 
-    assert (
-        if_then_else(x == 1, 2, 0.3).type == float
-    )  # automatic "round down" type
+    assert if_then_else(x == 1, 2, 0.3).type == float  # automatic "round down" type
     assert (
         if_then_else(x == 1, 2, 0.3).function.type
         == Callable[[bool, float, float], float]
@@ -496,12 +461,8 @@ def test_sympy_function_application():
     int_to_float_to_float = Callable[[int, float], float]
     float_to_float_to_float = Callable[[float, float], float]
     # this one does not work on z3 because z3 enforce arguments of add to have the same type.
-    mixed_add_func = SymPyExpression.new_constant(
-        operator.add, int_to_float_to_float
-    )
-    float_add_func = SymPyExpression.new_constant(
-        operator.add, float_to_float_to_float
-    )
+    mixed_add_func = SymPyExpression.new_constant(operator.add, int_to_float_to_float)
+    float_add_func = SymPyExpression.new_constant(operator.add, float_to_float_to_float)
     constant_two_f = SymPyExpression.new_constant(2.0)
     mixed_adds = SymPyExpression.new_function_application(
         mixed_add_func,
@@ -516,17 +477,13 @@ def test_sympy_function_application():
     assert mixed_adds.subexpressions[0].type == int_to_float_to_float
     assert mixed_adds.subexpressions[1].type == int
     assert mixed_adds.subexpressions[2].type == float
-    assert (
-        mixed_adds.subexpressions[2].function.type == float_to_float_to_float
-    )
+    assert mixed_adds.subexpressions[2].function.type == float_to_float_to_float
     assert mixed_adds.subexpressions[2].subexpressions[1].type == float
     assert mixed_adds.subexpressions[2].subexpressions[2].type == float
 
     b0 = SymPyVariable(sympy.symbols("b0"), bool)
     with pytest.raises(TypeError):
-        (
-            b0 & True
-        )  # note this will not work as sympy always short circuit this
+        (b0 & True)  # note this will not work as sympy always short circuit this
 
 
 def test_z3_function_application():
@@ -538,15 +495,11 @@ def test_z3_function_application():
     """
     real = float
     real_to_real_to_real = Callable[[real, real], real]
-    real_add_func = Z3Expression.new_constant(
-        operator.add, real_to_real_to_real
-    )
+    real_add_func = Z3Expression.new_constant(operator.add, real_to_real_to_real)
     z3_constant_one_third_r = z3.RealVal(fractions.Fraction(1, 3))
     constant_one_third_r = Z3Constant(z3_constant_one_third_r)
 
-    add0 = Z3FunctionApplication(
-        z3_constant_one_third_r + z3_constant_one_third_r
-    )
+    add0 = Z3FunctionApplication(z3_constant_one_third_r + z3_constant_one_third_r)
     add1 = Z3Expression.new_function_application(
         real_add_func, [constant_one_third_r, add0]
     )
@@ -563,15 +516,11 @@ def test_sympy_z3_conversion():
     real = float
     real_to_real_to_real = Callable[[real, real], real]
 
-    real_add_func = Z3Expression.new_constant(
-        operator.add, real_to_real_to_real
-    )
+    real_add_func = Z3Expression.new_constant(operator.add, real_to_real_to_real)
     z3_constant_one_third_r = z3.RealVal(fractions.Fraction(1, 3))
     constant_one_third_r = Z3Constant(z3_constant_one_third_r)
 
-    add0 = Z3FunctionApplication(
-        z3_constant_one_third_r + z3_constant_one_third_r
-    )
+    add0 = Z3FunctionApplication(z3_constant_one_third_r + z3_constant_one_third_r)
     add1 = Z3Expression.new_function_application(
         real_add_func, [constant_one_third_r, add0]
     )
@@ -598,9 +547,7 @@ def test_sympy_z3_conversion():
 def test_sympy_neg_weird():
     x = SymPyVariable(sympy.symbols("x"), int)
     neg_x = -x
-    assert (
-        neg_x.function.value == operator.mul
-    )  # because it is actually "-1 * x"
+    assert neg_x.function.value == operator.mul  # because it is actually "-1 * x"
 
 
 def test_basic_z3_conversion():
@@ -632,9 +579,7 @@ def test_multiply_bug():
     # result_expression = SymPyExpression.convert(result_expression)
     interpreter = SymPyInterpreter()
     result_expression = interpreter.simplify(result_expression)
-    assert result_expression.sympy_object == x_sympy * y_sympy * (
-        x_sympy + z_sympy
-    )
+    assert result_expression.sympy_object == x_sympy * y_sympy * (x_sympy + z_sympy)
 
 
 def test_type_inference():

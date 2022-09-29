@@ -9,9 +9,7 @@ NEAR_ZERO = 1e-15
 
 def log_of_nested_list_without_inf_non_differentiable(o):
     if isinstance(o, list):
-        return [
-            log_of_nested_list_without_inf_non_differentiable(e) for e in o
-        ]
+        return [log_of_nested_list_without_inf_non_differentiable(e) for e in o]
     elif isinstance(o, torch.Tensor):
         return log_without_inf_non_differentiable(o)
     else:

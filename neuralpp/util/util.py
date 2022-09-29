@@ -41,9 +41,7 @@ def map_of_nested_list(f, o):
         try:
             return f(o)
         except Exception as e:
-            print(
-                f"Error in map_of_nested_list for argument {o} and function {f}: {e}"
-            )
+            print(f"Error in map_of_nested_list for argument {o} and function {f}: {e}")
             raise e
 
 
@@ -160,9 +158,7 @@ def mean(sequence):
 
 
 def select_indices_fraction(n, fraction):
-    assert (
-        0 < fraction <= 1.0
-    ), "select_indices_fraction's fraction must be in (0, 1]"
+    assert 0 < fraction <= 1.0, "select_indices_fraction's fraction must be in (0, 1]"
     rate = 1.0 / fraction
     result = []
     i = 0.0
@@ -211,9 +207,7 @@ def array_shape(array):
 def tile_tensor(tensor, n, dim):
     """Replicate tensor n times along dim, without allocating memory (using torch.expand)"""
 
-    assert (
-        0 <= dim < len(tensor.shape)
-    ), "dim must be a dimension of the given tensor"
+    assert 0 <= dim < len(tensor.shape), "dim must be a dimension of the given tensor"
 
     # this function works by unsqueezing tensor at dim (which will have size 1 and can therefore be expanded),
     # expanding dim by n, and reshaping it to the final shape, which is the original shape multiplied by n at dim.
@@ -222,9 +216,7 @@ def tile_tensor(tensor, n, dim):
     expand_at_dim_arg[dim] = n
     final_shape = list(tensor.shape)
     final_shape[dim] *= n
-    return (
-        tensor.unsqueeze(dim).expand(*expand_at_dim_arg).reshape(*final_shape)
-    )
+    return tensor.unsqueeze(dim).expand(*expand_at_dim_arg).reshape(*final_shape)
 
 
 def check_that_exception_is_thrown(thunk, exception_type):
@@ -252,9 +244,7 @@ def matrix_from_function(dims: List, function, prefix_index=None):
     else:
         first_dim = dims.pop(0)
         result = [
-            matrix_from_function(
-                dims, function, prefix_index=prefix_index + [index]
-            )
+            matrix_from_function(dims, function, prefix_index=prefix_index + [index])
             for index in first_dim
         ]
         dims.insert(0, first_dim)
@@ -308,9 +298,7 @@ def run_noisy_test(
     # prob of testing being correct = target_prob_of_unfair_rejection = p_spurious_failure^n
     # thus n = log_p target_prob_of_unfair_rejection.
     # If n is not integral, we take the ceiling.
-    n = math.ceil(
-        math.log(target_prob_of_unfair_rejection, prob_spurious_failure)
-    )
+    n = math.ceil(math.log(target_prob_of_unfair_rejection, prob_spurious_failure))
     try_noisy_test_up_to_n_times(noisy_test, n, print)
 
 
@@ -342,9 +330,7 @@ def try_noisy_test_up_to_n_times(noisy_test, n=3, print=print):
         return failure_value
 
 
-def assert_equal_up_to_relative_tolerance(
-    actual, expected, tol, message=None
-):
+def assert_equal_up_to_relative_tolerance(actual, expected, tol, message=None):
     """
     Compares two numeric values up to a relative tolerance (a non-negative number).
     Succeeds if expected/(1 + tol) <= actual <= expected*(1 + tol)
@@ -356,7 +342,9 @@ def assert_equal_up_to_relative_tolerance(
             )
         if not (expected / (1 + tol) <= actual <= expected * (1 + tol)):
             if message is None:
-                message = f"{actual} not equal to {expected} within relative tolerance {tol}"
+                message = (
+                    f"{actual} not equal to {expected} within relative tolerance {tol}"
+                )
             raise AssertionError(message)
     except Exception as e:
         if isinstance(e, AssertionError):
@@ -421,9 +409,7 @@ def expand_into_batch(tensor, batch_size):
     expansions_by_dimensions = (
         expansion_of_first_dimension + expansion_of_remaining_dimensions
     )
-    return tensor_with_newly_added_batch_dimension.expand(
-        expansions_by_dimensions
-    )
+    return tensor_with_newly_added_batch_dimension.expand(expansions_by_dimensions)
 
 
 def cartesian_prod_2d(tensors):
@@ -585,9 +571,7 @@ def empty(collection):
     return len(collection) == 0
 
 
-def choose_elements_without_replacement(
-    candidates_provider_function, conditions
-):
+def choose_elements_without_replacement(candidates_provider_function, conditions):
     """
     For each condition in conditions, selects an element from the iterable provided by
     candidates_provider_function that satisfies the condition and is not one of the previously
@@ -598,12 +582,8 @@ def choose_elements_without_replacement(
     """
     selected_elements = []
     for condition in conditions:
-        candidates = [
-            c for c in candidates_provider_function() if condition(c)
-        ]
-        non_repeated_candidates = [
-            c for c in candidates if c not in selected_elements
-        ]
+        candidates = [c for c in candidates_provider_function() if condition(c)]
+        non_repeated_candidates = [c for c in candidates if c not in selected_elements]
         selected_element = (
             None
             if empty(non_repeated_candidates)

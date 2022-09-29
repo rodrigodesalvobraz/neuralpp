@@ -35,9 +35,7 @@ def test_context_simplifier2():
     expr = if_then_else(y < if_then_else(x < 3, 1, 2), x * y, x + y)
     result = si.simplify(expr, context)
     print(result)
-    assert (
-        result.sympy_object == sympy.symbols("x") * 2
-    )  # simplified to x + y == x*2
+    assert result.sympy_object == sympy.symbols("x") * 2  # simplified to x + y == x*2
 
 
 def test_context_simplifier3():
@@ -70,23 +68,15 @@ def test_sympy_bug():
     x, y = sympy.symbols("x y")
     # We should be able to create the following expression in SymPy:
     #  if y < (if x<3 then 1 else 2) then x * y else x + y
-    expr = sympy_cond(
-        y < sympy.Piecewise((1, x < 3), (2, True)), x * y, x + y
-    )
+    expr = sympy_cond(y < sympy.Piecewise((1, x < 3), (2, True)), x * y, x + y)
 
     # But if we set sympy.core.parameters to False (by `with sympy.evaluate(False)`) and try to create the same
     # expression, SymPy will raise an error.
-    with pytest.raises(
-        Exception
-    ):  # non-deterministically TypeError/RecursiveError
+    with pytest.raises(Exception):  # non-deterministically TypeError/RecursiveError
         with sympy.evaluate(False):
-            sympy_cond(
-                y < sympy.Piecewise((1, x < 3), (2, True)), x * y, x + y
-            )
+            sympy_cond(y < sympy.Piecewise((1, x < 3), (2, True)), x * y, x + y)
     # And this has nothing to do with our shorthand `sympy_cond`.
-    with pytest.raises(
-        Exception
-    ):  # non-deterministically TypeError/RecursiveError
+    with pytest.raises(Exception):  # non-deterministically TypeError/RecursiveError
         with sympy.evaluate(False):
             sympy.Piecewise(
                 (x * y, y < sympy.Piecewise((1, x < 3), (2, True))),

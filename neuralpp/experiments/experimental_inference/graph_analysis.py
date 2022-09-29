@@ -66,11 +66,7 @@ class Tree(Graph):
         return self.parent(child) == parent
 
     def _compute_depth(self, node):
-        return (
-            0
-            if self.parent(node) is None
-            else self.depth(self.parent(node)) + 1
-        )
+        return 0 if self.parent(node) is None else self.depth(self.parent(node)) + 1
 
     def depth(self, node):
         return util.get_or_compute_and_put(
@@ -101,9 +97,7 @@ class LazySpanningTree(Tree):
     def children(self, node):
         if self._children.get(id(node)) is None:
             available_neighbors = [
-                n
-                for n in self.graph.neighbors(node)
-                if id(n) not in self._parents
+                n for n in self.graph.neighbors(node) if id(n) not in self._parents
             ]
             for n in available_neighbors:
                 self._parents[id(n)] = node
@@ -131,9 +125,7 @@ class LazyFactorSpanningTree(LazySpanningTree, FactorTree):
         return util.union(
             [
                 self.variables_at(node),
-                util.union(
-                    [self.variables(child) for child in self.children(node)]
-                ),
+                util.union([self.variables(child) for child in self.children(node)]),
             ]
         )
 
@@ -179,9 +171,7 @@ class PartialFactorSpanningTree(LazyFactorSpanningTree, PartialTree):
     def add_edge(self, parent, child):
         assert self.graph.contains_edge(parent, child)
         if child in self:
-            raise Exception(
-                f"Child node {child} has already been added to the tree"
-            )
+            raise Exception(f"Child node {child} has already been added to the tree")
         elif id(parent) in self._children:
             self._children[id(parent)].append(child)
         else:

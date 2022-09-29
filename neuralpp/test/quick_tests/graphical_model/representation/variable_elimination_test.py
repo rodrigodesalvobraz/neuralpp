@@ -16,7 +16,6 @@ from neuralpp.inference.graphical_model.variable_elimination import (
     VariableElimination,
 )
 
-
 print("sys.path:", sys.path)
 
 
