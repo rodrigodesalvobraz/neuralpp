@@ -7,20 +7,30 @@ from neuralpp.inference.graphical_model.representation.table.pytorch_log_table i
 from neuralpp.inference.graphical_model.representation.table.pytorch_table import (
     PyTorchTable,
 )
-from neuralpp.inference.graphical_model.representation.table.table_util import shape
+from neuralpp.inference.graphical_model.representation.table.table_util import (
+    shape,
+)
 
 
 class PyTorchTableFactor(TableFactor):
     def __init__(
-        self, variables, array_or_table_of_potentials, log_space=True, batch=False
+        self,
+        variables,
+        array_or_table_of_potentials,
+        log_space=True,
+        batch=False,
     ):
         super().__init__(
             variables,
             array_or_table_of_potentials
             if isinstance(array_or_table_of_potentials, PyTorchTable)
-            else PyTorchLogTable.from_array(array_or_table_of_potentials, batch=batch)
+            else PyTorchLogTable.from_array(
+                array_or_table_of_potentials, batch=batch
+            )
             if log_space
-            else PyTorchTable.from_array(array_or_table_of_potentials, batch=batch),
+            else PyTorchTable.from_array(
+                array_or_table_of_potentials, batch=batch
+            ),
         )
         assert self.table.non_batch_shape == (
             variables_shape := tuple(v.cardinality for v in variables)
@@ -48,11 +58,19 @@ class PyTorchTableFactor(TableFactor):
         batch = batch_size is not None
 
         variable_ranges = [range(v.cardinality) for v in variables]
-        ranges = variable_ranges if not batch else [range(batch_size)] + variable_ranges
+        ranges = (
+            variable_ranges
+            if not batch
+            else [range(batch_size)] + variable_ranges
+        )
 
-        table_shape = shape(variables) if not batch else (batch_size, *shape(variables))
+        table_shape = (
+            shape(variables) if not batch else (batch_size, *shape(variables))
+        )
 
-        table = table_class.from_function(table_shape, ranges, function, batch)
+        table = table_class.from_function(
+            table_shape, ranges, function, batch
+        )
 
         return constructor(variables, table)
 
@@ -75,5 +93,8 @@ class PyTorchTableFactor(TableFactor):
     @staticmethod
     def from_predicate(variables, predicate, log_space=True, batch_size=None):
         return PyTorchTableFactor.from_function(
-            variables, lambda *args: float(predicate(*args)), log_space, batch_size
+            variables,
+            lambda *args: float(predicate(*args)),
+            log_space,
+            batch_size,
         )

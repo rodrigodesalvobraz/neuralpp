@@ -15,7 +15,9 @@ from neuralpp.util.sympy_util import is_sympy_value
 
 class SymPyInterpreter(Interpreter, Simplifier):
     @staticmethod
-    def _simplify_expression(expression: sympy.Basic, context: Context) -> sympy.Basic:
+    def _simplify_expression(
+        expression: sympy.Basic, context: Context
+    ) -> sympy.Basic:
         result = expression
         if not context.dict:
             # in creation of function application, we set evaluate=False, so 1 + 2 will not evaluate
@@ -23,16 +25,22 @@ class SymPyInterpreter(Interpreter, Simplifier):
             result = result.simplify()
         else:
             for variable, value in context.dict.items():
-                result = result.replace(sympy.symbols(variable), sympy.sympify(value))
+                result = result.replace(
+                    sympy.symbols(variable), sympy.sympify(value)
+                )
         return result
 
-    def eval(self, expression: SymPyExpression, context: Context = TrueContext()):
+    def eval(
+        self, expression: SymPyExpression, context: Context = TrueContext()
+    ):
         """
         Tries to evaluate the  `expression` using SymPy's simplify.
         If the `context` is not empty, `eval()` will replace all the variables within the context with
         its corresponding value. `eval()` will also simplify the corresponding value for the variable.
         """
-        result = SymPyInterpreter._simplify_expression(expression.sympy_object, context)
+        result = SymPyInterpreter._simplify_expression(
+            expression.sympy_object, context
+        )
         if is_sympy_value(result):
             return result
         else:
@@ -42,7 +50,8 @@ class SymPyInterpreter(Interpreter, Simplifier):
 
     @staticmethod
     def purge_type_dict(
-        type_dict: Dict[sympy.Basic, ExpressionType], sympy_object: sympy.Basic
+        type_dict: Dict[sympy.Basic, ExpressionType],
+        sympy_object: sympy.Basic,
     ) -> Dict[sympy.Basic, ExpressionType]:
         """
         Assumes all variables (including uninterpreted functions) used in sympy_object is in type_dict.
@@ -69,11 +78,15 @@ class SymPyInterpreter(Interpreter, Simplifier):
                 except Exception as exc:
                     raise ConversionError() from exc
 
-            simplified_sympy_expression = SymPyInterpreter._simplify_expression(
-                expression.sympy_object, context
+            simplified_sympy_expression = (
+                SymPyInterpreter._simplify_expression(
+                    expression.sympy_object, context
+                )
             )
             if expression.type == bool:
-                simplified_sympy_expression = sympy.to_dnf(simplified_sympy_expression)
+                simplified_sympy_expression = sympy.to_dnf(
+                    simplified_sympy_expression
+                )
             # The result keeps the known type information from `expression`. E.g., though (y-y).simplify() = 0, it still
             # keeps the type of `y`. Delete these redundant types.
             type_dict = SymPyInterpreter.purge_type_dict(

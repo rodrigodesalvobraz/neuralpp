@@ -10,7 +10,10 @@ class MultiFrameDataLoader:
     def __init__(self, dataset, batch_size=100):
         try:
             len(dataset[0]) == 2 and all(
-                all(isinstance(v, DiscreteVariable) for v in dataset[0][i].keys())
+                all(
+                    isinstance(v, DiscreteVariable)
+                    for v in dataset[0][i].keys()
+                )
                 for i in {0, 1}
             )
         except TypeError as e:

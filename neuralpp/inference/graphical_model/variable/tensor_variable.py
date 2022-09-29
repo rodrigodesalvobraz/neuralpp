@@ -38,7 +38,9 @@ class TensorVariable(Variable):
     @staticmethod
     def _check_value_is_tensor(value):
         if not isinstance(value, torch.Tensor):
-            raise Exception(f"Values of {TensorVariable.__name__} must be tensors.")
+            raise Exception(
+                f"Values of {TensorVariable.__name__} must be tensors."
+            )
 
     def _check_value_dimension(self, tensor):
         if tensor.dim() not in {self.non_batch_dim, self.non_batch_dim + 1}:

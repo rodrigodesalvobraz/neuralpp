@@ -3,7 +3,9 @@ import random
 from collections import deque
 from typing import Dict, Type, Callable, List, Iterable, Set
 
-from neuralpp.inference.graphical_model.representation.factor.factor import Factor
+from neuralpp.inference.graphical_model.representation.factor.factor import (
+    Factor,
+)
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 from neuralpp.util.util import empty
@@ -17,7 +19,9 @@ class FactorMaker:
     """
 
     def __init__(
-        self, variable_types: List[Type], make: Callable[[List[Variable]], Factor]
+        self,
+        variable_types: List[Type],
+        make: Callable[[List[Variable]], Factor],
     ):
         """
         Initializes a FactorMaker with a function for making a factor given its variables,
@@ -124,7 +128,9 @@ class MultiTypeRandomModel:
             from_type_to_number_of_seed_variables
         )
         self.from_type_to_variable_maker = (
-            {} if from_type_to_variable_maker is None else from_type_to_variable_maker
+            {}
+            if from_type_to_variable_maker is None
+            else from_type_to_variable_maker
         )
         self.factor_makers = factor_makers
         self.loop_coefficient = loop_coefficient
@@ -146,7 +152,8 @@ class MultiTypeRandomModel:
             number_of_variables_of_type,
         ) in self.from_type_to_number_of_seed_variables.items():
             util.repeat(
-                number_of_variables_of_type, lambda: self.make_new_variable(type)
+                number_of_variables_of_type,
+                lambda: self.make_new_variable(type),
             )
 
     def complete_model_generation(self):
@@ -164,7 +171,9 @@ class MultiTypeRandomModel:
             )
 
             self.child_being_processed = next_variable_to_get_a_distribution
-            self.register_distribution_for(next_variable_to_get_a_distribution)
+            self.register_distribution_for(
+                next_variable_to_get_a_distribution
+            )
             self.child_being_processed = None
 
     def get_next_variable_without_distribution_to_process(self):
@@ -191,7 +200,9 @@ class MultiTypeRandomModel:
         factor = factor_maker.make([variable])
         return factor
 
-    def get_factor_maker_with_no_parents_for(self, child: Variable) -> FactorMaker:
+    def get_factor_maker_with_no_parents_for(
+        self, child: Variable
+    ) -> FactorMaker:
         factor_maker = self.get_factor_maker_for_child_and_condition(
             child, lambda fm: len(fm.variable_types) == 1
         )
@@ -202,7 +213,9 @@ class MultiTypeRandomModel:
         return factor_maker
 
     def make_non_terminal_distribution_for(self, child: Variable) -> Factor:
-        factor_maker = self.get_factor_maker_with_at_least_one_parent_for_child(child)
+        factor_maker = (
+            self.get_factor_maker_with_at_least_one_parent_for_child(child)
+        )
         parents = self.get_parents_for(child, factor_maker.parent_types)
         variables = [child, *parents]
         factor = factor_maker(variables)
@@ -248,14 +261,18 @@ class MultiTypeRandomModel:
         new_variable_parents = self.get_new_variable_parents(types_of_parents)
 
         index_of_first_remaining_parent = len(new_variable_parents)
-        types_of_remaining_parents = types_of_parents[index_of_first_remaining_parent:]
+        types_of_remaining_parents = types_of_parents[
+            index_of_first_remaining_parent:
+        ]
         remaining_parents = self.get_remaining_parents(
             child, types_of_remaining_parents
         )
 
         parents = [*new_variable_parents, *remaining_parents]
         for parent in parents:
-            self.update_descendants_dict_when_parent_gets_new_child(parent, child)
+            self.update_descendants_dict_when_parent_gets_new_child(
+                parent, child
+            )
         return parents
 
     def get_new_variable_parents(self, types_of_parents) -> List[Variable]:
@@ -265,11 +282,15 @@ class MultiTypeRandomModel:
         )
         new_variable_parents = [
             self.make_new_variable(parent_type)
-            for parent_type in types_of_parents[:number_of_new_variable_parents]
+            for parent_type in types_of_parents[
+                :number_of_new_variable_parents
+            ]
         ]
         return new_variable_parents
 
-    def get_max_number_of_new_variable_parents(self, types_of_parents: List[Type]):
+    def get_max_number_of_new_variable_parents(
+        self, types_of_parents: List[Type]
+    ):
         number_of_parents = len(types_of_parents)
         max_number_of_new_variables = math.ceil(
             number_of_parents * (1 - self.loop_coefficient)
@@ -279,8 +300,10 @@ class MultiTypeRandomModel:
     def get_remaining_parents(
         self, child: Variable, types_for_old_variable_parents: List[Type]
     ):
-        attempted_old_variable_parents = self.get_attempted_old_variable_parents(
-            child, types_for_old_variable_parents
+        attempted_old_variable_parents = (
+            self.get_attempted_old_variable_parents(
+                child, types_for_old_variable_parents
+            )
         )
         remaining_parents = [
             self.use_parent_or_make_new_one_if_none(attempted, parent_type)
@@ -296,14 +319,19 @@ class MultiTypeRandomModel:
         return parent if parent is not None else self.make_new_variable(type)
 
     def get_attempted_old_variable_parents(
-        self, child: Variable, types_for_attempted_old_variable_parents: List[Type]
+        self,
+        child: Variable,
+        types_for_attempted_old_variable_parents: List[Type],
     ) -> List[Variable]:
         old_variable_parent_candidates = [
             v
             for v in self.variables_generated_so_far
-            if v is not child and v not in self._from_variable_to_descendants[child]
+            if v is not child
+            and v not in self._from_variable_to_descendants[child]
         ]
-        old_variable_parent_candidates_provider = lambda: old_variable_parent_candidates
+        old_variable_parent_candidates_provider = (
+            lambda: old_variable_parent_candidates
+        )
 
         conditions_for_old_variable_parents = [
             lambda v, parent_type=parent_type: type(v) == parent_type
@@ -315,15 +343,20 @@ class MultiTypeRandomModel:
             # https://stackoverflow.com/questions/2295290/what-do-lambda-function-closures-capture
         ]
 
-        attempted_old_variable_parents = util.choose_elements_without_replacement(
-            old_variable_parent_candidates_provider, conditions_for_old_variable_parents
+        attempted_old_variable_parents = (
+            util.choose_elements_without_replacement(
+                old_variable_parent_candidates_provider,
+                conditions_for_old_variable_parents,
+            )
         )
         return attempted_old_variable_parents
 
     def update_descendants_dict_when_parent_gets_new_child(
         self, parent: Variable, child: Variable
     ):
-        previous_descendants_of_parent = set(self._from_variable_to_descendants[parent])
+        previous_descendants_of_parent = set(
+            self._from_variable_to_descendants[parent]
+        )
 
         self._from_variable_to_descendants[parent].add(child)
         self._from_variable_to_descendants[parent].update(
@@ -331,7 +364,8 @@ class MultiTypeRandomModel:
         )
 
         new_descendants_of_parent = (
-            self._from_variable_to_descendants[parent] - previous_descendants_of_parent
+            self._from_variable_to_descendants[parent]
+            - previous_descendants_of_parent
         )
 
         self.propagate_new_descendants_to_ancestors(
@@ -349,7 +383,8 @@ class MultiTypeRandomModel:
             parents = distribution.variables[1:]
             for parent in parents:
                 new_descendants_of_parent = (
-                    new_descendants - self._from_variable_to_descendants[parent]
+                    new_descendants
+                    - self._from_variable_to_descendants[parent]
                 )
                 self._from_variable_to_descendants[parent].update(
                     new_descendants_of_parent

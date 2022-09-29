@@ -6,7 +6,9 @@ from neuralpp.inference.graphical_model.learn.graphical_model_sgd_learner import
 from neuralpp.inference.graphical_model.representation.factor.neural.neural_factor import (
     NeuralFactor,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.inference.neural_net.MLP import MLP
 from neuralpp.test.slow_tests.graphical_model.representation.factor.neural.neural_factor_test_util import (
     check_and_show_conditional_distributions,
@@ -26,7 +28,9 @@ def make_bernoulli_dataset(x, y):
 
     x_value = lambda i: 0 if i < DATASET_SIZE / 2 else 1
     y_value = lambda i: bernoulli(p[x_value(i)])
-    dataset = [({x: x_value(i)}, {y: y_value(i)}) for i in range(DATASET_SIZE)]
+    dataset = [
+        ({x: x_value(i)}, {y: y_value(i)}) for i in range(DATASET_SIZE)
+    ]
     random.shuffle(dataset)
     return dataset
 
@@ -55,7 +59,9 @@ def mlp_neural_factor_learning():
     print("Dataset mean y for x = 1:", y_mean_for_x_1)
 
     graphical_model = [neural_factor]
-    GraphicalModelSGDLearner(graphical_model, dataset, loss_decrease_tol=1e-3).learn()
+    GraphicalModelSGDLearner(
+        graphical_model, dataset, loss_decrease_tol=1e-3
+    ).learn()
 
     def ground_truth(x, y):
         if x == 0:

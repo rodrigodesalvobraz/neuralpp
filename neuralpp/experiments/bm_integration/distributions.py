@@ -8,7 +8,9 @@ from neuralpp.inference.graphical_model.representation.factor.factor import (
 from neuralpp.inference.graphical_model.representation.factor.table_factor import (
     TableFactor,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.inference.graphical_model.variable.variable import Variable
 
 

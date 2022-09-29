@@ -64,6 +64,10 @@ def test_compare_z3_and_sympy_solver_sympy_fail():
     x, y = symbols("x y")
     with pytest.raises(PolynomialError) as exc_info:
         solve_inequalities_sympy(
-            [(x**2 - 1, x, ">"), (y - 10, y, "<"), (x + 2 * y - 7, (x, y), "==")]
+            [
+                (x**2 - 1, x, ">"),
+                (y - 10, y, "<"),
+                (x + 2 * y - 7, (x, y), "=="),
+            ]
         )
     assert "only univariate polynomials are allowed" in repr(exc_info)

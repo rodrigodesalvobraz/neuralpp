@@ -20,7 +20,10 @@ class Timer:
             self.end = time.time()
             print(
                 "Finished",
-                *(self.description_args + (f"({self.end - self.start:.2f} seconds)",)),
+                *(
+                    self.description_args
+                    + (f"({self.end - self.start:.2f} seconds)",)
+                ),
             )
 
 

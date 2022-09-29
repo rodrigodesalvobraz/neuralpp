@@ -7,12 +7,16 @@ def test_list_for_each():
     assert actual == expected
 
     pre_list = []
-    actual = list_for_each(range(1, 5), lambda i: pre_list.append(i), lambda i: i)
+    actual = list_for_each(
+        range(1, 5), lambda i: pre_list.append(i), lambda i: i
+    )
     expected = [1, 2, 3, 4]
     assert pre_list == expected
     assert actual == expected
 
-    actual = list_for_each(range(1, 5), lambda i: i, filter_index=lambda i: i != 3)
+    actual = list_for_each(
+        range(1, 5), lambda i: i, filter_index=lambda i: i != 3
+    )
     expected = [1, 2, 4]
     assert actual == expected
 

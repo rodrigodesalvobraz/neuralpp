@@ -1,5 +1,5 @@
 from copy import copy
-from typing import Any, Callable, Dict, FrozenSet, List
+from typing import Any, Callable, Dict, List
 
 from z3 import ExprRef, FuncDeclRef, Solver, substitute, Z3_OP_UNINTERPRETED
 import z3
@@ -22,7 +22,9 @@ def z3_add_solver_and_literal(solver: Solver, constraint: Any) -> Solver:
     return result
 
 
-def z3_replace_in_solver(solver: Solver, from_: ExprRef, to: ExprRef) -> Solver:
+def z3_replace_in_solver(
+    solver: Solver, from_: ExprRef, to: ExprRef
+) -> Solver:
     """Make a new solver from the older solver by replacing `from_` to `to`."""
     result = Solver()
     for assertion in solver.assertions():

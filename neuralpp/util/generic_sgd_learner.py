@@ -19,15 +19,17 @@ from tqdm import tqdm
 
 def default_after_epoch(learner, end_str="\n"):
     time_elapsed = time.time() - learner.time_start
-    main_info = (
-        f"[{time_elapsed:.0f} s] Epoch average loss: {learner.epoch_average_loss:.4f}"
-    )
+    main_info = f"[{time_elapsed:.0f} s] Epoch average loss: {learner.epoch_average_loss:.4f}"
     extra_items = []
     include_decrease = learner.previous_epoch_average_loss is not None
     if include_decrease:
-        loss_decrease = learner.previous_epoch_average_loss - learner.epoch_average_loss
+        loss_decrease = (
+            learner.previous_epoch_average_loss - learner.epoch_average_loss
+        )
         extra_items.append(f"decrease: {loss_decrease:.6f}")
-        extra_items.append(f"stopping value is {learner.loss_decrease_tol:.6f}")
+        extra_items.append(
+            f"stopping value is {learner.loss_decrease_tol:.6f}"
+        )
     if learner.max_epochs_to_go_before_stopping_due_to_loss_decrease > 1:
         extra_items.append(
             f"number of epochs without less decrease: {learner.number_of_epochs_without_loss_decrease}"
@@ -36,7 +38,9 @@ def default_after_epoch(learner, end_str="\n"):
             f"max number of epochs without less decrease: {learner.max_epochs_to_go_before_stopping_due_to_loss_decrease}"
         )
     final_message = (
-        main_info + " (" + join(extra_items, "; ") + ")" if extra_items else main_info
+        main_info + " (" + join(extra_items, "; ") + ")"
+        if extra_items
+        else main_info
     )
     print(final_message, end=end_str)
 
@@ -87,7 +91,9 @@ class GenericSGDLearner:
         self.lr = lr
         self.loss_decrease_tol = loss_decrease_tol
         self.device = device
-        self.number_of_batches_between_updates = number_of_batches_between_updates
+        self.number_of_batches_between_updates = (
+            number_of_batches_between_updates
+        )
         self.debug = debug
         self.after_epoch = after_epoch
         self.max_epochs_to_go_before_stopping_due_to_loss_decrease = (
@@ -118,7 +124,9 @@ class GenericSGDLearner:
         return len(batch)
 
     def loss_function(self, batch):
-        error = NotImplementedError(f"loss_function not implemented for {type(self)}")
+        error = NotImplementedError(
+            f"loss_function not implemented for {type(self)}"
+        )
         raise error
 
     def get_parameters(self, model):
@@ -168,9 +176,13 @@ class GenericSGDLearner:
             self.total_epoch_loss = 0
             self.total_number_of_data_points = 0
 
-            for batch_number, batch in tqdm(enumerate(self.data_loader, start=1)):
+            for batch_number, batch in tqdm(
+                enumerate(self.data_loader, start=1)
+            ):
                 batch = self.batch_to_device(batch, self.device)
-                number_of_data_points = self.get_number_of_datapoints_in_batch(batch)
+                number_of_data_points = (
+                    self.get_number_of_datapoints_in_batch(batch)
+                )
                 batch_loss = self.loss_function(batch)
                 batch_loss.backward(
                     retain_graph=self.retain_graph_during_backpropagation

@@ -16,7 +16,9 @@ from neuralpp.inference.graphical_model.representation.model.model import (
 from neuralpp.inference.graphical_model.representation.random.random_dataset import (
     generate_dataset_given_observation_and_query_variables,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.util import util
 from neuralpp.util.util import try_noisy_test_up_to_n_times
 
@@ -54,13 +56,19 @@ def joint_learning():
         dataset, ground_truth_model
     ).item()
 
-    print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
+    print(
+        f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}"
+    )
 
-    GraphicalModelSGDLearner(learned_model, dataset, loss_decrease_tol=1e-3).learn()
+    GraphicalModelSGDLearner(
+        learned_model, dataset, loss_decrease_tol=1e-3
+    ).learn()
 
     cross_entropy = cross_entropy_for_dataset(dataset, learned_model).item()
 
-    print(f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}")
+    print(
+        f"Ground truth model cross entropy: {ground_truth_cross_entropy :.3f}"
+    )
     print(f"Learned model cross entropy     : {cross_entropy :.3f}")
 
     for observation_dict, query_dict in random.sample(dataset, 10):

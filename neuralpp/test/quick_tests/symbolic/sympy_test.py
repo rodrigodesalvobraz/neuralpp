@@ -66,7 +66,9 @@ def test_computation():
     complex_formula = exp(x) * x + x
     assert diff(integrate(complex_formula, x), x) != complex_formula
     # since
-    assert diff(integrate(complex_formula, x), x) == x + (x - 1) * exp(x) + exp(x)
+    assert diff(integrate(complex_formula, x), x) == x + (x - 1) * exp(
+        x
+    ) + exp(x)
     # and
     assert complex_formula != x + (x - 1) * exp(x) + exp(x)
 
@@ -150,7 +152,9 @@ def test_sum():
     # Doc in Sum() defines the following behavior which is a little weird.
     # If start > end in (i, start, end), it is defined to be the same as (i, end+1, start-1)
     # https://docs.sympy.org/latest/modules/concrete.html?highlight=sum#sympy.concrete.summations.Sum
-    assert Sum(k, (k, i, i - 100)).doit() == -Sum(k, (k, i - 99, i - 1)).doit()
+    assert (
+        Sum(k, (k, i, i - 100)).doit() == -Sum(k, (k, i - 99, i - 1)).doit()
+    )
 
     expr = Sum(i, (i, 0, k), (k, 0, 10))
     assert expr.doit() == 1 + 3 + 6 + 10 + 15 + 21 + 28 + 36 + 45 + 55
@@ -170,7 +174,9 @@ def test_sympy_bug():
 
     with evaluate(False):
         assert Add(1, 3) != 4  # desired behavior
-        assert Max(1, 3) != 3  # If the sympy bug is fixed we should use this line
+        assert (
+            Max(1, 3) != 3
+        )  # If the sympy bug is fixed we should use this line
 
 
 def test_symbolic_summation():

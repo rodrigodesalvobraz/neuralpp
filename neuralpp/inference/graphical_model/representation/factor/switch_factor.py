@@ -36,7 +36,9 @@ class SwitchFactor(AtomicFactor):
                 assignment_dict
             )
         else:
-            return self._transform_components(lambda c: c.condition(assignment_dict))
+            return self._transform_components(
+                lambda c: c.condition(assignment_dict)
+            )
 
     def randomize(self):
         for c in self.components:
@@ -46,18 +48,25 @@ class SwitchFactor(AtomicFactor):
         return self._transform_components(lambda c: c.randomized_copy())
 
     def mul_by_non_identity(self, other):
-        return self._transform_components(lambda c: c.mul_by_non_identity(other))
+        return self._transform_components(
+            lambda c: c.mul_by_non_identity(other)
+        )
 
     def sum_out_variable(self, variable):
         if variable == self.switch:
             return MixtureFactor(self.switch, self)
         else:
-            return self._transform_components(lambda c: c.sum_out_variable(variable))
+            return self._transform_components(
+                lambda c: c.sum_out_variable(variable)
+            )
 
     def __eq__(self, other):
         if not isinstance(other, SwitchFactor):
             return False
-        return self.switch == other.switch and self.components == other.components
+        return (
+            self.switch == other.switch
+            and self.components == other.components
+        )
 
     def __hash__(self):
         return hash(self.switch) + hash(self.components)

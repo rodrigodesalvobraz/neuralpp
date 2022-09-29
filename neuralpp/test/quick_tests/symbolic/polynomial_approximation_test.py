@@ -28,7 +28,8 @@ def test_normal_polynomial_approximation():
 
     print("Computing true values")
     true_normal_values = [
-        Normal(mean_value, sigma_value).log_prob(torch.tensor(x)).exp() for x in x_axis
+        Normal(mean_value, sigma_value).log_prob(torch.tensor(x)).exp()
+        for x in x_axis
     ]
 
     interpreter = BasicInterpreter()

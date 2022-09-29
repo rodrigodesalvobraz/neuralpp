@@ -17,7 +17,9 @@ from neuralpp.inference.graphical_model.representation.table.pytorch_table impor
 from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.util import util
 from neuralpp.util.discrete_sampling import discrete_sample
 
@@ -106,7 +108,9 @@ def batch_function_adapter_from_function_without_batch_row_index(
         )
         if batch:
             batch_row_index = args[0]
-            potential = (batch_row_index + 1) * potential_without_batch_row_index
+            potential = (
+                batch_row_index + 1
+            ) * potential_without_batch_row_index
         else:
             potential = potential_without_batch_row_index
         return potential
@@ -161,7 +165,9 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
         (x, y), fixy, log_space, batch_size
     )
 
-    table_class_to_use = PyTorchLogTable if log_space_expected else PyTorchTable
+    table_class_to_use = (
+        PyTorchLogTable if log_space_expected else PyTorchTable
+    )
 
     tests = [
         ({}, factor),
@@ -169,8 +175,14 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
         ({x: 1}, expected_table_factor((y,), lambda i, y: fixy(i, 1, y))),
         ({y: 0}, expected_table_factor((x,), lambda i, x: fixy(i, x, 0))),
         ({y: 1}, expected_table_factor((x,), lambda i, x: fixy(i, x, 1))),
-        ({x: 0, y: 0}, expected_table_factor(tuple(), lambda i: fixy(i, 0, 0))),
-        ({x: 1, y: 0}, expected_table_factor(tuple(), lambda i: fixy(i, 1, 0))),
+        (
+            {x: 0, y: 0},
+            expected_table_factor(tuple(), lambda i: fixy(i, 0, 0)),
+        ),
+        (
+            {x: 1, y: 0},
+            expected_table_factor(tuple(), lambda i: fixy(i, 1, 0)),
+        ),
         (
             {x: slice(None), y: 0},
             expected_table_factor((x,), lambda i, x: fixy(i, x, 0)),
@@ -187,7 +199,10 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             {x: 1, y: slice(None)},
             expected_table_factor((y,), lambda i, y: fixy(i, 1, y)),
         ),
-        ({x: slice(None), y: slice(None)}, expected_table_factor((x, y), fixy)),
+        (
+            {x: slice(None), y: slice(None)},
+            expected_table_factor((x, y), fixy),
+        ),
     ]
 
     run_condition_tests(factor, tests)
@@ -264,7 +279,9 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             {x: [0, 1], y: [0, 1, 0]},  # batch coordinates do not coincide
         ]
 
-        for illegal_conditioning_for_batch in illegal_conditionings_for_batches:
+        for (
+            illegal_conditioning_for_batch
+        ) in illegal_conditionings_for_batches:
             try:
                 factor[illegal_conditioning_for_batch]
                 raise AssertionError(
@@ -278,7 +295,9 @@ def test_condition(x, y, log_space, log_space_expected, batch_size):
             {x: [0, 1], y: [0, 1, 0]},  # batch coordinates do not coincide
         ]
 
-        for illegal_conditioning_for_non_batch in illegal_conditionings_for_non_batches:
+        for (
+            illegal_conditioning_for_non_batch
+        ) in illegal_conditionings_for_non_batches:
             try:
                 factor[illegal_conditioning_for_non_batch]
                 raise AssertionError(
@@ -394,7 +413,9 @@ def test_get_assignment_index(x, y, z):
     for i, v in enumerate(variables):
         selected_variables = variables[:i]
         assignment_index = 0
-        for assignment in DiscreteVariable.assignments_product(selected_variables):
+        for assignment in DiscreteVariable.assignments_product(
+            selected_variables
+        ):
             assert assignment_index == get_assignment_index(
                 assignment, selected_variables
             )
@@ -428,7 +449,9 @@ def test_sample(x, y, z, log_space, batch_size):
 
         number_of_assignments = math.prod(v.cardinality for v in variables)
         potentials = range(number_of_assignments)
-        probabilities = torch.tensor(potentials, dtype=torch.float) / sum(potentials)
+        probabilities = torch.tensor(potentials, dtype=torch.float) / sum(
+            potentials
+        )
 
         # Create a factor in which each assignment's probability is proportional to its position
         # in the list of assignments (it's *index*).
@@ -458,11 +481,15 @@ def test_sample(x, y, z, log_space, batch_size):
         # all p_i are in [0, 0.5]. Since they are always monotonically increasing,
         # the std error of the last one is the largest.
         if number_of_assignments < 4:
-            max_std_err = max(std_err(p, number_of_samples) for p in probabilities)
+            max_std_err = max(
+                std_err(p, number_of_samples) for p in probabilities
+            )
             print(f"Searched for max std err and found {max_std_err:.3}")
         else:
             max_std_err = std_err(probabilities[-1], number_of_samples)
-            print(f"Took last std err for max std err and found {max_std_err:.3}")
+            print(
+                f"Took last std err for max std err and found {max_std_err:.3}"
+            )
 
         z_score = (
             5  # a sample with fall out of this range extremely rarely; a Z-score of 4
@@ -470,7 +497,9 @@ def test_sample(x, y, z, log_space, batch_size):
             # (A Z-score of 4 means a probability of (1 out of 10K runs) * 365 ~= 28).
         )
         absolute_tolerance = z_score * max_std_err
-        print(f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}")
+        print(
+            f"Absolute tolerance is {z_score} * max error = {absolute_tolerance:.3}"
+        )
 
         samples = factor.sample(number_of_samples)
 
@@ -519,7 +548,9 @@ def test_sample(x, y, z, log_space, batch_size):
             print(f"Tolerance: {absolute_tolerance:.3}")
 
             assert torch.allclose(
-                probabilities, empirical_probabilities, atol=absolute_tolerance
+                probabilities,
+                empirical_probabilities,
+                atol=absolute_tolerance,
             ), (
                 "Samples deviated from neuralpp.expected distribution; "
                 "this is possible but should be an extremely rare event."

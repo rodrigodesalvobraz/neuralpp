@@ -9,8 +9,12 @@ from neuralpp.inference.graphical_model.representation.factor.pytorch_table_fact
 from neuralpp.inference.graphical_model.representation.random.random_model import (
     generate_model,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
+from neuralpp.inference.graphical_model.variable_elimination import (
+    VariableElimination,
+)
 
 
 print("sys.path:", sys.path)
@@ -46,7 +50,9 @@ def test_variable_elimination():
                 log_space=log_space,
             ),
             PyTorchTableFactor.from_function(
-                [z, y], lambda z, y: 1.0 if z == y else 0.0, log_space=log_space
+                [z, y],
+                lambda z, y: 1.0 if z == y else 0.0,
+                log_space=log_space,
             ),
         ]
 

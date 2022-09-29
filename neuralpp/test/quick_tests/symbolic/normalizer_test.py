@@ -5,7 +5,9 @@ import sympy
 import z3
 from typing import Callable
 
-from neuralpp.symbolic.quantifier_free_normalizer import QuantifierFreeNormalizer
+from neuralpp.symbolic.quantifier_free_normalizer import (
+    QuantifierFreeNormalizer,
+)
 from neuralpp.symbolic.general_normalizer import GeneralNormalizer
 from neuralpp.symbolic.lazy_normalizer import LazyNormalizer
 from neuralpp.symbolic.basic_expression import (
@@ -44,7 +46,9 @@ def test_normalizer2():
     """
     normalizer = QuantifierFreeNormalizer()
     f = Z3Variable(
-        z3.Function("f", z3.BoolSort(), z3.BoolSort(), z3.IntSort(), z3.IntSort())
+        z3.Function(
+            "f", z3.BoolSort(), z3.BoolSort(), z3.IntSort(), z3.IntSort()
+        )
     )
     a = BasicVariable("a", int)
     b = BasicVariable("b", int)
@@ -87,14 +91,21 @@ def test_normalizer3():
     if c then 45 else if a>b then f(False, 66) else 3
     """
     normalizer = QuantifierFreeNormalizer()
-    f = Z3Variable(z3.Function("f", z3.BoolSort(), z3.IntSort(), z3.IntSort()))
+    f = Z3Variable(
+        z3.Function("f", z3.BoolSort(), z3.IntSort(), z3.IntSort())
+    )
     a = BasicVariable("a", int)
     b = BasicVariable("b", int)
     c = BasicVariable("c", bool)
 
     expr = f(c, f((a > b) | c, 3))
     context = Z3SolverExpression()
-    context = context & (f(True, 66) == 45) & (f(True, 3) == 66) & (f(False, 3) == 3)
+    context = (
+        context
+        & (f(True, 66) == 45)
+        & (f(True, 3) == 66)
+        & (f(False, 3) == 3)
+    )
     assert isinstance(context, Z3SolverExpression)
     result = normalizer.normalize(expr, context)
     assert result.syntactic_eq(
@@ -149,7 +160,9 @@ def test_quantifier_normalizer():
     )  # SymPy switched 5 and i. normalize() don't simplify()
 
     context = Z3SolverExpression.from_expression(j == 10)
-    assert normalizer.normalize(sum_, context).syntactic_eq(BasicConstant(0, int))
+    assert normalizer.normalize(sum_, context).syntactic_eq(
+        BasicConstant(0, int)
+    )
 
     k = BasicVariable("k", int)
     jj, kk = sympy.symbols("j k")
@@ -166,22 +179,32 @@ def test_quantifier_normalizer():
         if_then_else(
             j > 5,
             SymPyExpression.from_sympy_object(
-                -(jj**2) / 2 - jj * (jj - kk + 1) - jj / 2 + kk**2 / 2 - kk / 2,
+                -(jj**2) / 2
+                - jj * (jj - kk + 1)
+                - jj / 2
+                + kk**2 / 2
+                - kk / 2,
                 {jj: int, kk: int},
             ),
             SymPyExpression.from_sympy_object(
-                -(jj**2) / 2 - jj / 2 + kk**2 / 2 - kk / 2, {jj: int, kk: int}
+                -(jj**2) / 2 - jj / 2 + kk**2 / 2 - kk / 2,
+                {jj: int, kk: int},
             ),
         )
     )
     assert normalizer.normalize(
         sum_, Z3SolverExpression.from_expression(j == 6)
     ).syntactic_eq(
-        SymPyExpression.from_sympy_object(kk**2 / 2 + 11 * kk / 2 - 63, {kk: int})
+        SymPyExpression.from_sympy_object(
+            kk**2 / 2 + 11 * kk / 2 - 63, {kk: int}
+        )
     )
 
     sum_ = basic_summation(
-        int, i, Z3SolverExpression.from_expression(j < i), if_then_else(i > 5, i + j, i)
+        int,
+        i,
+        Z3SolverExpression.from_expression(j < i),
+        if_then_else(i > 5, i + j, i),
     )
     assert normalizer.normalize(sum_, empty_context).syntactic_eq(
         basic_summation(
@@ -195,7 +218,10 @@ def test_quantifier_normalizer():
     assert (
         normalizer.normalize(
             basic_summation(
-                int, j, Z3SolverExpression.from_expression(10 > j) & (j > 5), i + j
+                int,
+                j,
+                Z3SolverExpression.from_expression(10 > j) & (j > 5),
+                i + j,
             ),
             empty_context,
         )
@@ -215,10 +241,16 @@ def test_quantifier_normalizer():
             j,
             Z3SolverExpression.from_expression(10 > j) & ~(5 < j),
             basic_summation(
-                int, i, Z3SolverExpression.from_expression(j < i) & (5 < i), i + j
+                int,
+                i,
+                Z3SolverExpression.from_expression(j < i) & (5 < i),
+                i + j,
             )
             + basic_summation(
-                int, i, Z3SolverExpression.from_expression(j < i) & ~(5 < i), i
+                int,
+                i,
+                Z3SolverExpression.from_expression(j < i) & ~(5 < i),
+                i,
             ),
         )
     )
@@ -269,7 +301,9 @@ def test_quantifier_normalizer():
         ),
     )
     BB, CC = sympy.symbols("B C")
-    product = SymPyExpression.from_sympy_object(9 * BB * (BB + CC), {BB: int, CC: int})
+    product = SymPyExpression.from_sympy_object(
+        9 * BB * (BB + CC), {BB: int, CC: int}
+    )
     assert normalizer.normalize(expr, empty_context).syntactic_eq(
         if_then_else(
             A,
@@ -328,9 +362,9 @@ def test_quantifier_normalizer_integration():
     context = empty_context
     normalizer = GeneralNormalizer()
     # 1/2 * i ** 2
-    assert normalizer.normalize(integral, context, simplify=True).syntactic_eq(
-        BasicConstant(50)
-    )
+    assert normalizer.normalize(
+        integral, context, simplify=True
+    ).syntactic_eq(BasicConstant(50))
     # 1/2 * i ** 2 + i
     assert normalizer.normalize(
         basic_integral(i, i_range, i + 1), context, simplify=True
@@ -385,7 +419,9 @@ def test_quantifier_normalizer_integration():
     product2 = SymPyExpression.from_sympy_object(
         10 * BB * CC * (BB + CC), {BB: int, CC: int}
     )
-    product3 = SymPyExpression.from_sympy_object(500 * BB * CC, {BB: int, CC: int})
+    product3 = SymPyExpression.from_sympy_object(
+        500 * BB * CC, {BB: int, CC: int}
+    )
     # TODO: Fix tests
     # assert normalizer.normalize(expr, empty_context).syntactic_eq(
     #    if_then_else(A,
@@ -474,7 +510,9 @@ def test_codegen():
             B > 4,
             B + C,
             basic_integral(
-                C, empty_context & (0 < C) & (C < 10), if_then_else(B < 5, C, 1)
+                C,
+                empty_context & (0 < C) & (C < 10),
+                if_then_else(B < 5, C, 1),
             ),
         ),
     )
@@ -485,7 +523,9 @@ def test_codegen():
     product2 = SymPyExpression.from_sympy_object(
         10 * BB * CC * (BB + CC), {BB: int, CC: int}
     )
-    product3 = SymPyExpression.from_sympy_object(500 * BB * CC, {BB: int, CC: int})
+    product3 = SymPyExpression.from_sympy_object(
+        500 * BB * CC, {BB: int, CC: int}
+    )
     result = normalizer.normalize(expr, empty_context)
     print(result)
     # TODO: fix this. (answer is correct but in a different format)
@@ -495,7 +535,12 @@ def test_codegen():
     #                                         ))
     sympy_formula = SymPyExpression.convert(result).sympy_object
     print(f"formula:{sympy_formula}")
-    print(timeit(lambda: sympy_formula.subs({AA: True, BB: 100, CC: 888}), number=1000))
+    print(
+        timeit(
+            lambda: sympy_formula.subs({AA: True, BB: 100, CC: 888}),
+            number=1000,
+        )
+    )
     # we don't have to use codegen, since sympy provides `autowrap`
     # though I assume codegen can be faster without the wrapper
     # [(c_name, c_code), (h_name, c_header)] = codegen(('sympy_formula', sympy_formula), language='c')

@@ -5,7 +5,9 @@ from neuralpp.inference.graphical_model.representation.factor.neural.neural_fact
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from torch import sigmoid
 
 
@@ -55,7 +57,10 @@ def test_potentials():
     print(neural_factor.table_factor)
     assert neural_factor.table_factor == PyTorchTableFactor(
         [p, q, xor],
-        [[[0.9928, 0.0072], [0.0079, 0.9921]], [[0.0079, 0.9921], [0.9999, 0.0001]]],
+        [
+            [[0.9928, 0.0072], [0.0079, 0.9921]],
+            [[0.0079, 0.9921], [0.9999, 0.0001]],
+        ],
     )
 
 
@@ -101,7 +106,9 @@ def test_conditioning():
     p_and_xor_are_true = neural_factor.condition({p: 1, xor: 1})
     print("xor | p and xor:", p_and_xor_are_true)
     print("xor | p and xor table:", p_and_xor_are_true.table_factor)
-    assert p_and_xor_are_true.table_factor == PyTorchTableFactor([q], [0.9921, 0.0])
+    assert p_and_xor_are_true.table_factor == PyTorchTableFactor(
+        [q], [0.9921, 0.0]
+    )
 
     all_true = neural_factor.condition({p: 1, q: 1, xor: 1})
     print("xor | all true:", all_true)
@@ -114,20 +121,32 @@ def test_normalize():
     print("neural_factor.normalize()", neural_factor.normalize())
     assert neural_factor.normalize() == PyTorchTableFactor(
         [p, q, xor],
-        [[[0.2482, 0.0018], [0.002, 0.248]], [[0.002, 0.248], [0.25, 0.00001]]],
+        [
+            [[0.2482, 0.0018], [0.002, 0.248]],
+            [[0.002, 0.248], [0.25, 0.00001]],
+        ],
     )
 
 
 def test_call_simple():
     neural_factor, p, q, xor = get_data()
 
-    print("neural_factor({p: 0, q:1, xor: 1}))", neural_factor({p: 0, q: 1, xor: 1}))
+    print(
+        "neural_factor({p: 0, q:1, xor: 1}))",
+        neural_factor({p: 0, q: 1, xor: 1}),
+    )
     assert neural_factor({p: 0, q: 1, xor: 1}) > 0.9
 
-    print("neural_factor({p: 0, q:1, xor: 0}))", neural_factor({p: 0, q: 1, xor: 0}))
+    print(
+        "neural_factor({p: 0, q:1, xor: 0}))",
+        neural_factor({p: 0, q: 1, xor: 0}),
+    )
     assert neural_factor({p: 0, q: 1, xor: 0}) < 0.1
 
-    print("neural_factor({p: 1, q:1, xor: 0}))", neural_factor({p: 1, q: 1, xor: 0}))
+    print(
+        "neural_factor({p: 1, q:1, xor: 0}))",
+        neural_factor({p: 1, q: 1, xor: 0}),
+    )
     assert neural_factor({p: 1, q: 1, xor: 0}) > 0.9
 
 

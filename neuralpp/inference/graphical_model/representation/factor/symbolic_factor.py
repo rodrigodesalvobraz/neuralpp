@@ -7,7 +7,9 @@ from neuralpp.inference.graphical_model.variable.discrete_variable import (
     DiscreteVariable,
 )
 from neuralpp.inference.graphical_model.variable.variable import Variable
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.symbolic.expression import Expression
 from neuralpp.symbolic.sympy_expression import SymPyContext, SymPyConstant
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
@@ -52,13 +54,18 @@ class SymbolicFactor(AtomicFactor):
         non_conditioned_variables = [
             v
             for v in self.variables
-            if v not in assignment_dict or isinstance(assignment_dict[v], slice)
+            if v not in assignment_dict
+            or isinstance(assignment_dict[v], slice)
         ]
 
         context = self._dict_to_context(assignment_dict)
-        conditioned_expression = self.interpreter.simplify(self.expression, context)
+        conditioned_expression = self.interpreter.simplify(
+            self.expression, context
+        )
 
-        return self.new_instance(non_conditioned_variables, conditioned_expression)
+        return self.new_instance(
+            non_conditioned_variables, conditioned_expression
+        )
 
     def call_after_validation(self, assignment_dict, assignment_values):
         context = self._dict_to_context(assignment_dict)
@@ -82,7 +89,9 @@ class SymbolicFactor(AtomicFactor):
         result_expression = SymPyConstant.new_constant(0)
         for a in variable.assignments():
             context = self._dict_to_context({variable: a})
-            simplified_expression = self.interpreter.simplify(self.expression, context)
+            simplified_expression = self.interpreter.simplify(
+                self.expression, context
+            )
             result_expression = result_expression + simplified_expression
 
         result_expression = self.interpreter.simplify(result_expression)
@@ -121,7 +130,17 @@ class SymbolicFactor(AtomicFactor):
             )
 
     def __repr__(self):
-        return "Factor on (" + join(self.variables) + "): " + repr(self.expression)
+        return (
+            "Factor on ("
+            + join(self.variables)
+            + "): "
+            + repr(self.expression)
+        )
 
     def __str__(self):
-        return "Factor on (" + join(self.variables) + "): " + str(self.expression)
+        return (
+            "Factor on ("
+            + join(self.variables)
+            + "): "
+            + str(self.expression)
+        )

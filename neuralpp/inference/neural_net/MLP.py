@@ -33,7 +33,9 @@ class MLP(Module):
             x = x.float()
         if x.shape[-1] != self.layer_sizes[0]:
             x = x.reshape(-1, self.layer_sizes[0])
-        for i, linear_transformation in enumerate(self.linear_transformations):
+        for i, linear_transformation in enumerate(
+            self.linear_transformations
+        ):
             transformation = linear_transformation(x)
 
             # print("----------------------")
@@ -62,7 +64,9 @@ class MLP(Module):
             # divided by number of inputs so it does not saturate when there are many inputs
             n_inputs = layer.weight.shape[1] + 1
             uniform_range = 5.0 / n_inputs
-            torch.nn.init.uniform_(layer.weight, -uniform_range, uniform_range)
+            torch.nn.init.uniform_(
+                layer.weight, -uniform_range, uniform_range
+            )
             torch.nn.init.uniform_(layer.bias, -uniform_range, uniform_range)
 
             # print("n_inputs:", n_inputs)

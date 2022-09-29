@@ -31,7 +31,8 @@ def fold_sympy_piecewise(
         return sympy.Piecewise(*piecewise_args)
     else:
         return sympy.Piecewise(
-            piecewise_args[0], (fold_sympy_piecewise(piecewise_args[1:]), True)
+            piecewise_args[0],
+            (fold_sympy_piecewise(piecewise_args[1:]), True),
         )
 
 

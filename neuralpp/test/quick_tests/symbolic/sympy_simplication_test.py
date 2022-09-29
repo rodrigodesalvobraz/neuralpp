@@ -52,7 +52,10 @@ def test_polynomial_and_rational_simplification():
 
     # factor() turns a polynomial into an irreducible product of factors.
     assert factor(x**3 - 1) == (x - 1) * (x**2 + x + 1)
-    assert factor(x**2 * z + 4 * x * y * z + 4 * y**2 * z) == z * (x + 2 * y) ** 2
+    assert (
+        factor(x**2 * z + 4 * x * y * z + 4 * y**2 * z)
+        == z * (x + 2 * y) ** 2
+    )
     # here the definition of "polynomial" is liberal:
     assert (
         factor(exp(x) ** 2 + 2 * exp(x) * sin(x) + sin(x) ** 2)
@@ -75,9 +78,9 @@ def test_trigonometric_simplification():
     x, y, z = symbols("x y z")
     assert trigsimp(sin(x) ** 2 + cos(x) ** 2) == 1
     # the following would fail if replace Integer(1)/Integer(2) with 1/2
-    assert trigsimp(sin(x) ** 4 - 2 * cos(x) ** 2 * sin(x) ** 2 + cos(x) ** 4) == cos(
-        4 * x
-    ) / 2 + Integer(1) / Integer(2)
+    assert trigsimp(
+        sin(x) ** 4 - 2 * cos(x) ** 2 * sin(x) ** 2 + cos(x) ** 4
+    ) == cos(4 * x) / 2 + Integer(1) / Integer(2)
     assert (
         trigsimp(sin(x) ** 4 - 2 * cos(x) ** 2 * sin(x) ** 2 + cos(x) ** 4)
         != cos(4 * x) / 2 + 1 / 2
@@ -162,7 +165,9 @@ def test_unevaluate():
     with pytest.raises(ValueError):
         # Min/Max in sympy requires all number argument to be comparable, by making an argument UnevaluatedExpr,
         # we are making it incomparable.
-        make_unevaluated2(sympy.Min, [3, 1])  # error message: "3" must be comparable
+        make_unevaluated2(
+            sympy.Min, [3, 1]
+        )  # error message: "3" must be comparable
     # However approach #1 works
     assert len(make_unevaluated1(sympy.Min, [3, 1]).args) == 2
     assert make_unevaluated1(sympy.Min, [3, 1]) != 1
@@ -187,7 +192,9 @@ def test_replace():
     assert add0.replace(x, y) == 0
     assert add0.replace(x, sympy.UnevaluatedExpr(y)) == 0
     assert add0.replace(x, sympy.UnevaluatedExpr(x)) == 0
-    assert add0.replace(x, x) != 0  # only this is not 0 because it does nothing
+    assert (
+        add0.replace(x, x) != 0
+    )  # only this is not 0 because it does nothing
 
     assert add0.subs(x, y) == 0
     assert add0.xreplace({x: y}) == 0

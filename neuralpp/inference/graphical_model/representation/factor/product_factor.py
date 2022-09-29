@@ -2,7 +2,9 @@ import itertools
 import math
 from typing import List
 
-from neuralpp.inference.graphical_model.representation.factor.factor import Factor
+from neuralpp.inference.graphical_model.representation.factor.factor import (
+    Factor,
+)
 from neuralpp.util import util
 from neuralpp.util.group import Group
 from neuralpp.util.util import join, split
@@ -12,20 +14,26 @@ class ProductFactor(Factor):
     def __init__(self, factors: List[Factor]):
         # collect all variables
         factors = [f for f in factors if f is not Group.identity]
-        variables = itertools.chain.from_iterable(f.variables for f in factors)
+        variables = itertools.chain.from_iterable(
+            f.variables for f in factors
+        )
         # getting unique variables while keeping the order (dict maintain insertion
         # order by default)
         variables = dict.fromkeys(variables).keys()
         super().__init__(list(variables))
         self._factors = util.flatten_one_level(
-            factors, util.isinstance_predicate(ProductFactor), ProductFactor.factors
+            factors,
+            util.isinstance_predicate(ProductFactor),
+            ProductFactor.factors,
         )
 
     def call_after_validation(self, assignment_dict, assignment_values):
         return math.prod(f(assignment_dict) for f in self._factors)
 
     def condition_on_non_empty_dict(self, assignment_dict):
-        return ProductFactor(list(f.condition(assignment_dict) for f in self._factors))
+        return ProductFactor(
+            list(f.condition(assignment_dict) for f in self._factors)
+        )
 
     def randomize(self):
         for f in self._factors:
@@ -51,7 +59,9 @@ class ProductFactor(Factor):
         if factors_without_variable:
             return ProductFactor(
                 factors_without_variable
-                + [result_of_summing_out_variable_from_product_of_factors_with_variable]
+                + [
+                    result_of_summing_out_variable_from_product_of_factors_with_variable
+                ]
             )
         else:
             return result_of_summing_out_variable_from_product_of_factors_with_variable

@@ -77,6 +77,8 @@ def test_cycles():
 
 def run_test(edges, variable, expected):
     actual = set(
-        make_aggregated_edges_when_eliminating_variable(edges, variable).values()
+        make_aggregated_edges_when_eliminating_variable(
+            edges, variable
+        ).values()
     )
     assert expected == actual

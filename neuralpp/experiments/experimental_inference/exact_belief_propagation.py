@@ -26,16 +26,23 @@ class BeliefPropagation:
 
     def message_from(self, node):
         product_at_node = self.product_at(node)
-        vars_summed_out = self.variables_summed_out_at(node, product_at_node.variables)
+        vars_summed_out = self.variables_summed_out_at(
+            node, product_at_node.variables
+        )
         return product_at_node ^ vars_summed_out
 
     def product_at(self, node):
-        incoming_messages = [self.message_from(n) for n in self.tree.children(node)]
-        return ProductFactor.multiply(self.tree.factor_at(node) + incoming_messages)
+        incoming_messages = [
+            self.message_from(n) for n in self.tree.children(node)
+        ]
+        return ProductFactor.multiply(
+            self.tree.factor_at(node) + incoming_messages
+        )
 
     def variables_summed_out_at(self, node, all_variables_in_product_at_node):
         return util.subtract(
-            all_variables_in_product_at_node, self.tree.external_variables(node)
+            all_variables_in_product_at_node,
+            self.tree.external_variables(node),
         )
 
 
@@ -57,7 +64,8 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
         self.expansion = MaximumLeafValueComputation(
             PartialTreePlusOneLevel(partial_tree),
             lambda node, tree: Expansion(
-                node, expansion_value_function(node, self.tree, self.full_tree)
+                node,
+                expansion_value_function(node, self.tree, self.full_tree),
             )
             if node not in partial_tree
             else None,
@@ -82,17 +90,24 @@ class AnytimeExactBeliefPropagation(PartialTreeComputation):
         if node not in self.tree:
             return self.approximation(node, self.tree, self.full_tree)
         product_at_node = self.product_at(node)
-        vars_summed_out = self.variables_summed_out_at(node, product_at_node.variables)
+        vars_summed_out = self.variables_summed_out_at(
+            node, product_at_node.variables
+        )
         result = product_at_node ^ vars_summed_out
         return result
 
     def product_at(self, node):
-        incoming_messages = [self.compute(n) for n in self.full_tree.children(node)]
-        return ProductFactor.multiply(self.tree.factor_at(node) + incoming_messages)
+        incoming_messages = [
+            self.compute(n) for n in self.full_tree.children(node)
+        ]
+        return ProductFactor.multiply(
+            self.tree.factor_at(node) + incoming_messages
+        )
 
     def variables_summed_out_at(self, node, all_variables_in_product_at_node):
         return util.subtract(
-            all_variables_in_product_at_node, self.tree.external_variables(node)
+            all_variables_in_product_at_node,
+            self.tree.external_variables(node),
         )
 
     def expand(self, expansion_root):

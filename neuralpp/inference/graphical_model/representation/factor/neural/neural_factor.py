@@ -47,7 +47,11 @@ class NeuralFactor(AtomicFactor):
     """
 
     def __init__(
-        self, neural_net, input_variables, output_variable, conditioning_dict={}
+        self,
+        neural_net,
+        input_variables,
+        output_variable,
+        conditioning_dict={},
     ):
 
         super().__init__(
@@ -92,7 +96,9 @@ class NeuralFactor(AtomicFactor):
         # TODO: change underlying table from log to normal space
 
     def call_after_validation(self, assignment_dict, assignment_values):
-        probabilities = self.probabilities_from_assignment_dict(assignment_dict)
+        probabilities = self.probabilities_from_assignment_dict(
+            assignment_dict
+        )
         output_value = assignment_dict[self.output_variable]
 
         # the following code deals with the possibility that probabilities and output_value
@@ -127,7 +133,9 @@ class NeuralFactor(AtomicFactor):
         return probability
 
     def probabilities_from_assignment_dict(self, assignment_dict):
-        neural_net_input = self.neural_net_input_from_assignment_dict(assignment_dict)
+        neural_net_input = self.neural_net_input_from_assignment_dict(
+            assignment_dict
+        )
         probabilities = self.output_probabilities(neural_net_input)
         return probabilities
 
@@ -218,7 +226,9 @@ class NeuralFactor(AtomicFactor):
             new_conditioning_dict,
         )
 
-    def check_conditioning_is_on_factors_variables_only(self, assignment_dict):
+    def check_conditioning_is_on_factors_variables_only(
+        self, assignment_dict
+    ):
         extra_variable = util.find(
             assignment_dict.keys(), lambda v: v not in self.variables
         )
@@ -269,18 +279,28 @@ class NeuralFactor(AtomicFactor):
         if self.output_variable in self.conditioning_dict:
             return self.to_table_factor_if_output_variable_is_conditioned()
         else:
-            return self.to_table_factor_if_output_variable_is_not_conditioned()
+            return (
+                self.to_table_factor_if_output_variable_is_not_conditioned()
+            )
 
     def to_table_factor_if_output_variable_is_conditioned(self):
-        table_factor = self.to_table_factor_if_output_variable_is_not_conditioned()
+        table_factor = (
+            self.to_table_factor_if_output_variable_is_not_conditioned()
+        )
         return table_factor.condition(
-            {self.output_variable: self.conditioning_dict[self.output_variable]}
+            {
+                self.output_variable: self.conditioning_dict[
+                    self.output_variable
+                ]
+            }
         )
 
     def to_table_factor_if_output_variable_is_not_conditioned(self):
         probabilities_tensor = self.compute_probability_tensor()
-        resulting_factor = self.make_table_factor_for_free_and_output_variables(
-            probabilities_tensor
+        resulting_factor = (
+            self.make_table_factor_for_free_and_output_variables(
+                probabilities_tensor
+            )
         )
         return resulting_factor
 
@@ -307,27 +327,34 @@ class NeuralFactor(AtomicFactor):
         featurized_conditioning_dict_frame = featurize_dict_frame(
             relevant_conditioning_dict_frame
         )
-        expanded_featurized_conditioning_dict_frame = expand_univalues_in_dict_frame(
-            featurized_conditioning_dict_frame
+        expanded_featurized_conditioning_dict_frame = (
+            expand_univalues_in_dict_frame(featurized_conditioning_dict_frame)
         )
 
         if no_free_variables:
-            all_inputs_dict_frame = expanded_featurized_conditioning_dict_frame
+            all_inputs_dict_frame = (
+                expanded_featurized_conditioning_dict_frame
+            )
         else:
             all_inputs_dict_frame = self.complete_with_free_variables(
                 expanded_featurized_conditioning_dict_frame
             )
 
-        all_inputs_tensor = concatenate_into_single_tensor(all_inputs_dict_frame)
+        all_inputs_tensor = concatenate_into_single_tensor(
+            all_inputs_dict_frame
+        )
         probabilities_tensor = self.neural_net(all_inputs_tensor)
         return probabilities_tensor
 
-    def complete_with_free_variables(self, expanded_featurized_conditioning_dict_frame):
+    def complete_with_free_variables(
+        self, expanded_featurized_conditioning_dict_frame
+    ):
         free_input_variables = (
-            self.input_variables - expanded_featurized_conditioning_dict_frame.keys()
+            self.input_variables
+            - expanded_featurized_conditioning_dict_frame.keys()
         )
-        cartesian_free_features_dict_frame = make_cartesian_features_dict_frame(
-            free_input_variables
+        cartesian_free_features_dict_frame = (
+            make_cartesian_features_dict_frame(free_input_variables)
         )
         all_inputs_dict_frame = cartesian_product_of_tensor_dict_frames(
             expanded_featurized_conditioning_dict_frame,
@@ -337,18 +364,24 @@ class NeuralFactor(AtomicFactor):
 
     def make_cartesian_features_dict_frame(variables):
         if len(variables) > 0:
-            free_cardinalities = [torch.arange(fv.cardinality) for fv in variables]
+            free_cardinalities = [
+                torch.arange(fv.cardinality) for fv in variables
+            ]
             free_assignments = cartesian_prod_2d(free_cardinalities)
             cartesian_free_features_dict_frame = {
-                variable: free_assignments[:, i] for i, variable in enumerate(variables)
+                variable: free_assignments[:, i]
+                for i, variable in enumerate(variables)
             }
         else:
             cartesian_free_features_dict_frame = {}
         return cartesian_free_features_dict_frame
 
-    def make_table_factor_for_free_and_output_variables(self, probabilities_tensor):
+    def make_table_factor_for_free_and_output_variables(
+        self, probabilities_tensor
+    ):
         number_of_batch_rows = (
-            probabilities_tensor.numel() // self.number_of_probabilities_per_batch_row
+            probabilities_tensor.numel()
+            // self.number_of_probabilities_per_batch_row
         )
         batch = number_of_batch_rows != 1
         if batch:
@@ -357,7 +390,9 @@ class NeuralFactor(AtomicFactor):
                 *self.non_batch_shape_including_output_variable,
             )
         else:
-            probabilities_shape = self.non_batch_shape_including_output_variable
+            probabilities_shape = (
+                self.non_batch_shape_including_output_variable
+            )
         probabilities_tensor_in_right_shape = probabilities_tensor.reshape(
             probabilities_shape
         )
@@ -397,9 +432,14 @@ class NeuralFactor(AtomicFactor):
             result += f" conditioned on {self.conditioning_dict}"
         return result
 
-    def assignment_dict_does_not_contradict_conditioning(self, assignment_dict):
+    def assignment_dict_does_not_contradict_conditioning(
+        self, assignment_dict
+    ):
         for var, val in assignment_dict.items():
-            if var in self.conditioning_dict and val != self.conditioning_dict[var]:
+            if (
+                var in self.conditioning_dict
+                and val != self.conditioning_dict[var]
+            ):
                 return False
         return True
 

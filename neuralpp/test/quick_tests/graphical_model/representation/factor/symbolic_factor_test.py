@@ -7,10 +7,14 @@ from neuralpp.symbolic.sympy_expression import (
     SymPyConstant,
     SymPyFunctionApplication,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.symbolic.constants import if_then_else
 from neuralpp.symbolic.sympy_interpreter import SymPyInterpreter
-from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
+from neuralpp.inference.graphical_model.variable_elimination import (
+    VariableElimination,
+)
 from neuralpp.inference.graphical_model.brute_force import BruteForce
 from neuralpp.symbolic.general_normalizer import GeneralNormalizer
 from neuralpp.symbolic.z3_expression import Z3SolverExpression
@@ -190,7 +194,9 @@ def test_if_then_else_normalize():
     assert sum_variables.expression.syntactic_eq(expected1)
 
     normalized = symbolic.normalize()
-    expected2 = SymPyInterpreter().simplify(if_then_else(x_sympy > y_sympy, 2, 3) / 15)
+    expected2 = SymPyInterpreter().simplify(
+        if_then_else(x_sympy > y_sympy, 2, 3) / 15
+    )
     assert normalized.expression.syntactic_eq(expected2)
 
 
@@ -207,7 +213,9 @@ def test_with_variable_elimination():
     model = [
         SymbolicFactor(
             [x, y],
-            if_then_else(x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0)),
+            if_then_else(
+                x_sympy == 2, 0.5, if_then_else(x_sympy == y_sympy, 1.0, 0.0)
+            ),
         ),
         SymbolicFactor([y, z], if_then_else(y_sympy == z_sympy, 1.0, 0.0)),
     ]

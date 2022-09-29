@@ -86,7 +86,9 @@ def test_bitvec():
     """BitVec is Z3's term for bit-vector. For example, 16-bit integer is a bit-vector."""
     a = BitVecVal(-1, 16)
     b = BitVecVal(65535, 16)
-    assert is_valid(a == b)  # -1 (signed) is 65535 (unsigned) in 16-bit representation.
+    assert is_valid(
+        a == b
+    )  # -1 (signed) is 65535 (unsigned) in 16-bit representation.
     a = BitVecVal(-1, 32)
     b = BitVecVal(65535, 32)
     assert is_valid(a != b)  # -1 is not 65535 in 32-bit representation.
@@ -126,7 +128,9 @@ def test_sum():
     N = 1000
     assert is_valid(Sum([j for j in range(N + 1)]) == (1 + N) * N / 2)
     assert is_valid(Sum([x for _ in range(N + 1)]) == (1 + N) * x)
-    assert is_valid(Sum([x + j for j in range(N + 1)]) == (1 + N) * x + (1 + N) * N / 2)
+    assert is_valid(
+        Sum([x + j for j in range(N + 1)]) == (1 + N) * x + (1 + N) * N / 2
+    )
 
 
 def test_z3_solver():

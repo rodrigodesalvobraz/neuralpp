@@ -32,18 +32,23 @@ class DataLoadersMustHaveTheSameLength(BaseException):
         )
 
 
-def get_data_loader(observation_frame, query_assignment_frame, batch_size=100):
+def get_data_loader(
+    observation_frame, query_assignment_frame, batch_size=100
+):
     try_breaking_data_into_batches = True
     dictionary = {**observation_frame, **query_assignment_frame}
     use_batches = try_breaking_data_into_batches and is_frame(dictionary)
     if use_batches:
         number_of_values = generalized_len_of_dict_frame(dictionary)
-        batch_size = batch_size if number_of_values > batch_size else number_of_values
+        batch_size = (
+            batch_size if number_of_values > batch_size else number_of_values
+        )
         frame_data_loader_maker = lambda frame: DictDataLoader(
             frame, batch_size=batch_size
         )
         data_loader = TupleDataLoader(
-            (observation_frame, query_assignment_frame), frame_data_loader_maker
+            (observation_frame, query_assignment_frame),
+            frame_data_loader_maker,
         )
     else:
         data_loader = [(observation_frame, query_assignment_frame)]

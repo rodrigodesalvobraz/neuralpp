@@ -43,7 +43,9 @@ def read_mnist_no_cache(max_datapoints=None):
             image = image_singleton_batch[0][
                 0
             ]  # get single row of batch and single color
-            images_of_digit = get_or_put(images_by_digits[p], digit.item(), [])
+            images_of_digit = get_or_put(
+                images_by_digits[p], digit.item(), []
+            )
             images_of_digit.append(image)
             i += 1
             if max_datapoints is not None and i >= max_datapoints:
@@ -60,7 +62,9 @@ def evaluate_digits(net, get_images_of_digit, max_images_per_digit=100):
             prediction = net(image).argmax()
             if prediction == digit:
                 number_of_correct_answers += 1
-        print(f"Accuracy for {digit}: {number_of_correct_answers/len(images):.2f}")
+        print(
+            f"Accuracy for {digit}: {number_of_correct_answers/len(images):.2f}"
+        )
     print()
     input("Press Enter for continuing")
 

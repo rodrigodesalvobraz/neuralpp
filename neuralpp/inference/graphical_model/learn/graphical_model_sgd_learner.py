@@ -7,7 +7,10 @@ from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
 from neuralpp.inference.graphical_model.representation.model.model import (
     cross_entropy_for_datapoint,
 )
-from neuralpp.util.generic_sgd_learner import GenericSGDLearner, default_after_epoch
+from neuralpp.util.generic_sgd_learner import (
+    GenericSGDLearner,
+    default_after_epoch,
+)
 
 
 class GraphicalModelSGDLearner(GenericSGDLearner):
@@ -52,7 +55,9 @@ class GraphicalModelSGDLearner(GenericSGDLearner):
 
     def get_number_of_datapoints_in_batch(self, batch):
         (observation_batch, query_assignment_batch) = batch
-        return generalized_len_of_dict_frames(observation_batch, query_assignment_batch)
+        return generalized_len_of_dict_frames(
+            observation_batch, query_assignment_batch
+        )
 
     def loss_function(self, batch):
         (observation_batch, query_assignment_batch) = batch

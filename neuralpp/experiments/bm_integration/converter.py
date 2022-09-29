@@ -88,7 +88,9 @@ class BeanMachineConverter:
 
         @bm.random_variable
         def rv_function():
-            parent_values = {p: self.invoke_rv_function_of(p) for p in parent_variables}
+            parent_values = {
+                p: self.invoke_rv_function_of(p) for p in parent_variables
+            }
             factor_on_child = factor.condition(parent_values)
             return get_distribution(child_variable, factor_on_child)
 

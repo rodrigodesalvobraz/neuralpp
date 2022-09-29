@@ -16,7 +16,9 @@ class FromLogToProbabilitiesAdapter:
         self.neural_net.randomize()
 
     def randomized_copy(self):
-        return FromLogToProbabilitiesAdapter(self.neural_net.randomized_copy())
+        return FromLogToProbabilitiesAdapter(
+            self.neural_net.randomized_copy()
+        )
 
     def __repr__(self):
         return f"{self.neural_net}'s probabilities"

@@ -4,7 +4,9 @@ import torch.distributions as dist
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
-from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
+from neuralpp.inference.graphical_model.variable.tensor_variable import (
+    TensorVariable,
+)
 
 value = TensorVariable("value", 0)
 loc = TensorVariable("loc", 0)
@@ -24,5 +26,7 @@ prob = normal_factor(
 print(prob)
 
 # compare to the log prob from calling torch distribution directly
-log_prob = dist.Normal(torch.tensor(0.0), torch.tensor(1.0)).log_prob(torch.tensor(0.0))
+log_prob = dist.Normal(torch.tensor(0.0), torch.tensor(1.0)).log_prob(
+    torch.tensor(0.0)
+)
 assert prob == log_prob.exp()

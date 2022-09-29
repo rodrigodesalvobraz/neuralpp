@@ -1,7 +1,9 @@
 from neuralpp.inference.graphical_model.representation.factor.atomic_factor import (
     AtomicFactor,
 )
-from neuralpp.inference.graphical_model.representation.factor.factor import Factor
+from neuralpp.inference.graphical_model.representation.factor.factor import (
+    Factor,
+)
 from neuralpp.inference.graphical_model.representation.table.table_util import (
     index_of,
     permutation_from_to,
@@ -42,7 +44,8 @@ class TableFactor(AtomicFactor):
         non_conditioned_variables = [
             v
             for v in self.variables
-            if v not in assignment_dict or isinstance(assignment_dict[v], slice)
+            if v not in assignment_dict
+            or isinstance(assignment_dict[v], slice)
         ]
         conditioned_table = self.table.slice(non_batch_slice_coordinates)
         return self.new_instance(non_conditioned_variables, conditioned_table)
@@ -96,7 +99,9 @@ class TableFactor(AtomicFactor):
         f1p_table = f1_e1_common_table.expand(
             shape_to_be_inserted=shape(e2), dim=len(e1)
         )
-        f2p_table = f2_e2_common_table.expand(shape_to_be_inserted=shape(e1), dim=0)
+        f2p_table = f2_e2_common_table.expand(
+            shape_to_be_inserted=shape(e1), dim=0
+        )
         result_table = f1p_table * f2p_table
 
         result = self.new_instance(result_variables, result_table)
@@ -107,7 +112,9 @@ class TableFactor(AtomicFactor):
     def get_permuted_table_with_selected_variables_moved_to_the_end(
         factor, selected_variables
     ):
-        other_variables = [v for v in factor.variables if v not in selected_variables]
+        other_variables = [
+            v for v in factor.variables if v not in selected_variables
+        ]
         variables_in_desired_order = other_variables + selected_variables
         permuted_table = factor.table.permute(
             index_of(variables_in_desired_order, factor.variables)
@@ -123,7 +130,9 @@ class TableFactor(AtomicFactor):
 
     def argmax(self):
         indices = self.table.argmax()
-        if len(self.variables) == 1:  # if there is a single variable, indices is 1D
+        if (
+            len(self.variables) == 1
+        ):  # if there is a single variable, indices is 1D
             assignment_getter = (
                 lambda var_index: indices
             )  # regardless of being batch or not
@@ -173,8 +182,9 @@ class TableFactor(AtomicFactor):
             if self.variables == other.variables:
                 return self.table == other.table
             elif set(self.variables) == set(other.variables):
-                return self.table == other.get_table_permuted_to_agree_with_table_of(
-                    self
+                return (
+                    self.table
+                    == other.get_table_permuted_to_agree_with_table_of(self)
                 )
             else:
                 return False
@@ -187,7 +197,9 @@ class TableFactor(AtomicFactor):
             )
 
     def get_table_permuted_to_agree_with_table_of(self, other):
-        return self.table.permute(permutation_from_to(self.variables, other.variables))
+        return self.table.permute(
+            permutation_from_to(self.variables, other.variables)
+        )
 
     @property
     def table_factor(self):

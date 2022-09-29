@@ -4,7 +4,9 @@ from neuralpp.inference.graphical_model.representation.factor.product_factor imp
 from neuralpp.inference.graphical_model.variable.variable import Variable
 
 
-def default_choose_next_to_eliminate(query_variables, product_of_remaining_factors):
+def default_choose_next_to_eliminate(
+    query_variables, product_of_remaining_factors
+):
     for factor in ProductFactor.factors(product_of_remaining_factors):
         for variable in factor.variables:
             if variable not in query_variables:
@@ -13,7 +15,9 @@ def default_choose_next_to_eliminate(query_variables, product_of_remaining_facto
 
 
 class VariableElimination:
-    def __init__(self, choose_next_to_eliminate=default_choose_next_to_eliminate):
+    def __init__(
+        self, choose_next_to_eliminate=default_choose_next_to_eliminate
+    ):
         self.choose_next_to_eliminate = choose_next_to_eliminate
 
     def run(self, query, factors):
@@ -28,6 +32,8 @@ class VariableElimination:
         while next_variable := self.choose_next_to_eliminate(
             query_variables, product_of_remaining_factors
         ):
-            product_of_remaining_factors = product_of_remaining_factors ^ next_variable
+            product_of_remaining_factors = (
+                product_of_remaining_factors ^ next_variable
+            )
 
         return product_of_remaining_factors.normalize()

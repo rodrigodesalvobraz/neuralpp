@@ -37,7 +37,9 @@ def noisy_test():
     print(f"Generated dataset (5 out of {len(ds)} first rows):")
     print(join(ds[:5], "\n"))
 
-    cross_entropy_for_ground_model = cross_entropy_for_dataset(ds, ground_truth_model)
+    cross_entropy_for_ground_model = cross_entropy_for_dataset(
+        ds, ground_truth_model
+    )
     print()
     print(
         f"Ground truth model loss (cross entropy) for this dataset: {cross_entropy_for_ground_model:.3f}"
@@ -46,7 +48,9 @@ def noisy_test():
     m = [f.randomized_copy() for f in ground_truth_model]
 
     device = None
-    GraphicalModelSGDLearner(m, ds, loss_decrease_tol=1e-2, device=device).learn()
+    GraphicalModelSGDLearner(
+        m, ds, loss_decrease_tol=1e-2, device=device
+    ).learn()
 
     for f1, f2 in zip(ground_truth_model, m):
         print()
@@ -55,7 +59,9 @@ def noisy_test():
 
     cross_entropy = cross_entropy_for_dataset(ds, m).item()
 
-    print(f"\nGround truth  cross entropy: {cross_entropy_for_ground_model:.3f}")
+    print(
+        f"\nGround truth  cross entropy: {cross_entropy_for_ground_model:.3f}"
+    )
     print(f"Learned model cross entropy: {cross_entropy:.3f}")
 
     assert_equal_up_to_relative_tolerance(

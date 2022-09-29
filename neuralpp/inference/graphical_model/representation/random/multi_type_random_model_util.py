@@ -6,15 +6,21 @@ import torch
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
-from neuralpp.inference.graphical_model.representation.factor.factor import Factor
+from neuralpp.inference.graphical_model.representation.factor.factor import (
+    Factor,
+)
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
 from neuralpp.inference.graphical_model.representation.factor.switch_factor import (
     SwitchFactor,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
+from neuralpp.inference.graphical_model.variable.tensor_variable import (
+    TensorVariable,
+)
 from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util.util import is_iterable, repeat
 
@@ -54,7 +60,8 @@ def make_gaussian_with_mean(*args):
     variable, mu = args[0] if len(args) == 1 else args
     std_dev = TensorVariable(f"std_dev_{{{variable}}}")
     return NormalFactor(
-        [variable, mu, std_dev], conditioning_dict={std_dev: torch.tensor(1.0)}
+        [variable, mu, std_dev],
+        conditioning_dict={std_dev: torch.tensor(1.0)},
     )
 
 

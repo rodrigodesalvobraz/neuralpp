@@ -6,7 +6,9 @@ from neuralpp.inference.graphical_model.representation.frame.dict_frame import (
     DictionaryShouldHaveAtLeastOneItem,
     DictionaryValuesShouldAllHaveTheSameLength,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
 from neuralpp.util.util import check_that_exception_is_thrown
 
 
@@ -45,7 +47,9 @@ def test_dict_data_loader():
         {name: [3], age: [56]},
     ]
     check_that_exception_is_thrown(
-        lambda: run_dict_data_loader_test(dictionary, expected_batches, batch_size),
+        lambda: run_dict_data_loader_test(
+            dictionary, expected_batches, batch_size
+        ),
         BatchSizeMustBeGreaterThanZero,
     )
 
@@ -57,7 +61,9 @@ def test_dict_data_loader():
         {name: [3], age: [56]},
     ]
     check_that_exception_is_thrown(
-        lambda: run_dict_data_loader_test(dictionary, expected_batches, batch_size),
+        lambda: run_dict_data_loader_test(
+            dictionary, expected_batches, batch_size
+        ),
         DictionaryShouldHaveAtLeastOneItem,
     )
 
@@ -69,7 +75,9 @@ def test_dict_data_loader():
         {name: [3], age: [56]},
     ]
     check_that_exception_is_thrown(
-        lambda: run_dict_data_loader_test(dictionary, expected_batches, batch_size),
+        lambda: run_dict_data_loader_test(
+            dictionary, expected_batches, batch_size
+        ),
         DictionaryValuesShouldAllHaveTheSameLength,
     )
 

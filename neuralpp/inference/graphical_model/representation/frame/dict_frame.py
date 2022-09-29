@@ -14,7 +14,9 @@ def is_frame(dictionary):
 def generalized_len_of_dict_frames(*dict_frames):
     if len(dict_frames) == 0:
         raise ThereShouldBeAtLeastOneDictFrame()
-    set_of_lengths = {generalized_len_of_dict_frame(frame) for frame in dict_frames}
+    set_of_lengths = {
+        generalized_len_of_dict_frame(frame) for frame in dict_frames
+    }
     if len(set_of_lengths) != 1:
         raise DictFramesShouldAllHaveTheSameLength()
     (length,) = set_of_lengths
@@ -94,7 +96,9 @@ def number_of_equal_values_in_dict_frames(dict_frame1, dict_frame2):
         raise DictionariesShouldHaveTheSameKeys()
     assert_values_are_tensors(dict_frame1)
     assert_values_are_tensors(dict_frame2)
-    column_comparisons = [dict_frame1[k].eq(dict_frame2[k]) for k in dict_frame1]
+    column_comparisons = [
+        dict_frame1[k].eq(dict_frame2[k]) for k in dict_frame1
+    ]
     comparisons_matrix = torch.stack(column_comparisons, dim=1).bool()
     number_of_equal_rows = comparisons_matrix.all(dim=1).sum().item()
     return number_of_equal_rows
@@ -108,7 +112,9 @@ def assert_values_are_tensors(dict_frame1):
 
 def to(dict_frame, device):
     if device is not None:
-        return {v: to_if_tensor(data, device) for v, data in dict_frame.items()}
+        return {
+            v: to_if_tensor(data, device) for v, data in dict_frame.items()
+        }
     else:
         return dict_frame
 
@@ -122,16 +128,20 @@ def to_if_tensor(obj, device):
 
 def featurize_dict_frame(dict_frame):
     return {
-        variable: variable.featurize(value) for variable, value in dict_frame.items()
+        variable: variable.featurize(value)
+        for variable, value in dict_frame.items()
     }
 
 
 def make_cartesian_features_dict_frame(variables):
     if len(variables) > 0:
-        free_cardinalities = [torch.arange(fv.cardinality) for fv in variables]
+        free_cardinalities = [
+            torch.arange(fv.cardinality) for fv in variables
+        ]
         free_assignments = cartesian_prod_2d(free_cardinalities)
         cartesian_free_features_dict_frame = {
-            variable: free_assignments[:, i] for i, variable in enumerate(variables)
+            variable: free_assignments[:, i]
+            for i, variable in enumerate(variables)
         }
     else:
         cartesian_free_features_dict_frame = {}
@@ -140,10 +150,15 @@ def make_cartesian_features_dict_frame(variables):
 
 def concatenate_into_single_tensor(dict_frame):
     if len(dict_frame) > 0:
-        tensor_2d = concatenate_non_empty_dict_frame_into_single_2d_tensor(dict_frame)
+        tensor_2d = concatenate_non_empty_dict_frame_into_single_2d_tensor(
+            dict_frame
+        )
     else:
         tensor_2d = torch.ones(1, 0)
-    batch = any(variable.is_multivalue(value) for variable, value in dict_frame.items())
+    batch = any(
+        variable.is_multivalue(value)
+        for variable, value in dict_frame.items()
+    )
     if batch:
         tensor = tensor_2d
     else:
@@ -151,7 +166,9 @@ def concatenate_into_single_tensor(dict_frame):
     return tensor
 
 
-def concatenate_non_empty_dict_frame_into_single_2d_tensor(expanded_tensor_dict_frame):
+def concatenate_non_empty_dict_frame_into_single_2d_tensor(
+    expanded_tensor_dict_frame,
+):
     """
     Given an ordered non-empty dictionary frame with all multivalue values of same length
     (but some possible univalues),
@@ -159,7 +176,9 @@ def concatenate_non_empty_dict_frame_into_single_2d_tensor(expanded_tensor_dict_
     the i-th value of the j-th variable.
     """
     expanded_dict_frame_with_2d_tensor_values = (
-        convert_tensor_values_to_at_least_two_dimensions(expanded_tensor_dict_frame)
+        convert_tensor_values_to_at_least_two_dimensions(
+            expanded_tensor_dict_frame
+        )
     )
     conditioning_tensor = torch.cat(
         tuple(expanded_dict_frame_with_2d_tensor_values.values()), dim=1
@@ -182,8 +201,16 @@ def unsqueeze_if_needed_for_at_least_two_dimensions(tensor):
 
 
 def cartesian_product_of_tensor_dict_frames(dict_frame1, dict_frame2):
-    n = generalized_len_of_dict_frame(dict_frame1) if len(dict_frame1) > 0 else 1
-    m = generalized_len_of_dict_frame(dict_frame2) if len(dict_frame2) > 0 else 1
+    n = (
+        generalized_len_of_dict_frame(dict_frame1)
+        if len(dict_frame1) > 0
+        else 1
+    )
+    m = (
+        generalized_len_of_dict_frame(dict_frame2)
+        if len(dict_frame2) > 0
+        else 1
+    )
     big_endian_dict_frame1 = repeat_interleave_dict_frame(dict_frame1, m)
     little_endian_dict_frame2 = repeat_dict_frame(dict_frame2, n)
     cartesian_product_dict_frame = {
@@ -234,7 +261,8 @@ class DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength(
 ):
     def __init__(self):
         super(
-            DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength, self
+            DictionaryValuesShouldAllEitherHaveLengthOneOrSomeOtherSharedLength,
+            self,
         ).__init__(
             "Dictionary values should all have either length 1 or some other shared length"
         )

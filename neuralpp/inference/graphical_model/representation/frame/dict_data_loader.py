@@ -24,7 +24,9 @@ class DictDataLoader:
             raise BatchSizeMustBeGreaterThanZero()
 
     def __iter__(self):
-        return dict_data_generator(self.dictionary, self.length, self.batch_size)
+        return dict_data_generator(
+            self.dictionary, self.length, self.batch_size
+        )
 
     def __len__(self):
         return self.length

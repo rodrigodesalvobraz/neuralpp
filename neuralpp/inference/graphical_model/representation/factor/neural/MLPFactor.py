@@ -35,7 +35,11 @@ class MLPFactor(NeuralFactor):
     ):
         first_layer_size = len(input_variables)
         last_layer_size = output_variable.cardinality
-        all_layer_sizes = [first_layer_size, *hidden_layer_sizes, last_layer_size]
+        all_layer_sizes = [
+            first_layer_size,
+            *hidden_layer_sizes,
+            last_layer_size,
+        ]
         return all_layer_sizes
 
     @staticmethod

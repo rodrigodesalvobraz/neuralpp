@@ -6,5 +6,7 @@ from .z3_expression import Z3SolverExpression
 class Normalizer(ABC):
     @staticmethod
     @abstractmethod
-    def normalize(expression: Expression, context: Z3SolverExpression) -> Expression:
+    def normalize(
+        expression: Expression, context: Z3SolverExpression
+    ) -> Expression:
         pass

@@ -1,7 +1,10 @@
 import math
 
 import torch
-from neuralpp.util.tensor_mixed_radix import MaxValueException, TensorMixedRadix
+from neuralpp.util.tensor_mixed_radix import (
+    MaxValueException,
+    TensorMixedRadix,
+)
 
 
 def test_tensor_mixed_radix_representation():

@@ -6,7 +6,9 @@ from tqdm.auto import tqdm
 from neuralpp.inference.graphical_model.representation.factor.continuous.normal_factor import (
     NormalFactor,
 )
-from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
+from neuralpp.inference.graphical_model.variable.tensor_variable import (
+    TensorVariable,
+)
 from neuralpp.experiments.bm_integration.converter import BeanMachineConverter
 
 if __name__ == "__main__":
@@ -59,7 +61,9 @@ if __name__ == "__main__":
 
     # An equivalent BM model for reference
     class NormalNormalModel:
-        def __init__(self, mu: torch.Tensor, std: torch.Tensor, sigma: torch.Tensor):
+        def __init__(
+            self, mu: torch.Tensor, std: torch.Tensor, sigma: torch.Tensor
+        ):
             self.mu_ = mu
             self.std_ = std
             self.sigma_ = sigma

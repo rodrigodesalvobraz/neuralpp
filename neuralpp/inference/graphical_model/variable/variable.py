@@ -29,5 +29,7 @@ class Variable:
         self._not_implemented("multivalue_len")
 
     def _not_implemented(self, name):
-        error = NotImplementedError(f"{name} not implemented for {type(self)}")
+        error = NotImplementedError(
+            f"{name} not implemented for {type(self)}"
+        )
         raise error

@@ -31,9 +31,15 @@ class Profiler:
     def profile_section(self, section_name):
         try:
             if not self._dummy:
-                old_section, old_time = self._current_section, self._current_start_time
+                old_section, old_time = (
+                    self._current_section,
+                    self._current_start_time,
+                )
                 start = monotonic()
-                self._current_section, self._current_start_time = section_name, start
+                self._current_section, self._current_start_time = (
+                    section_name,
+                    start,
+                )
 
                 if section_name not in self._logs:
                     self._logs[section_name] = ProfileLog()
@@ -44,8 +50,13 @@ class Profiler:
         finally:
             if not self._dummy:
                 end = monotonic()
-                self._logs[section_name].add_time_delta(end - self._current_start_time)
-                self._current_section, self._current_start_time = old_section, end
+                self._logs[section_name].add_time_delta(
+                    end - self._current_start_time
+                )
+                self._current_section, self._current_start_time = (
+                    old_section,
+                    end,
+                )
 
     def print_result(self, prefix):
         for section_name, log in self._logs.items():

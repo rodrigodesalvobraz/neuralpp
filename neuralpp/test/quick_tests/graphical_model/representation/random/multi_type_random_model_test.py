@@ -17,8 +17,12 @@ from neuralpp.inference.graphical_model.representation.random.multi_type_random_
     make_gaussian_with_mean,
     make_switch_of_gaussians_with_mean,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable.tensor_variable import TensorVariable
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
+from neuralpp.inference.graphical_model.variable.tensor_variable import (
+    TensorVariable,
+)
 from neuralpp.util.util import print_dict_in_lines
 
 
@@ -101,7 +105,9 @@ def test_depth_two_tree():
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
+            FactorMaker(
+                [TensorVariable, TensorVariable], make_gaussian_with_mean
+            ),
         ],
         loop_coefficient=0.0,
     )
@@ -113,7 +119,9 @@ def test_depth_two_tree():
     for i in range(1, 4):
         seed_variable = TensorVariable(f"x{i}")
         mean_parent = TensorVariable(f"x{i + 3}")
-        expected[seed_variable] = make_gaussian_with_mean([seed_variable, mean_parent])
+        expected[seed_variable] = make_gaussian_with_mean(
+            [seed_variable, mean_parent]
+        )
     for i in range(4, 7):
         mean_parent = TensorVariable(f"x{i}")
         expected[mean_parent] = make_standard_gaussian(mean_parent)
@@ -135,7 +143,9 @@ def test_depth_two_attempted_loops():
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
+            FactorMaker(
+                [TensorVariable, TensorVariable], make_gaussian_with_mean
+            ),
         ],
         loop_coefficient=1.0,
     )
@@ -205,9 +215,16 @@ def test_multi_type():
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
             FactorMaker(
-                [TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                [TensorVariable, TensorVariable], make_gaussian_with_mean
+            ),
+            FactorMaker(
+                [
+                    TensorVariable,
+                    IntegerVariable,
+                    TensorVariable,
+                    TensorVariable,
+                ],
                 make_switch_of_gaussians_with_mean,
             ),
             FactorMaker(
@@ -241,10 +258,18 @@ def test_multi_type():
         x1: PyTorchTableFactor([x1, x5], [[0.4, 0.3], [0.6, 0.7]]),
         x2: make_gaussian_with_mean(x2, x4),
         x3: SwitchFactor(
-            x1, [make_gaussian_with_mean(x3, x2), make_gaussian_with_mean(x3, x4)]
+            x1,
+            [
+                make_gaussian_with_mean(x3, x2),
+                make_gaussian_with_mean(x3, x4),
+            ],
         ),
         x4: SwitchFactor(
-            x1, [make_gaussian_with_mean(x4, x6), make_gaussian_with_mean(x4, x7)]
+            x1,
+            [
+                make_gaussian_with_mean(x4, x6),
+                make_gaussian_with_mean(x4, x7),
+            ],
         ),
         x5: PyTorchTableFactor([x5], [0.4, 0.6]),
         x6: make_standard_gaussian(x6),
@@ -279,9 +304,16 @@ def test_multi_type_large_scale(loop_coefficient):
         },
         factor_makers=[
             FactorMaker([TensorVariable], make_standard_gaussian),
-            FactorMaker([TensorVariable, TensorVariable], make_gaussian_with_mean),
             FactorMaker(
-                [TensorVariable, IntegerVariable, TensorVariable, TensorVariable],
+                [TensorVariable, TensorVariable], make_gaussian_with_mean
+            ),
+            FactorMaker(
+                [
+                    TensorVariable,
+                    IntegerVariable,
+                    TensorVariable,
+                    TensorVariable,
+                ],
                 make_switch_of_gaussians_with_mean,
             ),
             FactorMaker(

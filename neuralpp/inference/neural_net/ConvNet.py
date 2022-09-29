@@ -147,7 +147,10 @@ def main():
         help="Learning rate step gamma (default: 0.7)",
     )
     parser.add_argument(
-        "--no-cuda", action="store_true", default=False, help="disables CUDA training"
+        "--no-cuda",
+        action="store_true",
+        default=False,
+        help="disables CUDA training",
     )
     parser.add_argument(
         "--dry-run",
@@ -156,7 +159,11 @@ def main():
         help="quickly check a single pass",
     )
     parser.add_argument(
-        "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
+        "--seed",
+        type=int,
+        default=1,
+        metavar="S",
+        help="random seed (default: 1)",
     )
     parser.add_argument(
         "--log-interval",
@@ -187,7 +194,9 @@ def main():
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
-    dataset1 = datasets.MNIST("../data", train=True, download=True, transform=transform)
+    dataset1 = datasets.MNIST(
+        "../data", train=True, download=True, transform=transform
+    )
     dataset2 = datasets.MNIST("../data", train=False, transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1, **kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **kwargs)

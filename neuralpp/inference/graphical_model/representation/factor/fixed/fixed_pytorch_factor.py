@@ -13,10 +13,17 @@ class FixedPyTorchTableFactor(PyTorchTableFactor):
     # Overridden construction
 
     def __init__(
-        self, variables, array_or_table_of_potentials, log_space=True, batch=False
+        self,
+        variables,
+        array_or_table_of_potentials,
+        log_space=True,
+        batch=False,
     ):
         super().__init__(
-            variables, array_or_table_of_potentials, log_space=log_space, batch=batch
+            variables,
+            array_or_table_of_potentials,
+            log_space=log_space,
+            batch=batch,
         )
 
     @staticmethod
@@ -32,5 +39,8 @@ class FixedPyTorchTableFactor(PyTorchTableFactor):
     @staticmethod
     def from_predicate(variables, predicate, log_space=True, batch_size=None):
         return FixedPyTorchTableFactor.from_function(
-            variables, lambda *args: float(predicate(*args)), log_space, batch_size
+            variables,
+            lambda *args: float(predicate(*args)),
+            log_space,
+            batch_size,
         )

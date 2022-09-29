@@ -5,7 +5,9 @@ from neuralpp.inference.graphical_model.representation.factor.directed.graph.agg
 
 class FactorBasedConditionalProbability(AbstractConditionalProbability):
     def __init__(self, factor, parents, children, edges):
-        super(AbstractConditionalProbability, self).__init__(parents, children, edges)
+        super(AbstractConditionalProbability, self).__init__(
+            parents, children, edges
+        )
         self.factor = factor
 
     def aggregate_edges_when_eliminating_variable(self, variable):
@@ -22,5 +24,9 @@ class FactorBasedConditionalProbability(AbstractConditionalProbability):
 
     def __xor__(self, variable_or_variables):
         resulting_factor = self.factor ^ variable_or_variables
-        aggregated_data = self.aggregate_edges_when_eliminating_variable(variable)
-        return FactorBasedConditionalProbability(resulting_factor, *aggregated_data)
+        aggregated_data = self.aggregate_edges_when_eliminating_variable(
+            variable
+        )
+        return FactorBasedConditionalProbability(
+            resulting_factor, *aggregated_data
+        )

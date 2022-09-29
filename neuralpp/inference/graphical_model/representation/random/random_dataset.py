@@ -3,8 +3,12 @@ import random
 from neuralpp.inference.graphical_model.representation.random.random_model import (
     generate_model,
 )
-from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
-from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
+from neuralpp.inference.graphical_model.variable.integer_variable import (
+    IntegerVariable,
+)
+from neuralpp.inference.graphical_model.variable_elimination import (
+    VariableElimination,
+)
 from neuralpp.util.util import join, repeat
 
 
@@ -32,15 +36,13 @@ def generate_dataset(
     model_variables = {v for factor in model for v in factor.variables}
     dataset = []
     for i in range(number_of_sets_of_observed_and_query_variables):
-        observation_dataset = (
-            generate_dataset_given_number_of_observation_and_query_variables(
-                model,
-                model_variables,
-                number_of_query_variables,
-                number_of_observed_variables,
-                number_of_observations_per_random_set_of_observed_and_query_variables,
-                datapoints_per_observation,
-            )
+        observation_dataset = generate_dataset_given_number_of_observation_and_query_variables(
+            model,
+            model_variables,
+            number_of_query_variables,
+            number_of_observed_variables,
+            number_of_observations_per_random_set_of_observed_and_query_variables,
+            datapoints_per_observation,
         )
         dataset = dataset + observation_dataset
     return dataset
@@ -83,7 +85,10 @@ def generate_dataset_given_observation_and_query_variables(
         observation_dict = generate_assignment_dict(observed_variables)
         dataset_for_observation_dict = (
             generate_dataset_given_observation_dict_and_query_variables(
-                datapoints_per_observation, model, observation_dict, query_variables
+                datapoints_per_observation,
+                model,
+                observation_dict,
+                query_variables,
             )
         )
         dataset.extend(dataset_for_observation_dict)
@@ -95,11 +100,16 @@ def generate_dataset_given_observation_dict_and_query_variables(
 ):
     conditioned_model = condition(model, observation_dict)
     query_distribution = (
-        VariableElimination().run(query_variables, conditioned_model).atomic_factor()
+        VariableElimination()
+        .run(query_variables, conditioned_model)
+        .atomic_factor()
     )
     observation_dataset = repeat(
         datapoints_per_observation,
-        lambda: (observation_dict, query_distribution.sample_assignment_dict()),
+        lambda: (
+            observation_dict,
+            query_distribution.sample_assignment_dict(),
+        ),
     )
     # print(f"observation_dict: {observation_dict}")
     # print(f"conditioned_model: {conditioned_model}")
@@ -111,7 +121,9 @@ def generate_dataset_given_observation_dict_and_query_variables(
 
 
 if __name__ == "__main__":
-    model = generate_model(number_of_factors=6, number_of_variables=4, cardinality=3)
+    model = generate_model(
+        number_of_factors=6, number_of_variables=4, cardinality=3
+    )
     print("Model:")
     print(join(model, "\n"))
     print()

@@ -112,11 +112,15 @@ def benchmark(
     )
 
 
-def plot_metric(metric: str, sample_sizes: np.ndarray, values: Dict[str, xr.Dataset]):
+def plot_metric(
+    metric: str, sample_sizes: np.ndarray, values: Dict[str, xr.Dataset]
+):
 
     plt.figure()
     for infer_type, val in values.items():
-        lines = plt.plot(sample_sizes, val.mean(dim="variable"), label=infer_type)
+        lines = plt.plot(
+            sample_sizes, val.mean(dim="variable"), label=infer_type
+        )
         plt.fill_between(
             sample_sizes,
             val.min(dim="variable"),
@@ -139,12 +143,18 @@ def generate_plots(benchmark_results: Dict[str, BenchmarkResult]):
     plot_metric(
         "effective sample size",
         sample_sizes,
-        {method_name: result.ess for method_name, result in benchmark_results.items()},
+        {
+            method_name: result.ess
+            for method_name, result in benchmark_results.items()
+        },
     )
 
     # rhat vs sample size
     plot_metric(
         "R_hat",
         sample_sizes,
-        {method_name: result.rhat for method_name, result in benchmark_results.items()},
+        {
+            method_name: result.rhat
+            for method_name, result in benchmark_results.items()
+        },
     )
