@@ -40,6 +40,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install .
         conda install -c anaconda cudatoolkit
+        pip install --user z3-solver
 
     - name: Print out package info to help with debug
       run: pip list
