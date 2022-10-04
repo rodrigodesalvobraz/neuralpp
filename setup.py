@@ -20,6 +20,7 @@ INSTALL_REQUIRES = [
     "pytest-cov",
     "sympy",
     "z3-solver",
+    "wrapt",
 ]
 TEST_REQUIRES = [
     "pytest",
