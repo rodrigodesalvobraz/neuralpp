@@ -8,6 +8,8 @@ from sympy import Poly, collect
 import operator
 import fractions
 
+from wrapt import ObjectProxy
+
 import neuralpp.symbolic.functions as functions
 from neuralpp.symbolic.basic_expression import basic_add_operation, BasicConstant
 from neuralpp.symbolic.expression import (
@@ -549,19 +551,19 @@ class SymPyFunctionApplication(SymPyFunctionApplicationInterface):
             return SymPyFunctionApplication(sympy_object, type_dict)
 
 
-class SymPyPoly(SymPyExpression):
+class SymPyPoly(ObjectProxy):
+    """
+    A SymPyPoly is a wrapper around a SymPy Poly object.
+    This is a wrapper rather than a subclass of SymPyExpression because that would require it
+    to derive one of the main forms (Constant, Variable, FunctionApplication), but a polynomial has a form
+    that depends on the specific instance.
+    By using wrapt.ObjectProxy, the __class__ attribute of the instance reflects the type of the wrapped object.
+    """
+
     def __init__(
             self, sympy_object: sympy.Basic, type_dict: Dict[sympy.Basic, ExpressionType]
     ):
-        SymPyExpression.__init__(self, sympy_object, float, type_dict)
-
-    @property
-    def form(self) -> Expression:
-        return self.poly
-
-    @property
-    def form_kind(self) -> type[Expression]:
-        return self.poly.form_kind
+        super(SymPyPoly, self).__init__(SymPyExpression.from_sympy_object(sympy_object.args[0], type_dict))
 
     @property
     def is_polynomial(self) -> bool:
@@ -569,7 +571,7 @@ class SymPyPoly(SymPyExpression):
 
     @property
     def poly(self) -> SymPyExpression:
-        return SymPyExpression.from_sympy_object(self.sympy_object.args[0], self.type_dict)
+        return self.__wrapped__
 
     @property
     def subexpressions(self) -> List[Expression]:

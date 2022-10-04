@@ -25,47 +25,17 @@ class Expression(ABC):
     Constant, Variable, FunctionApplication, and QuantifierExpression.
     While those are subinterfaces of Expression, not all implementations
     of interface must necessarily implement one of those, but all implementations
-    must have properties `form` and `form_kind` informing which
+    must have property `syntactic_form` informing which
     interface a current instance satisfies.
     """
     def __init__(self, expression_type: ExpressionType):
         self._type = expression_type
 
     @property
-    def form(self) -> Expression:
-        """
-        Syntactic form of expression.
-        It consists of an expression that is an instance of one of the main interfaces for Expressions:
-        Constant, Variable, FunctionApplication, QuantifiedExpression, etc.
-
-        For expressions that are already instances of such interfaces, it suffices to return self,
-        so this is the default implementation.
-
-        For other subclasses of Expression that may be of varying forms
-        (for example, instances of a class implementing a polynomial may have Constant, Variable or FunctionApplication
-        forms, depending on the specific polynomial),
-        the method must return an instance of one of these interfaces, with the appropriate attributes.
-
-        One possible implementation in such cases is to return an instance of Basic* classes for
-        the appropriate form, containing the appropriate sub-expressions.
-        For example, polynomial "x" would return BasicVariable("x")
-        while "x^2" would return a BasicFunctionApplication with the appropriate sub-expressions.
-
-        Note that for algorithms using match ... case to be
-        more generally applicable (beyond instances of the form interfaces to unforeseen Expression subclasses),
-        they must match expressions `form` property rather than the expression themselves:
-        match expression.form:
-            case FunctionApplication(function=...)
-        """
-        return self
-
-    @property
-    def form_kind(self) -> type[Expression]:
+    def syntactic_form(self) -> type[Expression]:
         """
         The interface among Constant, Variable, FunctionApplication and QuantifierExpression
-        that self.form instantiates.
-        Note that this is not the same as type(self.form), which evaluates to a subclass of self.form_kind.
-        This is why we call it form *kind* rather than form *type*.
+        that self is an instance of.
         """
         raise NotImplementedError
 
@@ -167,14 +137,14 @@ class Expression(ABC):
         if self.internal_object_eq(other):
             return True
 
-        match self.form, other.form:
+        match self, other:
             case AtomicExpression(atom=self_atom), AtomicExpression(atom=other_atom):
                 # TODO: once SymPyExpression typing system is fixed, include `self_type == other_type`
-                return self.form_kind == other.form_kind and self_atom == other_atom
+                return self.syntactic_form == other.syntactic_form and self_atom == other_atom
             case _:  # anything not atomic
-                return self.form_kind == other.form_kind and \
+                return self.syntactic_form == other.syntactic_form and \
                        same_len_and_predicate_true_for_all_pairs(
-                           self.form.subexpressions, other.form.subexpressions, Expression.syntactic_eq)
+                           self.subexpressions, other.subexpressions, Expression.syntactic_eq)
 
     @classmethod
     @abstractmethod
@@ -216,7 +186,7 @@ class Expression(ABC):
         """General helper for converting an Expression into this subclass of Expression."""
         if isinstance(from_expression, cls):
             return from_expression
-        match from_expression.form:
+        match from_expression:
             case Constant(value=value, type=type_):
                 return cls.new_constant(value, type_)
             case Variable(name=name, type=type_):
@@ -235,9 +205,9 @@ class Expression(ABC):
                 )
 
     def get_return_type(self, number_of_arguments: int) -> ExpressionType:
-        if not isinstance(self.form.type, type(Callable[..., Any])):
+        if not isinstance(self.type, type(Callable[..., Any])):
             raise TypeError(f"{self}'s function is not of function type.")
-        return return_type_after_application(self.form.type, number_of_arguments)
+        return return_type_after_application(self.type, number_of_arguments)
 
     # ##### Methods for operator overloading
 
@@ -440,7 +410,7 @@ class AtomicExpression(Expression, ABC):
 
 class Constant(AtomicExpression, ABC):
     @property
-    def form_kind(self) -> type[Expression]:
+    def syntactic_form(self) -> type[Expression]:
         return Constant
 
     @property
@@ -453,7 +423,7 @@ class Constant(AtomicExpression, ABC):
 
 class Variable(AtomicExpression, ABC):
     @property
-    def form_kind(self) -> type[Expression]:
+    def syntactic_form(self) -> type[Expression]:
         return Variable
 
     @property
@@ -468,7 +438,7 @@ class FunctionApplication(Expression, ABC):
     __match_args__ = ("function", "arguments", "number_of_arguments")
 
     @property
-    def form_kind(self) -> type[Expression]:
+    def syntactic_form(self) -> type[Expression]:
         return FunctionApplication
 
     @property
@@ -629,7 +599,7 @@ class QuantifierExpression(Expression, ABC):
         self._subexpressions = None
 
     @property
-    def form_kind(self) -> type[Expression]:
+    def syntactic_form(self) -> type[Expression]:
         return QuantifierExpression
 
     @property
