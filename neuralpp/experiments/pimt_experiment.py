@@ -24,6 +24,9 @@ joint = get_normal_piecewise_polynomial_approximation(x, mu1, 1.0, generator=mu1
     get_normal_piecewise_polynomial_approximation(mu1, mu2, 1.0, generator=mu1) \
     * \
     get_normal_piecewise_polynomial_approximation(mu2, BasicExpression.new_constant(0.0), 1.0, generator=mu1)
+normal_square = get_normal_piecewise_polynomial_approximation(x, BasicExpression.new_constant(0.0), 1.0, generator=x) \
+                * \
+                get_normal_piecewise_polynomial_approximation(x, BasicExpression.new_constant(0.0), 1.0, generator=x)
 
 E1 = x < 0
 E2 = x >= 0
@@ -59,33 +62,35 @@ def to_printable(sympy_object: sympy.Basic):
         return sympy_object
 
 
-# def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
-#     normalizer.profiler.reset()
-#     prefix = f"[{test_name}]"
-#     start = time.time()
-#     result = goal()
-#     end = time.time()
-#     sympy_obj = SymPyExpression.convert(result).sympy_object
-#     sympy_formula = to_printable(sympy_obj)
-#     print(sympy_obj)
-#     end2 = time.time()
-#     print(f"{prefix}evaluation result: {sympy_formula}")
-#     print(f"{prefix}in time {end - start:.3g} seconds; convert {end2 - end:.3g} seconds")
-#     normalizer.profiler.print_result(prefix)
-#
-#     sympy_sub_dict = {sympy.symbols(k): v for k, v in variable_value_pairs.items()}
-#     python_answer = sympy_formula.subs(sympy_sub_dict)
-#     print(f"{prefix}[Python native]sympy.subs answer is {python_answer}")
-#     # the following line requires dict to be ordered (supported after Python 3.5)
-#     cython_arguments = [v for _, v in variable_value_pairs.items()]
-#     sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
-#     cython_answer = sympy_formula_cython(*cython_arguments)
-#     print(f"{prefix}[Cython]autowrap answer is {cython_answer}")
-#     python_run_time = timeit(lambda: sympy_formula.subs(sympy_sub_dict), number=1000)
-#     print(f"{prefix}[Python native]run time is {python_run_time * 1000:.3g} microseconds")
-#     cython_run_time = timeit(lambda: sympy_formula_cython(*cython_arguments), number=1000)
-#     # 1000 times of test run in {cython_run_time} seconds --> 1 time of test run in {cython_run_time} miliseconds
-#     print(f"{prefix}[Cython]run time is {cython_run_time * 1000:.3g} microseconds")
+def evaluation_general_with_result(test_name, goal, variable_value_pairs: Dict[str, Any]):
+    from neuralpp.symbolic.sympy_expression import SymPyExpression
+    from timeit import timeit
+    normalizer.profiler.reset()
+    prefix = f"[{test_name}]"
+    start = time.time()
+    result = goal()
+    end = time.time()
+    sympy_obj = SymPyExpression.convert(result).sympy_object
+    sympy_formula = to_printable(sympy_obj)
+    print(sympy_obj)
+    end2 = time.time()
+    print(f"{prefix}evaluation result: {sympy_formula}")
+    print(f"{prefix}in time {end - start:.3g} seconds; convert {end2 - end:.3g} seconds")
+    normalizer.profiler.print_result(prefix)
+
+    sympy_sub_dict = {sympy.symbols(k): v for k, v in variable_value_pairs.items()}
+    python_answer = sympy_formula.subs(sympy_sub_dict)
+    print(f"{prefix}[Python native]sympy.subs answer is {python_answer}")
+    # the following line requires dict to be ordered (supported after Python 3.5)
+    cython_arguments = [v for _, v in variable_value_pairs.items()]
+    sympy_formula_cython = autowrap(sympy_formula, backend='cython', tempdir='../../../../autowraptmp')
+    cython_answer = sympy_formula_cython(*cython_arguments)
+    print(f"{prefix}[Cython]autowrap answer is {cython_answer}")
+    python_run_time = timeit(lambda: sympy_formula.subs(sympy_sub_dict), number=1000)
+    print(f"{prefix}[Python native]run time is {python_run_time * 1000:.3g} microseconds")
+    cython_run_time = timeit(lambda: sympy_formula_cython(*cython_arguments), number=1000)
+    # 1000 times of test run in {cython_run_time} seconds --> 1 time of test run in {cython_run_time} miliseconds
+    print(f"{prefix}[Cython]run time is {cython_run_time * 1000:.3g} microseconds")
 
 
 def evaluation_general(test_name, goal, variable_value_pairs: Dict[str, Any]):
@@ -123,6 +128,13 @@ def two_normals_expectation():
 
 
 if __name__ == "__main__":
+    evaluation_general_with_result("branch pruning example",
+                                   normalization_generator(lambda: basic_integral(x, Z3SolverExpression.from_expression(x > -20.0) & (x < 20.0), normal_square)),
+                                   {})
+    evaluation_general_with_result("branch pruning example-2",
+                                   normalization_generator(lambda: basic_integral(x, Z3SolverExpression.from_expression(x > -20.0) & (x < 1), normal_square)),
+                                   {})
+
     evaluation_general("two piecewise",
                        normalization_generator(lambda: basic_integral(mu2, Z3SolverExpression.from_expression(mu2 > -20.0) & (mu2 < 20.0), two_piecewise)),
                        {'x': 10.0, 'mu1': 10.0})
