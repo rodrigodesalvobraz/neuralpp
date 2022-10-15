@@ -329,3 +329,98 @@ def test_monotonic_improvement():
         plt.title(f"{name}, query {query}")
         plt.plot(errors)
         plt.show()
+
+
+def test_deep_model():
+    def generate_deep_model(variable_count: int, min_depth: int, branches: int, cross_edges: int):
+        if variable_count-1 < branches*(min_depth-1):
+            raise Exception(f"Cannot produce a model of depth ${min_depth}, ${variable_count} variables, and ${branches} branches")
+        x = [IntegerVariable(f"x{i}", 2) for i in range(1, variable_count)]
+        root = IntegerVariable("x0", 2)
+        model = []
+        depth = {0: 0}
+        edges = set([])
+
+        def create_bivariate_factor(i, j):
+            depth[j] = depth[i] + 1
+            prob1 = random.random()
+            prob2 = random.random()
+            edges.add((i, j))
+            return PyTorchTableFactor.from_function(
+                [x[i], x[j]],
+                lambda xi, xj: (prob1 if xi else 1-prob1) if xj else
+                    (prob2 if xi else 1-prob2))
+
+        def create_branch_start(i):
+            depth[i] = 1
+            prob1 = random.random()
+            prob2 = random.random()
+            return PyTorchTableFactor.from_function(
+                [root, x[i]],
+                lambda xi, xj: (prob1 if xi else 1-prob1) if xj else
+                    (prob2 if xi else 1-prob2))
+
+        # create main branches up to minimum depth
+        for i in range(0, branches):
+            variable_index = i*min_depth
+            model.append(create_branch_start(variable_index))
+            model.extend([create_bivariate_factor(variable_index + j, variable_index + j + 1)
+                           for j in range(0, min_depth-1)])
+
+        # attach remaining variables to random parents, excluding root
+        for i in range(branches*min_depth, variable_count-1):
+            parent = random.randint(1, len(depth) - 1)
+            model.append(create_bivariate_factor(parent, i))
+            depth[i] = depth[parent] + 1
+
+        # Add loop number of extra edges
+        deep_nodes = [i for i in depth if depth[i] >= min_depth]
+        for i in range(cross_edges):
+            valid_selection = False
+            while valid_selection:
+                variables = random.sample(deep_nodes, k=2)
+                ii = variables[0]
+                jj = variables[1]
+                valid_selection = not ((ii,jj) in edges or (jj,ii) in edges)
+                if valid_selection:
+                    model.append(create_bivariate_factor(ii, jj))
+        return model, root
+
+    (factors, query) = generate_deep_model(variable_count=65, branches=3, min_depth=20, cross_edges=4)
+
+    # We pick shallower nodes for expansion first since these are the most informative (breadth-first).
+    def scoring_function(node, partial_tree, full_tree):
+        return -full_tree.depth(node)
+
+    anytime = AnytimeExactBeliefPropagation.from_factors(
+        factors,
+        query,
+        expansion_value_function=scoring_function,
+        approximation=message_approximation
+    )
+
+    true_answer = VariableElimination().run(query, factors)
+
+    print()
+    print(f"True answer  : {true_answer}")
+
+    last_error = float("inf")
+    errors = []
+    while True:
+        current_approximation = anytime[query].normalize()
+        true_query = {query: 1}
+        current_error = abs(current_approximation(true_query) - true_answer(true_query)).item()
+        errors.append(current_error)
+        improvement = last_error - current_error
+        print(
+            f"Approximation: {current_approximation}, current error: {current_error:.4f}, "
+            f"last error: {last_error:.4f}, improvement: {improvement}")
+        if anytime.is_complete():
+            break
+        else:
+            last_error = current_error
+            anytime.expand(query)
+
+    plt.title(f"query {query}")
+    plt.plot(errors)
+    plt.show()
