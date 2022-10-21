@@ -1,6 +1,7 @@
 import math
 import os
 import random
+import timeit
 from itertools import tee
 from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator, Callable, Sequence
 
@@ -678,3 +679,14 @@ def argmax(iterable, func):
 def same_len_and_predicate_true_for_all_pairs(sequence1: Sequence, sequence2: Sequence, binary_predicate):
     pair_predicate = lambda pair: binary_predicate(*pair)
     return len(sequence1) == len(sequence2) and all(map(pair_predicate, zip(sequence1, sequence2)))
+
+
+def measure_time(thunk: Callable[[], T]) -> (float, T):
+    """
+    Given a thunk (nullary function),
+    runs it and returns a tuple of time it took to run and its result.
+    """
+    start = timeit.default_timer()
+    result = thunk()
+    end = timeit.default_timer()
+    return end - start, result
