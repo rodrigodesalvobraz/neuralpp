@@ -11,7 +11,7 @@ from neuralpp.inference.graphical_model.representation.factor.pytorch_table_fact
 from neuralpp.inference.graphical_model.representation.random.random_model import generate_model
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
 from neuralpp.inference.graphical_model.variable_elimination import VariableElimination
-from neuralpp.util.util import measure_time
+from neuralpp.util.util import measure_time, join
 
 
 def test_monotonic_improvement():
@@ -79,63 +79,86 @@ def test_monotonic_improvement():
 
 
 def test_deep_model():
-    def generate_deep_model(variable_count: int, min_depth: int, branches: int, cross_edges: int):
-        if variable_count - 1 < branches * (min_depth - 1):
+    def generate_deep_model(variable_count: int, branch_depth: int, branches: int, cross_edges: int):
+        """
+        Creates a graphical model with bivariate factors,
+        where a central variable x_0 connects with 'branches' branches of 'branch_depth' depth.
+        If 'variable_count' is greater than 1 + branches * branch_depth,
+        extra variables are randomly connected to existing variables until count is completed.
+        Moreover, a total of 'cross_edges' edges are created connecting randomly selected existing variables.
+        Returns model and central node.
+        """
+        if variable_count < 1 + branches * branch_depth:
             raise Exception(
-                f"Cannot produce a model of depth ${min_depth}, ${variable_count} variables, and ${branches} branches")
-        x = [IntegerVariable(f"x{i}", 2) for i in range(1, variable_count)]
-        root = IntegerVariable("x0", 2)
-        model = []
-        depth = {0: 0}
-        edges = set([])
+                f"Cannot produce a model of depth ${branch_depth}, "
+                f"${variable_count} variables, and ${branches} branches")
 
-        def create_bivariate_factor(i, j):
-            depth[j] = depth[i] + 1
+        x = [IntegerVariable(f"x{i}", 2) for i in range(variable_count)]
+        model = []
+        depth_of_variable_with_index = {0: 0}
+
+        def make_bivariate_factor(i, j):
             prob1 = random.uniform(0.0, 1.0)
             prob2 = random.uniform(0.0, 1.0)
-            edges.add((i, j))
             return PyTorchTableFactor.from_function(
                 [x[i], x[j]],
                 lambda xi, xj: (prob1 if xi else 1 - prob1) if xj else
                 (prob2 if xi else 1 - prob2))
 
-        def create_branch_start(i):
-            depth[i] = 1
-            prob1 = random.random()
-            prob2 = random.random()
-            return PyTorchTableFactor.from_function(
-                [root, x[i]],
-                lambda xi, xj: (prob1 if xi else 1 - prob1) if xj else
-                (prob2 if xi else 1 - prob2))
+        def connect_parent_and_child(parent_index, child_index):
+            new_depth = depth_of_variable_with_index[parent_index] + 1
+            depth_of_variable_with_index[child_index] = new_depth
+            return make_bivariate_factor(parent_index, child_index)
 
-        # create main branches up to minimum depth
-        for i in range(0, branches):
-            variable_index = i * min_depth
-            model.append(create_branch_start(variable_index))
-            model.extend([create_bivariate_factor(variable_index + j, variable_index + j + 1)
-                          for j in range(0, min_depth - 1)])
+        def create_branch_start(index_of_first_variable_of_branch):
+            return connect_parent_and_child(parent_index=0, child_index=index_of_first_variable_of_branch)
+
+        # create main branches
+        for branch_index in range(0, branches):
+            index_of_first_variable_in_branch = branch_index * branch_depth + 1
+            model.append(create_branch_start(index_of_first_variable_in_branch))
+            index_of_penultimate_variable_in_branch = index_of_first_variable_in_branch + branch_depth - 1
+            model.extend(
+                connect_parent_and_child(i, i + 1)
+                for i in range(index_of_first_variable_in_branch, index_of_penultimate_variable_in_branch))
+
+        def index_of_randomly_chosen_non_root_variable():
+            number_of_non_root_variables = len(depth_of_variable_with_index) - 1
+            index_of_first_non_root_variable = 1
+            index_of_last_non_root_variable = number_of_non_root_variables
+            parent_index = random.randint(index_of_first_non_root_variable, index_of_last_non_root_variable)
+            return parent_index
 
         # attach remaining variables to random parents, excluding root
-        for i in range(branches * min_depth, variable_count - 1):
-            parent = random.randint(1, len(depth) - 1)
-            model.append(create_bivariate_factor(parent, i))
-            depth[i] = depth[parent] + 1
+        first_remaining_variable_index = branch_index * branch_depth + 1
+        remaining_variable_indices = range(first_remaining_variable_index, variable_count)
+        for remaining_variable_index in remaining_variable_indices:
+            parent_index = index_of_randomly_chosen_non_root_variable()
+            model.append(connect_parent_and_child(parent_index, remaining_variable_index))
 
-        # Add loop number of extra edges
-        deep_nodes = [i for i in depth if depth[i] >= min_depth]
-        for i in range(cross_edges):
-            valid_selection = False
-            while valid_selection:
-                variables = random.sample(deep_nodes, k=2)
-                ii = variables[0]
-                jj = variables[1]
-                valid_selection = not ((ii, jj) in edges or (jj, ii) in edges)
-                if valid_selection:
-                    model.append(create_bivariate_factor(ii, jj))
-        return model, root
+        # create cross edges
+        for _ in range(cross_edges):
+            i = index_of_randomly_chosen_non_root_variable()
+            j = index_of_randomly_chosen_non_root_variable()
+            while j == i:
+                j = index_of_randomly_chosen_non_root_variable()
+            model.append(make_bivariate_factor(i, j))
 
-    (factors, query) = generate_deep_model(variable_count=81, branches=4, min_depth=20, cross_edges=40)
+        return model, x[0]
 
+    branches = 4
+    branch_depth = 20
+    fraction_of_extra_variables = 0.0
+    fraction_of_cross_edges_per_branch = 0.0
+
+    number_of_main_variables = (1 + branches * branch_depth)
+    variable_count = round(number_of_main_variables * (1 + fraction_of_extra_variables))
+    cross_edges = round(branches * (1 + fraction_of_cross_edges_per_branch))
+
+    (factors, query) = generate_deep_model(variable_count=variable_count, branches=branches, branch_depth=branch_depth,
+                                           cross_edges=cross_edges)
+
+    print(join(factors))
     evaluate_anytime(factors, query)
 
 
@@ -169,7 +192,8 @@ def evaluate_anytime(factors, query):
 
 
 def plot_approximations(title, exact_answer, exact_answer_time, full_ignorance_approximation, approximations):
-    anytime_relative_errors, times, anytime_absolute_errors = collect_anytime_data(approximations, exact_answer, exact_answer_time)
+    anytime_relative_errors, times, anytime_absolute_errors = collect_anytime_data(approximations, exact_answer,
+                                                                                   exact_answer_time)
     absolute_error_in_full_ignorance = abs(full_ignorance_approximation - exact_answer)
     relative_error_in_full_ignorance = absolute_error_in_full_ignorance / exact_answer
     exact_method_absolute_errors = [absolute_error_in_full_ignorance if time < exact_answer_time else 0
