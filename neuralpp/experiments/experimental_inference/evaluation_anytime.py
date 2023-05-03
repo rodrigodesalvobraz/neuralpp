@@ -79,7 +79,7 @@ def test_monotonic_improvement():
 
 
 def test_deep_model():
-    def generate_deep_model(variable_count: int, branch_depth: int, branches: int, cross_edges: int):
+    def generate_deep_model(variable_count: int, branch_depth: int, number_of_branches: int, cross_edges: int):
         """
         Creates a graphical model with bivariate factors,
         where a central variable x_0 connects with 'branches' branches of 'branch_depth' depth.
@@ -88,16 +88,17 @@ def test_deep_model():
         Moreover, a total of 'cross_edges' edges are created connecting randomly selected existing variables.
         Returns model and central node.
         """
-        if variable_count < 1 + branches * branch_depth:
+        if variable_count < 1 + number_of_branches * branch_depth:
             raise Exception(
                 f"Cannot produce a model of depth ${branch_depth}, "
-                f"${variable_count} variables, and ${branches} branches")
+                f"${variable_count} variables, and ${number_of_branches} branches")
 
         x = [IntegerVariable(f"x{i}", 2) for i in range(variable_count)]
         model = []
         depth_of_variable_with_index = {0: 0}
 
         def make_bivariate_factor(i, j):
+            assert i != j, f"Bivariate factor has to be on distinct variables but got {i} and {j}"
             prob1 = random.uniform(0.0, 1.0)
             prob2 = random.uniform(0.0, 1.0)
             return PyTorchTableFactor.from_function(
@@ -114,7 +115,7 @@ def test_deep_model():
             return connect_parent_and_child(parent_index=0, child_index=index_of_first_variable_of_branch)
 
         # create main branches
-        for branch_index in range(0, branches):
+        for branch_index in range(0, number_of_branches):
             index_of_first_variable_in_branch = branch_index * branch_depth + 1
             model.append(create_branch_start(index_of_first_variable_in_branch))
             index_of_penultimate_variable_in_branch = index_of_first_variable_in_branch + branch_depth - 1
@@ -122,26 +123,28 @@ def test_deep_model():
                 connect_parent_and_child(i, i + 1)
                 for i in range(index_of_first_variable_in_branch, index_of_penultimate_variable_in_branch))
 
-        def index_of_randomly_chosen_non_root_variable():
-            number_of_non_root_variables = len(depth_of_variable_with_index) - 1
-            index_of_first_non_root_variable = 1
-            index_of_last_non_root_variable = number_of_non_root_variables
-            parent_index = random.randint(index_of_first_non_root_variable, index_of_last_non_root_variable)
-            return parent_index
+        def index_of_randomly_chosen_non_root_variable_in_model_so_far():
+            number_of_variables_in_model_so_far = len(depth_of_variable_with_index)
+            number_of_non_root_variables_in_model_so_far = number_of_variables_in_model_so_far - 1
+            index_of_first_non_root_variable_in_model_so_far = 1
+            index_of_last_non_root_variable_in_model_so_far = number_of_non_root_variables_in_model_so_far
+            result = random.randint(index_of_first_non_root_variable_in_model_so_far,
+                                    index_of_last_non_root_variable_in_model_so_far)
+            return result
 
         # attach remaining variables to random parents, excluding root
-        first_remaining_variable_index = branch_index * branch_depth + 1
+        first_remaining_variable_index = number_of_branches * branch_depth + 1
         remaining_variable_indices = range(first_remaining_variable_index, variable_count)
         for remaining_variable_index in remaining_variable_indices:
-            parent_index = index_of_randomly_chosen_non_root_variable()
+            parent_index = index_of_randomly_chosen_non_root_variable_in_model_so_far()
             model.append(connect_parent_and_child(parent_index, remaining_variable_index))
 
         # create cross edges
         for _ in range(cross_edges):
-            i = index_of_randomly_chosen_non_root_variable()
-            j = index_of_randomly_chosen_non_root_variable()
+            i = index_of_randomly_chosen_non_root_variable_in_model_so_far()
+            j = index_of_randomly_chosen_non_root_variable_in_model_so_far()
             while j == i:
-                j = index_of_randomly_chosen_non_root_variable()
+                j = index_of_randomly_chosen_non_root_variable_in_model_so_far()
             model.append(make_bivariate_factor(i, j))
 
         return model, x[0]
@@ -155,7 +158,8 @@ def test_deep_model():
     variable_count = round(number_of_main_variables * (1 + fraction_of_extra_variables))
     cross_edges = round(branches * (1 + fraction_of_cross_edges_per_branch))
 
-    (factors, query) = generate_deep_model(variable_count=variable_count, branches=branches, branch_depth=branch_depth,
+    (factors, query) = generate_deep_model(variable_count=variable_count, number_of_branches=branches,
+                                           branch_depth=branch_depth,
                                            cross_edges=cross_edges)
 
     print(join(factors))
