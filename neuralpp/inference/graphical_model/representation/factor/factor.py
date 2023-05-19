@@ -1,6 +1,7 @@
 import collections
 import functools
 
+from neuralpp.inference.graphical_model.variable.discrete_variable import DiscreteVariable
 from neuralpp.util.group import Group
 
 
@@ -15,6 +16,16 @@ class Factor:
         assignment_values = self.validate_argument_to_call(assignment_dict)
         return self.call_after_validation(assignment_dict, assignment_values)
 
+    @property
+    def assignments(self):
+        """
+        Returns an iterable of all possible assignments to the variables of this factor.
+        """
+        assert all(isinstance(variable, DiscreteVariable) for variable in self.variables), \
+            f"Factor.assignments requires factor variables to be discrete but {self.variables} includes non-discrete " \
+            f"variables "
+        return DiscreteVariable.assignments_product(self.variables)
+
     def call_after_validation(self, assignment_dict, assignment_values):
         """
         Receives the original assignment_dict passed to __call__ after validation as
@@ -26,6 +37,11 @@ class Factor:
 
     def __getitem__(self, assignment_dict):
         return self(assignment_dict)
+
+    def potential_of_tuple(self, assignment):
+        """ This is a convenience method for computing the probability of a tuple of values. """
+        # TODO: this is unnecessarily inefficient, as it creates a dict and then a list again.
+        return self(self.from_assignment_to_assignment_dict(assignment))
 
     def condition(self, assignment_dict):
         """

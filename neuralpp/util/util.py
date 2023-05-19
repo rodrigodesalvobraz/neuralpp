@@ -3,9 +3,11 @@ import os
 import random
 import timeit
 from itertools import tee
-from typing import List, Iterable, Any, Set, TypeVar, Dict, Iterator, Callable, Sequence
+from typing import List, Iterable, Set, TypeVar, Dict, Iterator, Callable, Sequence
 
 import torch
+
+from neuralpp.util.empirical_distributions import compute_sample_probability_distributions_dict
 
 T = TypeVar("T")
 
@@ -690,3 +692,9 @@ def measure_time(thunk: Callable[[], T]) -> (float, T):
     result = thunk()
     end = timeit.default_timer()
     return end - start, result
+
+
+def compute_sample_probability_distributions_dict_of_normalized_factor(normalized_factor, number_of_samples):
+    return compute_sample_probability_distributions_dict(normalized_factor.assignments(),
+                                                         normalized_factor.potential_of_tuple,
+                                                         number_of_samples)

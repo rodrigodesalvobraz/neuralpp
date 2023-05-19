@@ -1,12 +1,13 @@
-import random
-
 import pytest
-import torch
 
 from neuralpp.inference.graphical_model.representation.factor.pytorch_table_factor import (
     PyTorchTableFactor,
 )
 from neuralpp.inference.graphical_model.variable.integer_variable import IntegerVariable
+from neuralpp.util.empirical_distributions import (
+    get_empirical_distribution
+)
+from neuralpp.util.util import compute_sample_probability_distributions_dict_of_normalized_factor
 
 
 @pytest.fixture(params=["Non-log space", "Log space"])
@@ -62,16 +63,13 @@ def normalized_product_factor(factor1, factor2):
 
 
 def test_sample(normalized_product_factor):
-
-    random.seed(2)
-    torch.manual_seed(2)
-
-    print("Samples from neuralpp.normalized product:")
-    actual = [normalized_product_factor.sample() for i in range(20)]  # TODO: use batch sampling when available
-    expected = [torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 2], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([1, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 1], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32), torch.tensor([1, 0], dtype=torch.int32), torch.tensor([0, 0], dtype=torch.int32)]
-    print(f"Expected: {expected}")
-    print(f"Actual  : {actual}")
-    assert all((torch.equal(a, e) for a, e in zip(actual, expected)))
+    number_of_samples = 100
+    empirical_distribution = get_empirical_distribution(normalized_product_factor, number_of_samples)
+    sample_probability_distributions_dict = \
+        compute_sample_probability_distributions_dict_of_normalized_factor(normalized_product_factor, number_of_samples)
+    for sample, empirical_probability in empirical_distribution.items():
+        sample_probability_distribution = sample_probability_distributions_dict[sample]
+        assert sample_probability_distribution.contains_within_z_score(empirical_probability, z_score=4.75)  # 99.99%
 
 
 def test_normalization(x, y, factor1, factor2):
