@@ -1,3 +1,5 @@
+![example workflow](https://github.com/github/docs/actions/workflows/test.yml/badge.svg)
+
 # Neural Probabilistic Programs (NeuralPPs)
 
 This is an implementation of graphical models inference (Variable Elimination) using PyTorch for implementing
