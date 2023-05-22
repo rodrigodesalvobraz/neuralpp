@@ -76,10 +76,6 @@ class NeuralFactor(AtomicFactor):
     def pytorch_parameters(self):
         return self.neural_net.parameters()
 
-    def call_after_validation_MODEL(self, assignment_dict):
-        return self.to_table_factor_if_output_variable_is_conditioned_MODEL(assignment_dict).table.tensor
-        # TODO: change underlying table from log to normal space
-
     def call_after_validation(self, assignment_dict, assignment_values):
         probabilities = self.probabilities_from_assignment_dict(assignment_dict)
         output_value = assignment_dict[self.output_variable]
