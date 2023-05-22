@@ -6,10 +6,6 @@ from neuralpp.inference.graphical_model.variable.variable import Variable
 from neuralpp.util import util
 
 
-# TODO: Incremental updates for variable processing, probably using a PartialTreeComputation.
-#       Expanding the partial tree results in introducing more variables.
-
-
 class Graph:
     def neighbors(self, node):
         raise NotImplemented()

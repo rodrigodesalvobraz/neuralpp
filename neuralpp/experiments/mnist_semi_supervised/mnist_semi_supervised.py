@@ -155,26 +155,22 @@ def default_parameters():
 
 # -------------- END OF DEFAULT PARAMETERS
 
-
 def make_digits_and_all_true_constraints_values_batches_generator(digit_values_batch_generator):
     """
     A convenience method for taking a generator of digits values batches
     and returning a generator of digit values batches and all-true constraints (value 1).
-    This is useful for problems that have boolean constraints and we have
+    This is useful for situations where we have a problem with boolean constraints
     a generator for digits values that is guaranteed to generate examples satisfying
     all constraints.
     """
-    def generate(number_of_digits,
-        chain_length,
-        number_of_constraints,
-        batch_size):
 
+    def generate(number_of_digits: int,
+                 chain_length: int,
+                 number_of_constraints: int,
+                 batch_size: int):
         digit_values = digit_values_batch_generator(
             number_of_digits, chain_length, batch_size)
-        constraint_values = [  # TODO: is returning a tensor more efficient?
-            torch.ones(batch_size).long()
-            for _ in range(number_of_constraints)
-        ]
+        constraint_values = torch.ones(number_of_constraints, batch_size).long()
         return digit_values, constraint_values
 
     return generate
@@ -355,7 +351,7 @@ class MNISTChainsProblem(LearningProblem):
             self.ith_constraint_values(i, digit_values)
             for i in range(self.number_of_constraints)
         ]
-        return digit_values , constraint_values
+        return digit_values, constraint_values
 
     def generate_random_digits_values_batch(self):
         digit_values = [
@@ -563,9 +559,9 @@ class MNISTChainsProblem(LearningProblem):
         recognizer_factor = lambda i: self.model[i + index_of_first_recognizer_factor_in_model]
         from_i_to_d = [
             lambda image: recognizer_factor(i)
-                .condition({self.image_random_variables[i]: image})
-                .normalize()
-                .table_factor
+            .condition({self.image_random_variables[i]: image})
+            .normalize()
+            .table_factor
             for i in range(self.chain_length)
         ]
         with torch.no_grad():
